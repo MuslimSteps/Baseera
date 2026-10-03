@@ -1,0 +1,140 @@
+{
+  "source_info": {
+    "source_id": "jamhara-terms",
+    "name": "موسوعة الجمهرة لمفردات المحتوى الإسلامي",
+    "authority": "الحزمة المرجعية المعتمدة للمصطلحات والتعريف بالإسلام",
+    "rule": "منع الترجمة السطحية أو الاختزالية التي تسلب المصطلح دلالته الشرعية والسياقية"
+  },
+  "terms": [
+    {
+      "id": "term-tawhid",
+      "term_ar": "التوحيد",
+      "term_en": "Tawhid",
+      "approved_translations": [
+        "Islamic Monotheism (Tawhid)",
+        "The Oneness and Uniqueness of Allah in His Lordship, Worship, and Attributes"
+      ],
+      "jamhara_definition": "إفراد الله عز وجل بما يختص به من الربوبية (الخلق والملك والتدبير)، والألوهية (إخلاص العبادة والدعاء له وحده دون شريك)، والأسماء والصفات الحسنى دون تشبيه أو تعطيل.",
+      "reduction_warning": "تحذير من الاختزال: لا يُختزل مصطلح التوحيد إلى مجرد 'Oneness' أو 'Monotheism' الفلسفي العام المجرد، لأن توحيد الإسلام يتضمن بالضرورة إفراد الله بجميع أنواع العبادة الظاهرة والباطنة ونفي الشرك والمظاهر الوثنية بكافة صورها.",
+      "contextual_notes": "في سياق دعوة غير المسلمين أو الحوار، يجب توضيح أن التوحيد هو جوهر الإسلام وغاية خلق الإنسان، وليس مجرد مفهوم فلسفي عن وجود إله واحد.",
+      "related_ayahs": ["112:1-4", "2:255", "51:56"]
+    },
+    {
+      "id": "term-sharia",
+      "term_ar": "الشريعة",
+      "term_en": "Sharia",
+      "approved_translations": [
+        "Sharia (Islamic Law, Ethics, and Divine Guidance)",
+        "The Comprehensive Divine Path of Justice, Mercy, and Ethics"
+      ],
+      "jamhara_definition": "ما شرعه الله لعباده من العقائد والأخلاق والعبادات والمعاملات ونظم الحياة، ومقصدها حفظ الضروريات الخمس: الدين والنفس والعقل والعرض والمال، وتحقيق العدل والرحمة ومصالح العباد في العاجل والآجل.",
+      "reduction_warning": "تحذير من الاختزال: لا يجوز اختزال الشريعة في العقوبات الجنائية (الحدود) أو القوانين الصارمة فقط. الشريعة في حقيقتها منظومة شاملة تشمل العبادات، والأخلاق، والعدالة الاجتماعية، وحماية البيئة، والتكافل الإنساني.",
+      "contextual_notes": "ابن القيم: 'الشريعة مبناها وأساسها على الحِكم ومصالح العباد في المعاش والمعاد، وهي عدل كلها، ورحمة كلها، ومصالح كلها، وحكمة كلها'.",
+      "related_ayahs": ["45:18", "5:48"]
+    },
+    {
+      "id": "term-ibadah",
+      "term_ar": "العبادة",
+      "term_en": "Worship / Ibadah",
+      "approved_translations": [
+        "Ibadah (Comprehensive Worship)",
+        "All inclusive actions of love, submission, and good deeds done for Allah"
+      ],
+      "jamhara_definition": "اسم جامع لكل ما يحبه الله ويرضاه من الأقوال والأعمال الباطنة والظاهرة، من محبة ورجاء، وصلاة وصيام، وإماطة الأذى، والعمل الصالح النافع للخلق، مع كمال الحب وكمال الخضوع لله وحده.",
+      "reduction_warning": "تحذير من الاختزال: لا تُختزل العبادة في الطقوس الشعائرية فقط (كالركوع والسجود). بل كل عمل نافع بنية صالحة يُعد عبادة وقربة في ميزان الإسلام (كإماطة الأذى، والابتسامة، والصدق في التجارة، والبحث العلمي لخدمة البشرية).",
+      "contextual_notes": "مفهوم العبادة في الإسلام يغطي كامل حياة الإنسان اليومية ويدفع إلى عمارة الأرض وإصلاحها.",
+      "related_ayahs": ["51:56", "2:21"]
+    },
+    {
+      "id": "term-prophethood",
+      "term_ar": "النبوة",
+      "term_en": "Prophethood / Nubuwwah",
+      "approved_translations": [
+        "Prophethood (Nubuwwah)",
+        "Divine Chosen Messengers sent to guide humanity to truth and moral excellence"
+      ],
+      "jamhara_definition": "اصطفاء إلهي لرجال من البشر يوحى إليهم بشرع الله ويؤيدون بالمعجزات لتبليغ رسالة التوحيد والأخلاق وهداية الخلق، وخاتمهم هو محمد ﷺ.",
+      "reduction_warning": "تحذير من الاختزال: الأنبياء في الإسلام بشر لا يملكون ذرة من خصائص الألوهية ولا يُعبدون مع الله، وهم معصومون في تبليغ الوحي وفي الكبائر، وتجب محبتهم وتوقيرهم جميعاً دون تفريق بين أحد من رسله.",
+      "contextual_notes": "يشمل الإيمان بنبوة إبراهيم وموسى وعيسى ومحمد وسائر الأنبياء عليهم السلام.",
+      "related_ayahs": ["2:136", "33:40"]
+    },
+    {
+      "id": "term-revelation",
+      "term_ar": "الوحي",
+      "term_en": "Revelation / Wahy",
+      "approved_translations": [
+        "Divine Revelation (Wahy)",
+        "Infallible Divine communication to the Prophets via the Angel Gabriel"
+      ],
+      "jamhara_definition": "إعلام الله لأنبيائه بما يريده من شرع أو كتاب بواسطة ملك الوحي جبريل عليه السلام أو بغير واسطة، وهو وحي معصوم ومصدر المعرفة الغيبية والتشريعية الحقة.",
+      "reduction_warning": "تحذير من الاختزال: الوحي ليس إلهاماً نفسياً ذاتياً أو عبقرية بشرية أو تجربة صوفية ذاتية، بل كلام الله وتنزيل رب العالمين المحفوظ بحفظه سبحانه.",
+      "contextual_notes": "القرآن الكريم هو الوحي المتلو المحفوظ بلفظه ومعناه إلى يوم الدين.",
+      "related_ayahs": ["42:51", "15:9"]
+    },
+    {
+      "id": "term-hadith",
+      "term_ar": "الحديث النبوي",
+      "term_en": "Hadith",
+      "approved_translations": [
+        "Hadith (Prophetic Traditions and Narrations)",
+        "Recorded sayings, actions, and approvals of Prophet Muhammad ﷺ with rigorous chain of transmission"
+      ],
+      "jamhara_definition": "كل ما أضيف إلى النبي ﷺ من قول أو فعل أو تقرير أو صفة خَلقية أو خُلقية، والمروي بسلسلة رواة (إسناد) خاضعة لموازين النقد والتحقيق الصارمة في علم مصطلح الحديث.",
+      "reduction_warning": "تحذير من الاختزال: الحديث النبوي لا يُعامل كفلكلور شعبي أو نصوص تاريخية غير محققة، بل يجب بيانه باعتباره المصدراً الثاني للتشريع والتطبيق العملي للقرآن، مع وجوب بيان درجة ثبوته (صحيح، حسن، ضعيف) قبل الاستدلال.",
+      "contextual_notes": "يمتلك علماء الحديث أقدم وأدق منهج نقدي تاريخي لتوثيق الأسانيد والروايات في تاريخ الحضارات الإنسانية.",
+      "related_ayahs": ["53:3-4", "59:7"]
+    },
+    {
+      "id": "term-sunnah",
+      "term_ar": "السنة النبوية",
+      "term_en": "Sunnah",
+      "approved_translations": [
+        "The Sunnah (The Prophetic Model and Living Tradition)",
+        "The practical and normative way of life of Prophet Muhammad ﷺ"
+      ],
+      "jamhara_definition": "المنهج العملي والطريقة النبوية الشريفة التي سار عليها رسول الله ﷺ وصحابته في العقيدة والعبادة والمعاملة والأخلاق، وهي الشارحة للقرآن الكريم والمفصلة لمجمله.",
+      "reduction_warning": "تحذير من الخلط: في الاصطلاح الأصولي هي المصدر الثاني للتشريع، وفي الاصطلاح الفقهي تُطلق على المستحب مقابل الواجب، فلا بد من مراعاة سياق الاستخدام.",
+      "contextual_notes": "السنة هي الهدي النبوي الشامل.",
+      "related_ayahs": ["33:21"]
+    },
+    {
+      "id": "term-dawah",
+      "term_ar": "الدعوة",
+      "term_en": "Da'wah",
+      "approved_translations": [
+        "Da'wah (Conveying the Message of Islam)",
+        "Inviting people to the knowledge and truth of Islam with wisdom and beautiful preaching"
+      ],
+      "jamhara_definition": "إبلاغ رسالة الإسلام إلى الناس كافة، وبيان حقائق التوحيد ومحاسن الشريعة، بالحكمة والموعظة الحسنة، دون إكراه ولا تعصب، لإقامة الحجة وهداية القلوب.",
+      "reduction_warning": "تحذير من الاختزال: الدعوة ليست إكراهاً ولا فرضاً دينياً بالقوة، وليست تبشيراً استعلائياً، بل هي بلاغ مبين وتعريف رحيم بالحسنى، مع احترام عقل المخاطب وحرية اختياره.",
+      "contextual_notes": "قال تعالى: {ادْعُ إِلَىٰ سَبِيلِ رَبِّكَ بِالْحِكْمَةِ وَالْمَوْعِظَةِ الْحَسَنَةِ} وقال: {لَا إِكْرَاهَ فِي الدِّينِ}.",
+      "related_ayahs": ["16:125", "2:256"]
+    },
+    {
+      "id": "term-jihad",
+      "term_ar": "الجهاد",
+      "term_en": "Jihad",
+      "approved_translations": [
+        "Jihad (Striving in the cause of Allah)",
+        "Moral and spiritual striving against ego/injustice, and lawful defense against aggression"
+      ],
+      "jamhara_definition": "بذل الجهد واستفراغ الوسع في طاعة الله، ويبدأ بجهاد النفس عن المعاصي، وجهاد الكلمة والبيان بالحجة والدعوة، والجهاد القتالي الدفاعي الشرعي المنضبط بأحكام الشريعة وسلطة الدولة لرد العدوان وحماية المستضعفين.",
+      "reduction_warning": "تحذير من التشويه والاختزال: لا يجوز ترجمته بـ 'Holy War' أو اختزاله في العنف والإرهاب. الحرب المقدسة مفهوم غير إسلامي، والجهاد القتالي في الإسلام دفاعي مشروط لا يستهدف المدنيين ولا النساء ولا الأطفال ولا دور العبادة.",
+      "contextual_notes": "الجهاد الأكبر عند المحققين هو جهاد النفس والشيطان والباطل بالدعوة والحجة والإحسان.",
+      "related_ayahs": ["22:39", "25:52"]
+    },
+    {
+      "id": "term-fitrah",
+      "term_ar": "الفطرة",
+      "term_en": "Fitrah",
+      "approved_translations": [
+        "Fitrah (The Innate Human Nature)",
+        "The primordial disposition toward goodness, truth, and monotheism"
+      ],
+      "jamhara_definition": "الخِلقة الأصلية والاستعداد الفطري المودع في النفس البشرية لمعرفة الله ومحبة الخير والنفور من الشر والظلم قبل أن تؤثر فيها المؤثرات البيئية الفاسدة.",
+      "reduction_warning": "تحذير من الاختزال: لا تفسر كفكرة فلسفية مجردة، بل هي البوصلة الأخلاقية والروحية التي غرسها الخالق في كل مولود.",
+      "contextual_notes": "كل مولود يولد على الفطرة.",
+      "related_ayahs": ["30:30"]
+    }
+  ]
+}

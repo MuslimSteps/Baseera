@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "بصيرة — Baseera: التحقق من المحتوى الإسلامي",
+  "version": "1.0.0",
+  "description": "طبقة تحقق فورية وسياقية للمصطلحات والأحاديث والآيات أثناء تصفح الويب للمعرّفين بالإسلام والقراء",
+  "permissions": ["activeTab", "scripting", "contextMenus"],
+  "icons": {
+    "128": "icon.svg"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "بصيرة — فحص النص المحدد",
+    "default_icon": "icon.svg"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}

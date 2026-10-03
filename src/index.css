@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-canvas: #070a11;
+    --surface-card: #0d121d;
+    --border-subtle: rgba(255, 255, 255, 0.07);
+    --gold-accent: #d97706;
+    --emerald-accent: #059669;
+  }
+
+  body {
+    background-color: var(--bg-canvas);
+    color: #f1f5f9;
+    font-family: 'IBM Plex Sans Arabic', 'Plus Jakarta Sans', -apple-system, sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+.font-amiri {
+  font-family: 'Amiri', 'Noto Naskh Arabic', serif;
+}
+
+.font-naskh {
+  font-family: 'Noto Naskh Arabic', 'Amiri', serif;
+}
+
+.font-tajawal {
+  font-family: 'Tajawal', sans-serif;
+}
+
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+
+.font-mono-numbers {
+  font-family: 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sacred Geometric Subtle Atmosphere Background */
+.bg-islamic-pattern {
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(5, 150, 105, 0.09) 0%, transparent 65%),
+    radial-gradient(circle at 100% 50%, rgba(217, 119, 6, 0.04) 0%, transparent 40%),
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+}
+
+/* Hairline Manuscript Borders */
+.border-hairline {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.border-hairline-emerald {
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.border-hairline-amber {
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* Card Single Elevation Depth */
+.surface-elevation {
+  background: #0d131f;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Quran Ayah Calligraphic Container */
+.ayah-display-box {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.04) 0%, rgba(8, 12, 20, 0.8) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  position: relative;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #070a11;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
