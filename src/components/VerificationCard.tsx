@@ -179,6 +179,16 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({ result, inde
                 )}
               </div>
             )}
+
+            {result.ai_match && (
+              <div className="text-[11px] text-sky-300/90 flex items-center gap-2 pt-1">
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  مضاهاة دلالية بالذكاء الاصطناعي: رُتّبت مرشحات من المصدر أولاً،
+                  ثم حُسمت النتيجة من النص المرجعي لا من النموذج.
+                </span>
+              </div>
+            )}
           </div>
 
           {citation?.url && (
