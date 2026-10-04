@@ -13,7 +13,8 @@
     "mcp": "tsx mcp-server.ts",
     "test": "tsx scripts/judging-gate.ts",
     "test:judging": "npm run test",
-    "test:live": "tsx scripts/live-source-smoke.ts"
+    "test:live": "tsx scripts/live-source-smoke.ts",
+    "test:fiqh": "python src/lib/dorar_feqhia.py --self-test"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
