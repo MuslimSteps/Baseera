@@ -147,31 +147,11 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
     };
   }
 
-  // 3. If Term
+  // 3. Explicit terminology item: Jamhara is the sole source of authority.
+  // Do not fall through to Quran/Hadith and accidentally misclassify a term
+  // merely because the same word appears in another corpus.
   if (item.type === 'term') {
-    const termRes = verifyIslamicTerm(item);
-    if (termRes.status === 'MATCHED') {
-      return termRes;
-    }
-    const quranRes = verifyQuranAyah(item);
-    if (quranRes.status === 'MATCHED') return quranRes;
-    const hadithRes = verifyHadith(item);
-    if (hadithRes.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') return hadithRes;
-
-    return {
-      id: `not-found-${Date.now()}`,
-      item,
-      status: 'NOT_FOUND_IN_CHECKED_SOURCES',
-      status_label_ar: 'لم يُعثر عليه في المراجع المفحوصة',
-      status_label_en: 'Not Found in Checked Sources',
-      reason: 'لم يُعثر على توصيف هذا المصطلح في المراجع المعتمدة المفحوصة (موسوعة الجمهرة، المصحف الشريف، والموسوعة الحديثية).',
-      citation: {
-        source_id: 'jamhara-terms',
-        source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
-        authority: 'الحزمة المرجعية المعتمدة للمصطلحات والتعريف بالإسلام'
-      },
-      abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
-    };
+    return verifyIslamicTerm(item);
   }
 
   // 4. Tafsir / Aqeedah questions are source-specific live lookups.
