@@ -349,8 +349,10 @@ def search_dorar_feqhia(raw_query):
             top["detailed_ruling"] = detailed
 
         # Never expose a "found" result unless it passed intent + subject gates.
+        # Always put the validated answer-bearing candidate first.
+        ordered = [top] + [c for c in candidates if c["url"] != top["url"]]
         public_results = []
-        for candidate in candidates[:10]:
+        for candidate in ordered[:10]:
             public_results.append({
                 "title": candidate["title"],
                 "text": candidate["text"],
