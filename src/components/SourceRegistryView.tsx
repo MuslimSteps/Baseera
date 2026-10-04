@@ -182,7 +182,7 @@ export const SourceRegistryView: React.FC = () => {
                   البحث المباشر في منصة الدرر السنية (Live Dorar API)
                 </h3>
                 <p className="text-xs text-muted">
-                  ربط برمجى مباشر مع قاعدة بيانات dorar.net للأحاديث النبوية (40,000+ حديث)
+                  ربط برمجى مباشر مع مصدر حديثي معتمد عبر استعلام مباشر من منصة dorar.net
                 </p>
               </div>
             </div>
@@ -223,7 +223,7 @@ export const SourceRegistryView: React.FC = () => {
             <div className="text-muted font-bold">أدوات MCP المتاحة:</div>
             <div className="space-y-1 text-ink/85">
               <div>• <span className="text-emerald-400 font-semibold">search_dorar_hadith:</span> بحث مباشر في الدرر السنية للأحاديث</div>
-              <div>• <span className="text-emerald-400 font-semibold">verify_quran_verse:</span> فحص النص القرآني في مصحف مجمع الملك فهد (6,236 آية)</div>
+              <div>• <span className="text-emerald-400 font-semibold">verify_quran_verse:</span> فحص النص القرآني في قاعدة القرآن المعتمدة</div>
               <div>• <span className="text-emerald-400 font-semibold">lookup_jamhara_term:</span> كشف اختزال المصطلحات في موسوعة الجمهرة</div>
               <div>• <span className="text-emerald-400 font-semibold">check_fiqh_ruling:</span> ضوابط شجرة الفقه والإحالة للمختصين</div>
             </div>
