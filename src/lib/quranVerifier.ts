@@ -221,6 +221,38 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
     }
   }
 
+  // Cross-check the whole Quran when a cited surah has no strong match.
+  // This allows the verifier to detect a wrong surah attribution.
+  if (item.claimed_surah && (!bestMatch || highestScore < 0.85)) {
+    let globalBest = bestMatch;
+    let globalScore = highestScore;
+    let globalDiff = wordDiffResult;
+
+    for (const v of quranData.verses) {
+      const normCanonical = normalizeArabic(v.text_clean);
+      let shared = 0;
+      for (const iw of inputWords) {
+        if (normCanonical.includes(iw)) shared++;
+      }
+      if (shared < 2 && !normCanonical.includes(normInput) && !normInput.includes(normCanonical)) {
+        continue;
+      }
+
+      const scored = quranCandidateScore(item.text, v.text_clean);
+      if (scored.score > globalScore) {
+        globalScore = scored.score;
+        globalBest = v;
+        globalDiff = scored.diff;
+      }
+    }
+
+    if (globalBest && globalScore > highestScore) {
+      bestMatch = globalBest;
+      highestScore = globalScore;
+      wordDiffResult = globalDiff;
+    }
+  }
+
   // 3. Multilingual / Translation check if input is in English or French
   if (!bestMatch && (item.language === 'en' || item.language === 'fr' || /[a-zA-Z]/.test(item.text))) {
     const lower = item.text.toLowerCase();
@@ -269,6 +301,36 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
 
     // Exact or normalized complete match
     if (highestScore >= 0.99 && !wordDiffResult.hasDiscrepancy) {
+      const claimedSurah = item.claimed_surah ? findSurahFuzzy(item.claimed_surah) : null;
+
+      if (claimedSurah && claimedSurah.number !== bestMatch.surah_number) {
+        return {
+          id: `quran-${bestMatch.surah_number}-${bestMatch.ayah_number}`,
+          item,
+          status: 'NEEDS_REVIEW',
+          status_label_ar: 'يحتاج مراجعة (خطأ في عزو السورة)',
+          status_label_en: 'Needs Review (Incorrect Surah Attribution)',
+          reason:
+            'النص يطابق آية من سورة ' +
+            cleanSurahDisplayName(bestMatch.surah_name_ar) +
+            '، لكنه عُزي في المدخل إلى سورة ' +
+            cleanSurahDisplayName(item.claimed_surah || '') +
+            '. تم اعتماد المطابقة النصية من المصحف فقط.',
+          citation: {
+            source_id: 'quran-uthmani',
+            source_name: 'المصحف الشريف بالرسم العثماني المعتمد',
+            authority: 'مجمع الملك فهد لطباعة المصحف الشريف',
+            book: `سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)}`,
+            number_or_page: `الآية: ${bestMatch.ayah_number}`
+          },
+          canonical_text: bestMatch.text_uthmani,
+          canonical_surah: cleanSurahDisplayName(bestMatch.surah_name_ar),
+          canonical_ayah_number: bestMatch.ayah_number,
+          verified_translation: matchedTranslation?.en?.text,
+          diff: wordDiffResult.diff,
+          decision_level: 'A'
+        };
+      }
       // Check if claimed number was wrong
       if (item.claimed_ayah && item.claimed_ayah !== bestMatch.ayah_number) {
         return {
