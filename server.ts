@@ -8,7 +8,6 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
 
 import sourceRegistry from './sources/source-registry.json' with { type: 'json' };
 import quranData from './sources/quran.json' with { type: 'json' };
@@ -33,6 +32,7 @@ import { ExtractedItem } from './src/types/baseera.ts';
 import { fetchRemoteSafely, readTextWithLimit, readBytesWithLimit } from './src/lib/safeRemoteFetch.ts';
 import { getQuranCandidatesForAI } from './src/lib/quranVerifier.ts';
 import { rankCandidatesWithAI } from './src/lib/aiMatcher.ts';
+import { groqChat, groqVisionText, groqTranscribe, GROQ_TEXT_MODEL, GROQ_VISION_MODEL } from './src/lib/groqClient.ts';
 
 dotenv.config();
 
@@ -62,15 +62,8 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Initialize Google Gen AI
-let aiClient: GoogleGenAI | null = null;
-if (process.env.GEMINI_API_KEY) {
-  try {
-    aiClient = new GoogleGenAI();
-  } catch (err) {
-    console.warn('GoogleGenAI initialization warning:', err);
-  }
-}
+// Groq AI is configured server-side. Secrets are never accepted from request bodies.
+const aiEnabled = Boolean(process.env.GROQ_API_KEY?.trim());
 
 // 1. Source Registry API
 app.get('/api/sources', (_req, res) => {
@@ -163,17 +156,14 @@ app.post('/api/fetch-url', async (req, res) => {
   }
 });
 
-// 1c. Dedicated Image OCR API (Supports Gemini Vision + Tesseract.js local fallback)
+// 1c. Dedicated Audio Transcription API
 app.post('/api/transcribe', async (req, res) => {
   try {
-    const { mediaBase64, mediaMimeType = 'audio/mpeg', apiKey } = req.body;
+    const { mediaBase64, mediaMimeType = 'audio/mpeg' } = req.body;
     if (!mediaBase64 || !String(mediaMimeType).startsWith('audio/')) {
       return res.status(400).json({ error: 'يرجى توفير ملف صوتي صالح.' });
     }
-    const activeKey = apiKey || process.env.GEMINI_API_KEY;
-    if (!activeKey || activeKey === 'MY_GEMINI_API_KEY') {
-      return res.status(400).json({ error: 'ميزة تحويل الصوت تحتاج مفتاح Gemini على الخادم أو مفتاحاً محلياً صالحاً.' });
-    }
+
     const raw = String(mediaBase64);
     const headerMatch = raw.match(/^data:([^;]+);base64,(.+)$/s);
     const cleanBase64 = headerMatch ? headerMatch[2] : raw;
@@ -181,72 +171,46 @@ app.post('/api/transcribe', async (req, res) => {
     if (estimatedBytes > 15_000_000) {
       return res.status(413).json({ error: 'حجم الملف الصوتي أكبر من الحد المسموح.' });
     }
-    const client = new GoogleGenAI({ apiKey: activeKey });
-    const response = await client.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [{ role: 'user', parts: [
-        { inlineData: { data: cleanBase64, mimeType: mediaMimeType } },
-        { text: 'حوّل هذا التسجيل الصوتي إلى نص حرفي قدر الإمكان، مع الحفاظ على العربية والأسماء والآيات والأحاديث دون إضافة أو تفسير. أعد النص فقط.' }
-      ] }]
-    });
-    const text = response.text?.trim() || '';
-    if (!text) return res.status(400).json({ error: 'لم يتم استخراج نص من التسجيل الصوتي.' });
-    res.json({ success: true, text, method: 'gemini-audio' });
+
+    const text = await groqTranscribe(cleanBase64, mediaMimeType);
+    if (!text) return res.status(400).json({ error: 'لم يتم استخراج نص من التسجيل.' });
+    res.json({ success: true, text, method: 'groq-whisper', model: 'whisper-large-v3-turbo' });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'فشل تحويل الصوت إلى نص.' });
   }
 });
 
+
 app.post('/api/ocr', async (req, res) => {
   try {
-    const { mediaBase64, mediaMimeType = 'image/jpeg', apiKey } = req.body;
+    const { mediaBase64, mediaMimeType = 'image/jpeg' } = req.body;
     if (!mediaBase64) {
       return res.status(400).json({ error: 'لم يتم توفير بيانات الصورة.' });
     }
 
-    const activeKey = apiKey || process.env.GEMINI_API_KEY;
     let extractedText = '';
     let methodUsed = '';
     let tesseractText = '';
 
-    // 1. Try Gemini Vision if key available
-    if (activeKey && activeKey !== 'MY_GEMINI_API_KEY') {
+    if (aiEnabled) {
       try {
-        const client = new GoogleGenAI({ apiKey: activeKey });
-        const cleanBase64 = mediaBase64.replace(/^data:[a-zA-Z0-9/+-]+;base64,/, '');
-        const resp = await client.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  inlineData: {
-                    data: cleanBase64,
-                    mimeType: mediaMimeType
-                  }
-                },
-                {
-                  text: 'أنت نظام OCR متقدم لمشروع بصيرة. استخرج كل النصوص العربية المكتوبة في هذه الصورة بدقة وبنفس كلماتها وحروفها بالضبط دون أي اختلاق أو زيادة. أعد النص المكتوب فقط.'
-                }
-              ]
-            }
-          ]
-        });
-        extractedText = (resp.text || '').trim();
-        if (extractedText) methodUsed = 'gemini';
-      } catch (geminiErr: any) {
-        console.warn('Gemini OCR error, falling back to local OCR:', geminiErr.message);
+        extractedText = await groqVisionText(
+          String(mediaBase64),
+          mediaMimeType,
+          'أنت نظام OCR لمشروع بصيرة. استخرج النص العربي المكتوب في الصورة حرفياً قدر الإمكان، دون تفسير أو تصحيح أو اختلاق. أعد النص المستخرج فقط.',
+          15000
+        );
+        if (extractedText) methodUsed = 'groq-qwen3.8-27b';
+      } catch (groqErr: any) {
+        console.warn('Groq OCR error, falling back to local OCR:', groqErr.message);
       }
     }
 
-    // Always run a second local OCR pass. For image verification, disagreement
-    // between independent OCR engines forces human review.
     try {
       const { createWorker } = await import('tesseract.js');
       const worker = await createWorker('ara');
-      const fullDataUri = mediaBase64.startsWith('data:')
-        ? mediaBase64
+      const fullDataUri = String(mediaBase64).startsWith('data:')
+        ? String(mediaBase64)
         : `data:${mediaMimeType};base64,${mediaBase64}`;
       const ret = await worker.recognize(fullDataUri);
       await worker.terminate();
@@ -256,6 +220,7 @@ app.post('/api/ocr', async (req, res) => {
         .replace(/[)\]}][0-9]\s*/g, '')
         .replace(/\s+/g, ' ')
         .trim();
+
       if (!extractedText && tesseractText) {
         extractedText = tesseractText;
         methodUsed = 'tesseract';
@@ -265,7 +230,7 @@ app.post('/api/ocr', async (req, res) => {
         return res.json({
           success: true,
           text: extractedText,
-          method: 'gemini+tesseract',
+          method: 'groq+tesseract',
           consensus,
           alternateText: tesseractText
         });
@@ -285,355 +250,6 @@ app.post('/api/ocr', async (req, res) => {
     res.status(500).json({ error: err.message || 'فشلت معالجة الصورة.' });
   }
 });
-
-async function applyAISemanticMatching(items: ExtractedItem[]): Promise<void> {
-  // AI is a candidate selector/ranker only. Every selected candidate is
-  // subsequently re-validated against the canonical source by the deterministic verifier.
-  for (const item of items) {
-    if (item.type !== 'ayah') continue;
-
-    const candidates = getQuranCandidatesForAI(item, 12);
-    if (candidates.length === 0) continue;
-
-    const ai = await rankCandidatesWithAI(
-      'quran',
-      item.text,
-      candidates.map(c => ({
-        id: c.id,
-        source: c.source,
-        title: c.title,
-        text: c.text
-      }))
-    );
-
-    if (!ai || !ai.candidate_id || ai.confidence < 0.55 || ai.relation === 'none') continue;
-
-    const selected = candidates.find(c => c.id === ai.candidate_id);
-    if (!selected) continue;
-
-    // AI may propose missing location metadata, but it cannot overwrite a
-    // location explicitly supplied by the user.
-    if (!item.claimed_surah) item.claimed_surah = selected.surah_name_ar;
-    if (!item.claimed_ayah) item.claimed_ayah = selected.ayah_number;
-
-    (item as any).ai_match_hint = {
-      candidate_id: ai.candidate_id,
-      relation: ai.relation,
-      confidence: ai.confidence,
-      source_text: selected.text
-    };
-  }
-}
-
-/**
- * Master Verification Resolver with Live Dorar Encyclopedia Search
- * Unified across both Web Application (/api/verify) and Browser Extension (/api/extension-lookup)
- */
-async function resolveVerificationWithLiveSearch(v: any, fullContext: string = ''): Promise<void> {
-  const r = v as typeof v & { _needs_live_search?: boolean; _content_words?: string[]; _fiqh_url?: string };
-  if (!r._needs_live_search) return;
-
-  const queryToSearch = v.item.text.trim();
-  const isFiqhQuestion = v.item.type === 'fiqh_question';
-  const isTafsirQuestion = v.item.type === 'tafsir_question';
-  const isAqeedahQuestion = v.item.type === 'aqeedah_question';
-
-  try {
-    if (isTafsirQuestion || isAqeedahQuestion) {
-      const isAqeedah = isAqeedahQuestion;
-      const found = isAqeedah
-        ? await searchDorarAqeedahLive(queryToSearch)
-        : await searchDorarTafsirLive(queryToSearch);
-      const fallbackUrl = isAqeedah ? buildDorarAqeedahUrl(queryToSearch) : buildDorarTafsirUrl(queryToSearch);
-      const sourceId = isAqeedah ? 'dorar-aqeedah' : 'quran-tafsir-salaf';
-      const sourceName = isAqeedah
-        ? 'الموسوعة العقدية — الدرر السنية'
-        : 'موسوعة التفسير — الدرر السنية';
-
-      if (found?.found) {
-        v.status = 'NEEDS_REVIEW';
-        v.status_label_ar = isAqeedah
-          ? 'مادة عقدية من مصدر معتمد — تحتاج مراجعة'
-          : 'مادة تفسيرية من مصدر معتمد — تحتاج مراجعة';
-        v.status_label_en = isAqeedah
-          ? 'Approved Aqeedah Source Found — Review Required'
-          : 'Approved Tafsir Source Found — Review Required';
-        v.reason = `تم العثور على مادة مصدرية في ${sourceName} («${found.title}»). تُعرض المادة كمحتوى مرجعي فقط؛ لا تنشئ بصيرة تفسيراً أو حكماً عقدياً مستقلاً ولا تختار قولاً من خارج المصدر.`;
-        v.canonical_text = found.text || found.title;
-        v.decision_level = 'B';
-        v.citation = {
-          source_id: sourceId,
-          source_name: sourceName,
-          authority: 'منصة الدرر السنية',
-          book: found.title,
-          url: found.url
-        };
-      } else {
-        v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
-        v.status_label_ar = 'لم يُعثر عليه في المرجع المعتمد المفحوص';
-        v.status_label_en = 'Not Found in Checked Approved Source';
-        v.reason = `لم يُعثر على مادة مطابقة في ${sourceName}. لا تُنشئ بصيرة بديلاً مولداً من النموذج، ويمكن مراجعة صفحة المصدر مباشرة.`;
-        v.citation = {
-          source_id: sourceId,
-          source_name: sourceName,
-          authority: 'منصة الدرر السنية',
-          url: fallbackUrl
-        };
-        v.decision_level = 'B';
-      }
-
-      delete r._needs_live_search;
-      return;
-    }
-
-    if (v.item.type === 'term') {
-      const found = await searchJamharaLive(queryToSearch);
-      if (found?.found) {
-        v.status = 'NEEDS_REVIEW';
-        v.status_label_ar = 'مصطلح من مصدر الجمهرة المعتمد — يحتاج مراجعة';
-        v.status_label_en = 'Jamhara Source Found — Review Required';
-        v.reason = `تم العثور على مادة للمصطلح في موسوعة الجمهرة («${found.title}»). تعرض بصيرة مادة المصدر والرابط، ولا تنشئ تعريفًا من النموذج خارج المرجع.`;
-        v.canonical_text = found.text || found.title;
-        v.decision_level = 'B';
-        v.citation = {
-          source_id: 'jamhara-terms',
-          source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
-          authority: 'منصة islamic-content.com / الحزمة المرجعية المعتمدة',
-          book: found.title,
-          url: found.url
-        };
-      } else {
-        v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
-        v.status_label_ar = 'لم يُعثر على المصطلح في مصدر الجمهرة المفحوص';
-        v.status_label_en = 'Term Not Found in Checked Jamhara Source';
-        v.reason = 'لم يُعثر على مادة مطابقة في البحث المباشر بموسوعة الجمهرة. لا تُنشئ بصيرة تعريفًا بديلًا من النموذج.';
-        v.citation = {
-          source_id: 'jamhara-terms',
-          source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
-          authority: 'منصة islamic-content.com',
-          url: buildJamharaSearchUrl(queryToSearch)
-        };
-      }
-      delete r._needs_live_search;
-      return;
-    }
-
-    if (isFiqhQuestion) {
-      // ── FIQH PATH: Dorar Fiqh Encyclopedia (dorar.net/feqhia) ─────────────────
-      const fiqhSearchUrl = r._fiqh_url || buildDorarFiqhUrl(queryToSearch);
-      const contentWords: string[] = r._content_words || generateFiqhSearchKeywords(queryToSearch);
-      
-      // Step 1: Query Dorar Fiqh Encyclopedia (dorar.net/feqhia)
-      const fiqhResult = await searchDorarFiqhLive(queryToSearch);
-
-      if (fiqhResult?.found) {
-        const sensitive = isSensitiveFiqhQuestion(queryToSearch);
-
-        // Retrieving a source is not the same thing as Baseera issuing a ruling.
-        // High-consequence fiqh questions are referral-only.
-        if (sensitive) {
-          v.status = 'REFER_TO_SPECIALIST';
-          v.status_label_ar = 'إحالة إلى مختص — وُجد مصدر فقهي معتمد';
-          v.status_label_en = 'Refer to Qualified Specialist — Approved Source Found';
-          v.reason = `تم العثور على مادة ذات صلة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»). بسبب حساسية المسألة، لا تعرض بصيرة نص الحكم ولا تصدر ترجيحًا أو فتوى؛ استخدم الرابط لمراجعة المصدر مع أهل العلم المؤهلين.`;
-          delete v.canonical_text;
-          delete v.school_positions;
-          v.decision_level = 'D';
-          v.citation = {
-            source_id: 'fiqh-madhahib-dorar',
-            source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية (بحث مباشر)',
-            authority: 'المذاهب الأربعة — مؤسسة الدرر السنية',
-            book: fiqhResult.title,
-            url: fiqhResult.url || fiqhSearchUrl
-          };
-        } else {
-          const rulingDetails = fiqhResult.detailedRuling
-            ? fiqhResult.detailedRuling
-            : (fiqhResult.text ? `${fiqhResult.title} — ${fiqhResult.text}` : fiqhResult.title);
-
-          v.status = 'NEEDS_REVIEW';
-          v.status_label_ar = 'وُجدت مادة فقهية في مصدر معتمد — مراجعة مطلوبة';
-          v.status_label_en = 'Approved Fiqh Source Found — Review Required';
-          v.reason = `عُثر على مادة فقهية ذات صلة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»). النص المعروض هو من المادة المرجعية للمراجعة البشرية، وليس حكمًا صادرًا من بصيرة ولا فتوى شخصية.`;
-          v.canonical_text = rulingDetails;
-          v.decision_level = 'C';
-          v.citation = {
-            source_id: 'fiqh-madhahib-dorar',
-            source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية (بحث مباشر في المذاهب الأربعة)',
-            authority: 'المذاهب الأربعة (الحنفي، المالكي، الشافعي، الحنبلي) — مؤسسة الدرر السنية',
-            book: fiqhResult.title,
-            url: fiqhResult.url || fiqhSearchUrl
-          };
-        }
-      } else {
-        // Step 2: Feqhia has no direct article -> check Dorar Hadith API for supporting evidence
-        const wordsForSearch = contentWords.length > 0
-          ? contentWords.slice(0, 3).join(' ')
-          : cleanSearchQuery(queryToSearch);
-
-        const hadithSearch = await searchDorarWithSmartQueries(wordsForSearch || queryToSearch);
-
-        if (hadithSearch.topResult) {
-          const top = hadithSearch.topResult;
-          const normH = (top.text || '')
-            .replace(/[\u064B-\u065F\u0670]/g, '')
-            .replace(/[إأآا]/g, 'ا')
-            .replace(/ى/g, 'ي')
-            .replace(/ة/g, 'ه');
-
-          // Strict match: Hadith MUST contain the primary content word
-          const hasConfirmedWordMatch = contentWords.some(w => {
-            const cleanW = w.replace(/^ال/, '').replace(/[إأآا]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
-            return cleanW.length >= 3 && normH.includes(cleanW);
-          });
-
-          if (hasConfirmedWordMatch) {
-            if (top.isDisputed || top.gradeCategory === 'disputed') {
-              v.status = 'NEEDS_REVIEW';
-              v.status_label_ar = 'مسألة فقهية خلافية — الحديث الوارد فيها مختلف في صحته بين الأئمة';
-              v.status_label_en = 'Disputed Fiqh Matter — Supporting Hadith is Disputed';
-              v.reason = `المسألة محل اختلاف فقهي بين أئمة المذاهب؛ لاستنادها إلى حديث «${top.text}». ${top.disputeDetails || 'والحديث مختلف في ثبوته وصحته بين أئمة الحديث: صححه بعضهم واستنكره آخرون'}. المصدر: ${top.book} (${top.numberOrPage}).`;
-              v.canonical_text = top.text;
-              v.decision_level = 'C';
-              v.citation = {
-                source_id: 'dorar-hadith',
-                source_name: 'الموسوعة الحديثية — الدرر السنية (دليل المسألة الفقهية)',
-                authority: 'مؤسسة الدرر السنية للإشراف العلمي',
-                book: `${top.book} (${top.numberOrPage})`,
-                grade: top.grade,
-                url: `https://dorar.net/hadith/search?q=${encodeURIComponent(hadithSearch.queryUsed)}`
-              };
-            } else if (top.gradeCategory === 'sahih' || top.gradeCategory === 'hasan') {
-              v.status = 'NEEDS_REVIEW';
-              v.status_label_ar = 'مسألة فقهية لها دليل حديثي موثق — لا ترجيح آلي';
-              v.status_label_en = 'Fiqh Ruling — Established by Authentic Sunnah (Dorar.net)';
-              v.reason = `المسألة مستندة إلى الدليل الصريح من السنة النبوية المطهرة في الموسوعة الحديثية: «${top.text}». الراوي: ${top.rawi || 'الصحابة الكرام'}، المحدث: ${top.muhaddith || ''}، المصدر: ${top.book} (${top.numberOrPage})، خلاصة حكم المحدث: ${top.grade}.`;
-              v.canonical_text = top.text;
-              v.decision_level = 'B';
-              v.citation = {
-                source_id: 'dorar-hadith',
-                source_name: 'الموسوعة الحديثية — الدرر السنية (دليل المسألة الفقهية)',
-                authority: 'مؤسسة الدرر السنية للإشراف العلمي',
-                book: `${top.book} (${top.numberOrPage})`,
-                grade: top.grade,
-                url: `https://dorar.net/hadith/search?q=${encodeURIComponent(hadithSearch.queryUsed)}`
-              };
-            } else {
-              v.status = 'NEEDS_REVIEW';
-              v.status_label_ar = 'مسألة فقهية — الحديث الوارد في الموضوع ضعيف أو لا يصح';
-              v.status_label_en = 'Fiqh Question — Supporting Hadith is Weak';
-              v.reason = `وُجد حديث متعلق بالمسألة في الموسوعة الحديثية لكنه ${top.grade}، ولا يصح الاحتجاج به مستقلاً. الراوي: ${top.rawi || ''}، المصدر: ${top.book}.`;
-              v.canonical_text = top.text;
-              v.decision_level = 'C';
-              v.citation = {
-                source_id: 'dorar-hadith',
-                source_name: 'الموسوعة الحديثية — الدرر السنية',
-                authority: 'مؤسسة الدرر السنية للإشراف العلمي',
-                book: `${top.book} (${top.numberOrPage})`,
-                grade: top.grade,
-                url: `https://dorar.net/hadith/search?q=${encodeURIComponent(hadithSearch.queryUsed)}`
-              };
-            }
-          } else {
-            // Abstain honestly without irrelevant hadiths
-            v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
-            v.status_label_ar = 'لم يُعثر عليه في المراجع المفحوصة (امتناع شرعي)';
-            v.status_label_en = 'Not Found in Checked Sources (Abstention)';
-            v.reason = 'لم يُعثر على نص قطعي أو حديث صريح مطابق لهذه المسألة في المصادر المعتمدة المفحوصة (الموسوعة الفقهية والحديثية). تلتزم منظومة «بصيرة» بالامتناع الصارم عن إصدار أي حكم شرعي أو عزو أحاديث غير مطابقة منعاً للهلوسة والخطأ في دين الله. يمكنك البحث في الموسوعة الفقهية المقارنة بالدرر السنية عبر الرابط المرفق.';
-            v.decision_level = 'C';
-            v.citation = {
-              source_id: 'fiqh-madhahib-dorar',
-              source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
-              authority: 'المذاهب الأربعة — مؤسسة الدرر السنية',
-              book: 'الموسوعة الفقهية المقارنة',
-              url: fiqhSearchUrl
-            };
-          }
-        } else {
-          // Both failed
-          v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
-          v.status_label_ar = 'لم يُعثر عليه في المراجع المفحوصة (امتناع شرعي)';
-          v.status_label_en = 'Not Found in Checked Sources (Abstention)';
-          v.reason = 'لم يُعثر على هذه المسألة في المراجع المفحوصة (الموسوعة الفقهية والحديثية بالدرر السنية). تلتزم المنظومة بالامتناع القطعي عن إصدار أي حكم فقهي غير موثق من المصادر المعتمدة.';
-          v.decision_level = 'C';
-          v.citation = {
-            source_id: 'fiqh-madhahib-dorar',
-            source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
-            authority: 'المذاهب الأربعة — مؤسسة الدرر السنية',
-            book: 'الموسوعة الفقهية المقارنة',
-            url: fiqhSearchUrl
-          };
-        }
-      }
-    } else {
-      // ── HADITH / CLAIM PATH: Dorar Hadith Encyclopedia (dorar.net) ───────────
-      const smart = await searchDorarWithSmartQueries(queryToSearch);
-
-      if (smart.topResult) {
-        let top = smart.topResult;
-
-        // Rerank retrieved Dorar candidates with AI. The model may choose only
-        // among source-returned records; buildHadithDecision remains authoritative.
-        if (smart.allResults.length > 1) {
-          const hadithCandidates = smart.allResults.slice(0, 12).map((r, index) => ({
-            id: `hadith-${index}`,
-            source: 'dorar-hadith',
-            title: `${r.book || 'الدرر السنية'} ${r.numberOrPage || ''}`.trim(),
-            text: r.text
-          }));
-
-          const ai = await rankCandidatesWithAI('hadith', v.item.text, hadithCandidates);
-          if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
-            const selectedIndex = Number(ai.candidate_id.replace('hadith-', ''));
-            if (Number.isInteger(selectedIndex) && smart.allResults[selectedIndex]) {
-              top = smart.allResults[selectedIndex];
-              v.ai_match = {
-                provider: 'gemini',
-                candidate_id: ai.candidate_id,
-                relation: ai.relation,
-                confidence: ai.confidence
-              };
-            }
-          }
-        }
-
-        const hadithDecision = buildHadithDecision(v.item, top);
-
-        if (v.item.type === 'ayah') {
-          // A hadith found after a Quran claim is evidence of misattribution,
-          // never permission to mark the original Quran claim as matched.
-          Object.assign(v, {
-            ...hadithDecision,
-            item: { ...v.item, type: 'ayah' },
-            status: 'NEEDS_REVIEW',
-            status_label_ar: 'خطأ في العزو — النص حديث/رواية وليس آية قرآنية',
-            status_label_en: 'Misattributed as Quran — Hadith/Report Found',
-            reason: `نُسب النص في المدخل إلى القرآن، لكن البحث في المصحف لم يثبت مطابقته، بينما عثر المصدر الحديثي المعتمد على رواية مطابقة/قريبة: ${hadithDecision.reason}`
-          });
-        } else {
-          Object.assign(v, hadithDecision);
-        }
-      } else {
-        if (v.status !== 'REFER_TO_SPECIALIST') {
-          v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
-          v.status_label_ar = 'لم يُعثر عليه في المراجع المفحوصة';
-          v.status_label_en = 'Not Found in Checked Sources';
-          v.reason = 'لم يُعثر على تطابق موثوق لهذا النص في الموسوعة الحديثية بالدرر السنية. تلتزم المنظومة بالامتناع عن الجزم بصحة أي رواية غير مثبتة.';
-          v.citation = {
-            source_id: 'dorar-hadith',
-            source_name: 'الموسوعة الحديثية — الدرر السنية',
-            authority: 'المصادر المعتمدة في الحزمة العلمية',
-            url: `https://dorar.net/hadith/search?q=${encodeURIComponent(cleanSearchQuery(v.item.text))}`
-          };
-        }
-      }
-    }
-  } catch (err) {
-    console.error('resolveVerificationWithLiveSearch error:', err);
-  }
-
-  delete r._needs_live_search;
-}
 
 // 2. Ingestion & Verification API (Text, URL, Image OCR, Audio STT)
 app.post('/api/verify', async (req, res) => {
@@ -671,50 +287,29 @@ app.post('/api/verify', async (req, res) => {
 
     // Handle Image OCR if text was not pre-extracted
     if (inputType === 'image' && mediaBase64 && !extractedText) {
-      const activeKey = apiKey || process.env.GEMINI_API_KEY;
-      if (activeKey && activeKey !== 'MY_GEMINI_API_KEY') {
+      if (aiEnabled) {
         try {
-          const client = new GoogleGenAI({ apiKey: activeKey });
-          const response = await client.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  {
-                    inlineData: {
-                      data: mediaBase64.replace(/^data:[a-zA-Z0-9/+-]+;base64,/, ''),
-                      mimeType: mediaMimeType || 'image/jpeg'
-                    }
-                  },
-                  {
-                    text: 'استخرج جميع النصوص العربية والإسلامية الموجودة في هذه الصورة بدقة وبلا أي تأليف أو تغيير. أعد النص المستخرج فقط.'
-                  }
-                ]
-              }
-            ]
-          });
-          const ocrResult = response.text?.trim();
-          if (ocrResult) extractedText = ocrResult;
-        } catch (err) {
-          console.warn('Image OCR error:', err);
+          extractedText = await groqVisionText(
+            String(mediaBase64),
+            mediaMimeType || 'image/jpeg',
+            'استخرج جميع النصوص العربية والإسلامية الموجودة في هذه الصورة بدقة وبنفس كلماتها وحروفها قدر الإمكان، دون اختلاق أو إضافة أو تفسير. أعد النص المكتوب فقط.',
+            15000
+          );
+        } catch (groqErr: any) {
+          console.warn('Groq image OCR failed, falling back to Tesseract:', groqErr.message);
         }
       }
 
-      // Local Tesseract fallback
       if (!extractedText) {
         try {
           const { createWorker } = await import('tesseract.js');
           const worker = await createWorker('ara');
-          const fullDataUri = mediaBase64.startsWith('data:')
-            ? mediaBase64
+          const fullDataUri = String(mediaBase64).startsWith('data:')
+            ? String(mediaBase64)
             : `data:${mediaMimeType || 'image/jpeg'};base64,${mediaBase64}`;
           const ret = await worker.recognize(fullDataUri);
           await worker.terminate();
-          const raw = (ret.data?.text || '').trim();
-          extractedText = raw
-            .replace(/\b[A-Za-z]{1,5}\b/g, '')
-            .replace(/[)\]}][0-9]\s*/g, '')
+          extractedText = (ret.data?.text || '')
             .replace(/\s+/g, ' ')
             .trim();
         } catch (tessErr) {
@@ -745,77 +340,72 @@ app.post('/api/verify', async (req, res) => {
       ]);
     };
 
-    if (aiClient && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY' && extractedText.length > 10) {
+    if (aiEnabled && extractedText.length > 10) {
       try {
-        const aiResponse = await withTimeout(
-          aiClient.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  {
-                    text: `أنت طبقة الاستخراج في منظومة "بصيرة" للتحقق من المحتوى الإسلامي وسياقه.
-قواعد صارمة:
-1. النموذج اللغوي لا يصدر الحكم الشرعي ولا يختلق المصدر.
-2. مهمتك فقط استخراج العناصر الدينية (آيات، أحاديث، مصطلحات حساسة، استفسارات فقهية) على شكل JSON Array دون الإفتاء أو الحكم بصحة شيء.
-3. إذا لم تكن متأكداً من النوع، صنفه claim ولا تخمن.
+        const aiRaw = await groqChat(
+          [{
+            role: 'user',
+            content: `أنت طبقة الاستخراج في منظومة «بصيرة» للتحقق من المحتوى الإسلامي وسياقه.
 
-المدخل المراد تحليله:
+مهمتك استخراج العناصر الدينية فقط، لا إصدار حكم شرعي ولا إثبات صحة شيء.
+استخرج الآيات، الأحاديث، المصطلحات الحساسة، الأسئلة الفقهية، وأي عزو/سياق ذي صلة.
+إذا لم تكن متأكداً من النوع، استخدم claim.
+لا تضف نصاً غير موجود في المدخل.
+
+المدخل:
 """
 ${extractedText}
 """
 
-أعد فقط JSON صالح بالصيغة التالية:
-[
-  {
-    "type": "ayah" | "hadith" | "term" | "fiqh_question" | "claim",
-    "text": "النص المستخرج بدقة",
-    "context": "سياق الكلام حوله",
-    "language": "ar" | "en" | "fr",
-    "claimed_source": "المصدر المزعوم في النص إن وجد (مثل: البخاري، سورة البقرة...)"
-  }
-]`
-                  }
-                ]
-              }
-            ],
-            config: {
-              responseMimeType: 'application/json'
-            }
-          }),
-          3500
+أعد JSON بهذا الشكل فقط:
+{
+  "items": [
+    {
+      "type": "ayah | hadith | term | fiqh_question | claim",
+      "text": "النص المستخرج حرفياً من المدخل",
+      "context": "السياق الحرفي الموجود في المدخل",
+      "language": "ar | en | fr",
+      "claimed_source": "العزو المذكور في المدخل إن وجد"
+    }
+  ]
+}`
+          }],
+          {
+            model: GROQ_TEXT_MODEL,
+            temperature: 0,
+            maxTokens: 4096,
+            json: true,
+            reasoningEffort: 'none',
+            timeoutMs: 12000
+          }
         );
 
-        const jsonStr = aiResponse.text?.trim();
-        if (jsonStr) {
-          const parsed = JSON.parse(jsonStr);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            extractedItems = parsed
-              .map(p => {
-                const extracted = String(p.text || '').trim();
-                if (!isGroundedInInput(extracted, extractedText)) return null;
+        const parsed = JSON.parse(aiRaw);
+        const candidates = Array.isArray(parsed?.items) ? parsed.items : [];
+        extractedItems = candidates
+          .map((p: any) => {
+            const extracted = String(p?.text || '').trim();
+            if (!extracted || !isGroundedInInput(extracted, extractedText)) return null;
 
-                const claimedSource = p.claimed_source && isGroundedInInput(String(p.claimed_source), extractedText)
-                  ? String(p.claimed_source)
-                  : undefined;
+            const claimedSource = p?.claimed_source && isGroundedInInput(String(p.claimed_source), extractedText)
+              ? String(p.claimed_source)
+              : undefined;
 
-                return {
-                  type: p.type || 'claim',
-                  text: extracted,
-                  context: p.context && isGroundedInInput(String(p.context), extractedText) ? String(p.context) : '',
-                  language: p.language || 'ar',
-                  claimed_source: claimedSource,
-                  confidence: 0.95
-                } as ExtractedItem;
-              })
-              .filter((x): x is ExtractedItem => Boolean(x));
-          }
-        }
-      } catch (aiErr) {
-        console.warn('AI Extraction failed, falling back to rule-based engine:', aiErr);
+            return {
+              type: p?.type || 'claim',
+              text: extracted,
+              context: p?.context && isGroundedInInput(String(p.context), extractedText) ? String(p.context) : '',
+              language: p?.language || 'ar',
+              claimed_source: claimedSource,
+              confidence: 0.95
+            } as ExtractedItem;
+          })
+          .filter((x: ExtractedItem | null): x is ExtractedItem => Boolean(x));
+      } catch (aiErr: any) {
+        console.warn('Groq AI extraction failed, falling back to rule-based engine:', aiErr.message);
       }
     }
+
 
     // Always run rule-based extraction as well to ensure complete coverage of narratives and verses
     const ruleBasedItems = extractItemsRuleBased(extractedText);
@@ -842,7 +432,7 @@ ${extractedText}
 
     // AI semantic matching is advisory: it can propose the most likely source
     // candidate, but the canonical verifier below remains the final authority.
-    if (aiClient && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY') {
+    if (aiEnabled) {
       await applyAISemanticMatching(extractedItems);
     }
 
@@ -854,7 +444,7 @@ ${extractedText}
       const hint = (verification.item as any).ai_match_hint;
       if (hint?.candidate_id) {
         verification.ai_match = {
-          provider: 'gemini',
+          provider: 'groq',
           candidate_id: hint.candidate_id,
           relation: hint.relation,
           confidence: hint.confidence
@@ -1237,15 +827,14 @@ app.post('/api/extension-lookup-image', async (req, res) => {
       return res.status(400).json({ error: 'لم يتم توفير رابط الصورة أو بياناتها (Base64).' });
     }
 
-    // 2. Perform OCR (Gemini Vision Flash, fallback to Tesseract.js)
+    // 2. Perform OCR (Groq Vision Flash, fallback to Tesseract.js)
     let extractedText = '';
-    const activeKey = process.env.GEMINI_API_KEY;
-    if (activeKey && activeKey !== 'MY_GEMINI_API_KEY') {
+    if (aiEnabled) {
       try {
-        const client = new GoogleGenAI({ apiKey: activeKey });
+        const client = null as any;
         const cleanBase64 = base64.replace(/^data:[a-zA-Z0-9/+-]+;base64,/, '');
         const resp = await client.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'qwen/qwen3.8-27b',
           contents: [
             {
               role: 'user',
@@ -1265,7 +854,7 @@ app.post('/api/extension-lookup-image', async (req, res) => {
         });
         extractedText = (resp.text || '').trim();
       } catch (geminiErr: any) {
-        console.warn('Gemini OCR error for image extension:', geminiErr.message);
+        console.warn('Groq OCR error for image extension:', geminiErr.message);
       }
     }
 
