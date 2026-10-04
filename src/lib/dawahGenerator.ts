@@ -239,11 +239,10 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
   
   if (termDef) {
-    const ruT = JAMHARA_RUSSIAN_TERMS[termDef.term_ar];
     allCitations.push({
       type: 'term',
       arabic_text: termDef.term_ar,
-      translation: language === 'ru' && ruT ? `${ruT.term_ru}: ${ruT.def_ru}` : termDef.approved_translations?.[0],
+      translation: language === 'ru' ? undefined : termDef.approved_translations?.[0],
       source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
       source_url: 'https://islamic-content.com/dictionary',
       authority: 'المرجعية المعتمدة للمصطلحات الشرعية الحساسة بالحزمة العلمية',
@@ -314,7 +313,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
     let hadithTranslated: string | undefined;
     if (language === 'ru') {
-      hadithTranslated = `Руководство из благородной Пророческой Сунны:\n\nПосланник Аллаха ﷺ разъяснил суть темы «${topic}» своими словами и личным примером.\n\nПророк Мухаммад ﷺ сказал:\n«${mainHadith.text_full || mainHadith.text_clean}»\n\n📚 Источник: ${mainHadith.source_book || 'Хадисный сборник'} (${mainHadith.number_or_page || ''})\nСтепень достоверности: ${mainHadith.grade || 'Сахих (достоверный)'}\n\n${mainHadithRu ? `📖 Перевод хадиса (${mainHadithRu.translator}):\n«${mainHadithRu.ru}»\n\n` : ''}Этот достоверный хадис показывает, как мусульманин должен воплощать это учение на практике.`;
+      hadithTranslated = `Руководство из благородной Пророческой Сунны:\n\nПосланник Аллаха ﷺ разъяснил суть темы «${topic}» своими словами и личным примером.\n\nПророк Мухаммад ﷺ сказал:\n«${mainHadith.text_full || mainHadith.text_clean}»\n\n📚 Источник: ${mainHadith.source_book || 'Хадисный сборник'} (${mainHadith.number_or_page || ''})\nСтепень достоверности: ${mainHadith.grade || 'Сахих (достоверный)'}\n\nЭтот достоверный хадис показывает, как мусульманин должен воплощать это учение на практике.`;
     } else if (language === 'en') {
       hadithTranslated = `Prophetic Sunnah Guidance:\n\nThe Prophet Muhammad ﷺ taught the reality of "${topic}" through authentic instruction.\n\nThe Prophet ﷺ said:\n«${mainHadith.text_full || mainHadith.text_clean}»\n[Source: ${mainHadith.source_book || 'Sunnah corpus'} — Grade: ${mainHadith.grade || 'Sahih'}]\n\nThis prophetic narration provides direct practical instruction for applying divine guidance in daily life.`;
     }
@@ -380,7 +379,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
   // 8. Generate Infographic Text Suggestion & Video Reel Script
   const infographicSuggestion = buildInfographicSuggestion(topic, allCitations, language);
-  const videoReelScript = buildVideoReelScript(topic, mainVerse, mainVerseTr, mainHadith, mainHadithRu, language);
+  const videoReelScript = buildVideoReelScript(topic, mainVerse, mainVerseTr, mainHadith, undefined, language);
 
   return {
     id,
