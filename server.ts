@@ -827,34 +827,18 @@ app.post('/api/extension-lookup-image', async (req, res) => {
       return res.status(400).json({ error: 'لم يتم توفير رابط الصورة أو بياناتها (Base64).' });
     }
 
-    // 2. Perform OCR (Groq Vision Flash, fallback to Tesseract.js)
+    // 2. Perform OCR (Groq Qwen Vision, fallback to Tesseract.js)
     let extractedText = '';
     if (aiEnabled) {
       try {
-        const client = null as any;
-        const cleanBase64 = base64.replace(/^data:[a-zA-Z0-9/+-]+;base64,/, '');
-        const resp = await client.models.generateContent({
-          model: 'qwen/qwen3.8-27b',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  inlineData: {
-                    data: cleanBase64,
-                    mimeType
-                  }
-                },
-                {
-                  text: 'أنت نظام OCR متقدم لمشروع بصيرة. استخرج كل النصوص العربية المكتوبة في هذه الصورة بدقة وبنفس كلماتها وحروفها بالضبط (سواء كانت حديثاً نبوياً أو آية قرآنية أو مقولة) دون أي اختلاق أو زيادة. أعد النص المكتوب فقط.'
-                }
-              ]
-            }
-          ]
-        });
-        extractedText = (resp.text || '').trim();
-      } catch (geminiErr: any) {
-        console.warn('Groq OCR error for image extension:', geminiErr.message);
+        extractedText = await groqVisionText(
+          base64,
+          mimeType,
+          'أنت نظام OCR متقدم لمشروع بصيرة. استخرج كل النصوص العربية المكتوبة في هذه الصورة حرفياً قدر الإمكان دون اختلاق أو زيادة أو تفسير. أعد النص المكتوب فقط.',
+          15000
+        );
+      } catch (groqErr: any) {
+        console.warn('Groq OCR error for image extension:', groqErr.message);
       }
     }
 
