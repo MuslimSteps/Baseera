@@ -56,11 +56,11 @@ export const BenchmarkView: React.FC = () => {
       {/* Editorial Header */}
       <div className="bento-card bento-card--gold bento-accent-top p-6 sm:p-8 reveal">
         <div className="flex items-center gap-2 text-xs mb-3">
-          <span>المعيار المجمّد مسبقاً (Frozen Benchmark)</span>
+          <span>المعيار المجمّد مسبقاً (Frozen Decision Benchmark)</span>
           <span aria-hidden="true" className="text-faint">·</span>
-          <span className="font-mono-numbers">150 حالة اختبار معيارية</span>
+          <span className="font-mono-numbers">150 حالة تنفيذية (75 أساس + 75 اضطراب)</span>
           <span aria-hidden="true" className="text-faint">·</span>
-          <span className="text-gold font-medium">تقييم حي للمنظومة الكاملة</span>
+          <span className="text-gold font-medium">قياس حتمي قابل لإعادة التشغيل</span>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -79,7 +79,7 @@ export const BenchmarkView: React.FC = () => {
             className="px-5 py-2.5 rounded-xl bg-gold-strong hover:bg-[#c96a12] font-semibold text-white shadow-md shadow-black/40 flex items-center gap-2 transition-all cursor-pointer self-start md:self-auto text-xs active:scale-[0.98]"
           >
             <Play className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} />
-            <span>{isRunning ? 'جاري تشغيل الفحص الحي...' : 'تشغيل الاختبار المجمّد'}</span>
+            <span>{isRunning ? 'جاري تشغيل الاختبار...' : 'تشغيل الاختبار المجمّد'}</span>
           </button>
         </div>
       </div>
@@ -150,7 +150,7 @@ export const BenchmarkView: React.FC = () => {
           className="segmented-item"
           data-active={activeTab === 'matrix'}
         >
-          مصفوفة المقارنة المنهجية (4 أنظمة)
+          مصفوفة القياس المنهجية
         </button>
         <button
           onClick={() => setActiveTab('cases')}
@@ -167,7 +167,7 @@ export const BenchmarkView: React.FC = () => {
           <div className="bento-card border border-hairline overflow-hidden shadow-lg">
             <div className="p-5 border-b border-hairline">
               <h3 className="text-base font-bold font-display text-ink">نتائج الاختبار المجمّد — بصيرة</h3>
-              <p className="text-xs text-muted mt-1">هذه أرقام تشغيل فعلي للمحرك الموجود في هذا المستودع. لا توجد نتائج مولدة أو عشوائية لنماذج خارجية.</p>
+              <p className="text-xs text-muted mt-1">هذه نتائج تشغيل حتمي لسياسة القرار على حالات ثابتة وfixtures مصدرية معلنة؛ لا تُعرض كمقارنة تجريبية مع نماذج خارجية.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-right text-xs">
