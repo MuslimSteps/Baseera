@@ -85,6 +85,21 @@ test('citation guard downgrades an unapproved citation', () => {
   assert.equal(report.verifications[0].status, 'NEEDS_REVIEW');
 });
 
+test('citation guard rejects a valid source ID paired with the wrong approved domain', () => {
+  const report: any = {
+    overall_status: 'MATCHED',
+    verifications: [{
+      status: 'MATCHED',
+      canonical_text: 'must be removed',
+      citation: { source_id: 'dorar-hadith', source_name: 'Dorar', url: 'https://quranpedia.net/verse/1/1' }
+    }]
+  };
+  enforceApprovedCitations(report);
+  assert.equal(report.overall_status, 'NEEDS_REVIEW');
+  assert.equal(report.verifications[0].status, 'NEEDS_REVIEW');
+  assert.equal('canonical_text' in report.verifications[0], false);
+});
+
 // B. LLM anti-hallucination boundary
 test('LLM extraction cannot introduce text absent from the user input', () => {
   const original = 'قال تعالى: الحمد لله رب العالمين';
@@ -270,7 +285,7 @@ test('fiqh corpus exposes only the implemented A/C/D levels', () => {
   assert.deepEqual([...levels].sort(), ['A', 'C', 'D']);
 });
 
-console.log(`\nPassed: ${27 - failures.length}/27`);
+console.log(`\nPassed: ${28 - failures.length}/28`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
