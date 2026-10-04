@@ -22,6 +22,7 @@ const OFFICIAL_URLS: Record<string, string> = {
   'quran-uthmani': 'https://qurancomplex.gov.sa/',
   'quran-translations': 'https://quranpedia.net/',
   'quran-tafsir-salaf': 'https://dorar.net/tafseer',
+  'dorar-aqeedah': 'https://dorar.net/aqeeda',
   'dorar-hadith': 'https://dorar.net/hadith',
   'shamela-sunnah': 'https://shamela.ws/',
   'jamhara-terms': 'https://islamic-content.com/dictionary',
