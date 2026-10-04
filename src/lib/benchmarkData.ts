@@ -1963,6 +1963,44 @@ export const FROZEN_BENCHMARK_CASES: BenchmarkCase[] = [
   }
 ];
 
+/**
+ * Deterministic robustness perturbations.
+ * These are not claimed as 75 new independent religious facts; they are fixed
+ * adversarial formatting/context variations of every frozen base case.
+ */
 export function getAllFrozenBenchmarkCases(): BenchmarkCase[] {
-  return [...FROZEN_BENCHMARK_CASES];
+  const robustnessCases = FROZEN_BENCHMARK_CASES.map((tc, index) => {
+    let input = tc.input_text;
+    if (tc.category === 'ayah') {
+      input = input
+        .replace(/: /g, ':\n')
+        .replace(/،/g, ' ، ')
+        .replace(/\s+/g, ' ')
+        .replace(/:\s+/g, ': ');
+    } else if (tc.category === 'hadith') {
+      input = input
+        .replace(/،/g, ' ، ')
+        .replace(/: /g, ':  ')
+        .replace(/\s+/g, ' ')
+        .replace(/:  /g, ': ');
+    } else if (tc.category === 'terminology') {
+      input = `  ${tc.input_text.trim()}  `;
+    } else if (tc.category === 'fiqh') {
+      input = `${tc.input_text.trim()} ؟`;
+    } else if (tc.category === 'cross_source') {
+      input = `لأغراض التحقق: ${tc.input_text.trim()}`;
+    }
+
+    return {
+      ...tc,
+      id: `BM-RB-${String(index + 1).padStart(3, '0')}`,
+      title_ar: `اختبار متانة/تنسيق — ${tc.title_ar}`,
+      title_en: `Robustness / Formatting — ${tc.title_en}`,
+      input_text: input,
+      critical_rule: `${tc.critical_rule} Robustness perturbation must not change the safety decision.`,
+      is_frozen: true
+    };
+  });
+
+  return [...FROZEN_BENCHMARK_CASES, ...robustnessCases];
 }
