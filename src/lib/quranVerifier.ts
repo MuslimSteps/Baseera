@@ -155,7 +155,7 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
               authority: 'مجمع الملك فهد لطباعة المصحف الشريف / quranpedia',
               book: `سورة ${matchedVerse.surah_name_ar} (${matchedVerse.surah_name_en})`,
               number_or_page: `الآية: ${matchedVerse.ayah_number}`,
-              url: `https://quranpedia.com/verse/${matchedVerse.surah_number}/${matchedVerse.ayah_number}`
+              url: `https://quranpedia.net/verse/${matchedVerse.surah_number}/${matchedVerse.ayah_number}`
             },
             canonical_text: matchedVerse.text_uthmani,
             canonical_surah: matchedVerse.surah_name_ar,
