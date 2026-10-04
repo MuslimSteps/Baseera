@@ -356,8 +356,8 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
       arabic_text: v.text_uthmani || v.text_clean,
       translation: tr,
       source_name: `القرآن الكريم — سورة ${v.surah_name_ar}، آية ${v.ayah_number} (مصحف المدينة النبوية)`,
-      source_url: `https://quran.com/${v.surah_number}/${v.ayah_number}`,
-      authority: 'مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة',
+      source_url: 'https://qurancomplex.gov.sa/',
+      authority: 'النص القرآني المحلي المعتمد وفق سجل المصادر',
       verified: true
     });
   }
@@ -397,7 +397,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
       arabic_text: termDef.term_ar,
       translation: language === 'ru' && ruT ? `${ruT.term_ru}: ${ruT.def_ru}` : termDef.approved_translations?.[0],
       source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
-      source_url: 'https://islamic-content.com',
+      source_url: 'https://islamic-content.com/dictionary',
       authority: 'المرجعية المعتمدة للمصطلحات الشرعية الحساسة بالحزمة العلمية',
       verified: true
     });
@@ -446,9 +446,9 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
     let quranTranslated: string | undefined;
     if (language === 'ru') {
-      quranTranslated = `Доказательство из Священного Корана:\n\nВсевышний Аллах ниспослал Своё Писание верным руководством и светом, разъяснив величие и достоинство темы «${topic}».\n\nВсевышний Аллах говорит:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾\n[Сура «${mainVerse.surah_name_ar}», аят ${mainVerse.ayah_number}]\n\n📖 Перевод смыслов (Комплекс имени Короля Фахда / Эльмир Кулиев):\n«${mainVerseTr || 'Изучите подлинный перевод смыслов данного аята в утверждённом издании комплекса Короля Фахда.'}»\n\n${secondVerse && secondVerseTr ? `Также Аллах подтверждает это в другом аяте:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Сура «${secondVerse.surah_name_ar}», аят ${secondVerse.ayah_number}]\n«${secondVerseTr}»\n\n` : ''}Эти благословенные аяты ясно указывают на первостепенное значение соблюдения этой нормы.`;
+      quranTranslated = `Доказательство из Священного Корана:\n\nВсевышний Аллах ниспослал Своё Писание верным руководством и светом, разъяснив величие и достоинство темы «${topic}».\n\nВсевышний Аллах говорит:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾\n[Сура «${mainVerse.surah_name_ar}», аят ${mainVerse.ayah_number}]\n\n📖 Перевод смыслов (указанный переводчик):\n«${mainVerseTr || 'Изучите подлинный перевод смыслов данного аята в утверждённом издании комплекса Короля Фахда.'}»\n\n${secondVerse && secondVerseTr ? `Также Аллах подтверждает это в другом аяте:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Сура «${secondVerse.surah_name_ar}», аят ${secondVerse.ayah_number}]\n«${secondVerseTr}»\n\n` : ''}Эти благословенные аяты ясно указывают на первостепенное значение соблюдения этой нормы.`;
     } else if (language === 'en') {
-      quranTranslated = `Quranic Foundation:\n\nAllah ﷻ says in the Noble Quran:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [Surah ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]\n\n📖 Translation of Meanings (Saheeh International / King Fahd Complex):\n"${mainVerseTr || 'Verified authentic translation per King Fahd Complex'}"\n\n${secondVerse && secondVerseTr ? `Allah also affirms:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Surah ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]\n"${secondVerseTr}"\n\n` : ''}These verses firmly establish "${topic}" as a divine priority for every believer.`;
+      quranTranslated = `Quranic Foundation:\n\nAllah ﷻ says in the Noble Quran:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [Surah ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]\n\n📖 Translation of Meanings (local approved translation catalog, when available):\n"${mainVerseTr || 'Verified authentic translation per King Fahd Complex'}"\n\n${secondVerse && secondVerseTr ? `Allah also affirms:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Surah ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]\n"${secondVerseTr}"\n\n` : ''}These verses firmly establish "${topic}" as a divine priority for every believer.`;
     }
 
     sections.push({
@@ -553,7 +553,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     dawa_center_url: `https://dawa.center/search?q=${encodeURIComponent(cleanSearchQuery(topic))}`,
     feqhia_url: buildDorarFiqhUrl(topic),
     generated_at: now,
-    verification_note: `هذا المحتوى صادر بنظام «التوليد بعد التوثيق الصارم»؛ استُخرجت الآيات حصراً من مصحف مجمع الملك فهد (${quranData.verses.length} آية)، وتُرجمت بالترجمة المعتمدة للمجمع (إلمير كولييف)، وأُسندت الأحاديث للموسوعة الحديثية بالدرر السنية، وضُبطت المصطلحات بموسوعة الجمهرة.`,
+    verification_note: `هذا المحتوى صادر بنظام «التوليد بعد التوثيق الصارم»؛ استُخرجت الآيات من قاعدة القرآن المحلية المعتمدة (${quranData.verses.length} آية). الترجمات لا تُنسب إلى مجمع الملك فهد إلا إذا كانت مدرجة فعلياً في قاعدة الترجمات المعتمدة، وأُسندت الأحاديث للموسوعة الحديثية بالدرر السنية، وضُبطت المصطلحات بموسوعة الجمهرة.`,
     infographic_suggestion: infographicSuggestion,
     video_reel_script: videoReelScript
   };
