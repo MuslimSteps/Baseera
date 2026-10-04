@@ -30,6 +30,35 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+
+const APPROVED_SOURCE_IDS = new Set([
+  'quran-uthmani',
+  'quran-translations',
+  'quran-tafsir-salaf',
+  'dorar-hadith',
+  'dorar-hadith-live',
+  'dorar-hadith-fiqh',
+  'shamela-sunnah',
+  'jamhara-terms',
+  'fiqh-madhahib-dorar',
+  'dorar-feqhia',
+  'dawa-center',
+  'source-registry-all'
+]);
+
+function enforceApprovedCitations(report: any): void {
+  for (const verification of report.verifications || []) {
+    const citation = verification.citation;
+    if (!citation) continue;
+    if (!APPROVED_SOURCE_IDS.has(citation.source_id)) {
+      verification.status = 'NEEDS_REVIEW';
+      verification.status_label_ar = 'يحتاج مراجعة — المرجع خارج سجل المصادر المعتمد';
+      verification.status_label_en = 'Needs Review — Citation is outside the approved source registry';
+      verification.reason = 'تم منع هذه النتيجة لأن المرجع ليس ضمن سجل المصادر المعتمد للحزمة العلمية.';
+    }
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -183,6 +212,7 @@ app.post('/api/ocr', async (req, res) => {
     const activeKey = apiKey || process.env.GEMINI_API_KEY;
     let extractedText = '';
     let methodUsed = '';
+    let tesseractText = '';
 
     // 1. Try Gemini Vision if key available
     if (activeKey && activeKey !== 'MY_GEMINI_API_KEY') {
@@ -215,27 +245,38 @@ app.post('/api/ocr', async (req, res) => {
       }
     }
 
-    // 2. Fallback to Tesseract.js (Local, zero API key required - Arabic optimized)
-    if (!extractedText) {
-      try {
-        const { createWorker } = await import('tesseract.js');
-        const worker = await createWorker('ara');
-        const fullDataUri = mediaBase64.startsWith('data:')
-          ? mediaBase64
-          : `data:${mediaMimeType};base64,${mediaBase64}`;
-        const ret = await worker.recognize(fullDataUri);
-        await worker.terminate();
-        const rawOcr = (ret.data?.text || '').trim();
-        // Clean OCR artifacts: strip isolated English gibberish words and broken punctuation
-        extractedText = rawOcr
-          .replace(/\b[A-Za-z]{1,5}\b/g, '')
-          .replace(/[)\]}][0-9]\s*/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-        if (extractedText) methodUsed = 'tesseract';
-      } catch (tessErr: any) {
-        console.warn('Tesseract OCR error:', tessErr);
+    // Always run a second local OCR pass. For image verification, disagreement
+    // between independent OCR engines forces human review.
+    try {
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('ara');
+      const fullDataUri = mediaBase64.startsWith('data:')
+        ? mediaBase64
+        : `data:${mediaMimeType};base64,${mediaBase64}`;
+      const ret = await worker.recognize(fullDataUri);
+      await worker.terminate();
+      const rawOcr = (ret.data?.text || '').trim();
+      tesseractText = rawOcr
+        .replace(/\b[A-Za-z]{1,5}\b/g, '')
+        .replace(/[)\]}][0-9]\s*/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (!extractedText && tesseractText) {
+        extractedText = tesseractText;
+        methodUsed = 'tesseract';
+      } else if (extractedText && tesseractText) {
+        const { normalizeArabicStrict } = await import('./src/lib/normalizer.ts');
+        const consensus = normalizeArabicStrict(extractedText) === normalizeArabicStrict(tesseractText);
+        return res.json({
+          success: true,
+          text: extractedText,
+          method: 'gemini+tesseract',
+          consensus,
+          alternateText: tesseractText
+        });
       }
+    } catch (tessErr: any) {
+      console.warn('Tesseract OCR error:', tessErr);
     }
 
     if (!extractedText) {
@@ -673,10 +714,25 @@ ${extractedText}
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    res.json({
-      success: true,
-      report
-    });
+    enforceApprovedCitations(report);
+    // Image/audio capture is not itself proof that the transcription is exact.
+    // Keep any source-backed result visible, but require review unless capture was explicitly verified.
+    const inputCaptureVerified = inputType === 'image' ? req.body.ocrConsensus === true : false;
+    if ((inputType === 'image' || inputType === 'audio') && !inputCaptureVerified) {
+      for (const verification of report.verifications) {
+        if (verification.status === 'MATCHED') {
+          verification.status = 'NEEDS_REVIEW';
+          verification.status_label_ar = 'النص المستخرج مطابق للمصدر، لكن التحقق من دقة التفريغ يحتاج مراجعة بشرية';
+          verification.status_label_en = 'Source match found; capture/transcription still requires human review';
+          verification.reason = `${verification.reason} لم تُعتبر دقة التفريغ من الصورة/الصوت مثبتة آلياً بنسبة 100%.`;
+        }
+      }
+      if (report.verifications.some((v: any) => v.status === 'NEEDS_REVIEW')) {
+        report.overall_status = 'NEEDS_REVIEW';
+      }
+    }
+
+    res.json({ success: true, report });
   } catch (error: any) {
     console.error('Verification error:', error);
     res.status(500).json({ error: error.message || 'حدث خطأ أثناء فحص المحتوى.' });
