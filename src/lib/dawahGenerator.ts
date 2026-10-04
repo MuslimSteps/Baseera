@@ -179,8 +179,8 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // 1. Retrieve Quran Verses
   const relevantVerses = findRelevantVerses(topic, 4);
 
-  // 2. Retrieve Local Authenticated Hadiths
-  const localHadiths = await findRelevantHadiths(topic, 3);
+  // 2. Retrieve authenticated Hadith candidates only from approved Dorar.net
+  const verifiedHadiths = await findRelevantHadiths(topic, 3);
 
   // 3. Retrieved hadiths come only from the approved Dorar source.
 
@@ -224,7 +224,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   }
 
   // Hadith citations
-  for (const h of localHadiths.slice(0, 2)) {
+  for (const h of verifiedHadiths.slice(0, 2)) {
     allCitations.push({
       type: 'hadith',
       arabic_text: h.text_full || h.text_clean,
@@ -237,7 +237,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     });
   }
 
-  if (liveHadith && !localHadiths.some(h => h.text_clean?.includes(liveHadith.text?.slice(0, 30)))) {
+  if (liveHadith && !verifiedHadiths.some(h => h.text?.includes(liveHadith.text?.slice(0, 30)))) {
     allCitations.push({
       type: 'hadith',
       arabic_text: liveHadith.text,
@@ -267,13 +267,12 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   const sections: DawahContentSection[] = [];
   const mainVerse = relevantVerses[0];
   const secondVerse = relevantVerses[1];
-  const mainHadith = localHadiths[0] || (liveHadith ? { text_full: liveHadith.text, text_clean: liveHadith.text, source_book: liveHadith.book, grade: liveHadith.grade } : null);
-  const secondHadith = localHadiths[1];
+  const mainHadith = verifiedHadiths[0] || null;
+  const secondHadith = verifiedHadiths[1];
 
   const mainVerseTr = mainVerse ? verseTranslations.get(mainVerse.ayah_number) : undefined;
   const secondVerseTr = secondVerse ? verseTranslations.get(secondVerse.ayah_number) : undefined;
-  const mainHadithRu = null;
-
+  
   // ── Section 1: Introduction ──
   const isKhutba = contentType === 'khutba_friday';
   const introAr = isKhutba
