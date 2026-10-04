@@ -14,6 +14,7 @@ import {
   AnalysisReport
 } from '../types/baseera.ts';
 import { normalizeArabic } from './normalizer.ts';
+import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from './dorarEncyclopediaClient.ts';
 
 /**
  * Core Decision Engine with Cross-Source Search
@@ -173,12 +174,53 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
     };
   }
 
-  // 4. If Fiqh Question
+  // 4. Tafsir / Aqeedah questions are source-specific live lookups.
+  if (item.type === 'tafsir_question') {
+    const result: VerificationResult & { _needs_live_search?: boolean } = {
+      id: `tafsir-pending-${Date.now()}`,
+      item,
+      status: 'NOT_FOUND_IN_CHECKED_SOURCES',
+      status_label_ar: 'سيجري البحث في موسوعة التفسير المعتمدة',
+      status_label_en: 'Will Search Approved Tafsir Encyclopedia',
+      reason: 'لم تُعتبر معرفة النموذج دليلاً تفسيرياً. سيجري البحث في موسوعة التفسير بالدرر السنية فقط.',
+      citation: {
+        source_id: 'quran-tafsir-salaf',
+        source_name: 'موسوعة التفسير — الدرر السنية',
+        authority: 'منصة الدرر السنية',
+        url: buildDorarTafsirUrl(item.text)
+      },
+      decision_level: 'B',
+      _needs_live_search: true
+    };
+    return result;
+  }
+
+  if (item.type === 'aqeedah_question') {
+    const result: VerificationResult & { _needs_live_search?: boolean } = {
+      id: `aqeedah-pending-${Date.now()}`,
+      item,
+      status: 'NOT_FOUND_IN_CHECKED_SOURCES',
+      status_label_ar: 'سيجري البحث في الموسوعة العقدية المعتمدة',
+      status_label_en: 'Will Search Approved Aqeedah Encyclopedia',
+      reason: 'لم تُعتبر معرفة النموذج دليلاً عقدياً. سيجري البحث في الموسوعة العقدية بالدرر السنية فقط.',
+      citation: {
+        source_id: 'dorar-aqeedah',
+        source_name: 'الموسوعة العقدية — الدرر السنية',
+        authority: 'منصة الدرر السنية',
+        url: buildDorarAqeedahUrl(item.text)
+      },
+      decision_level: 'B',
+      _needs_live_search: true
+    };
+    return result;
+  }
+
+  // 5. If Fiqh Question
   if (item.type === 'fiqh_question') {
     return verifyFiqhQuestion(item);
   }
 
-  // 5. Default / General text / Unclassified claim:
+  // 6. Default / General text / Unclassified claim:
   const termRes = verifyIslamicTerm(item);
   if (termRes.status === 'MATCHED') return termRes;
   const hadithRes = verifyHadith(item);
