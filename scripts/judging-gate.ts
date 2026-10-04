@@ -270,7 +270,7 @@ test('fiqh corpus exposes only the implemented A/C/D levels', () => {
   assert.deepEqual([...levels].sort(), ['A', 'C', 'D']);
 });
 
-console.log(`\nPassed: ${35 - failures.length}/35`);
+console.log(`\nPassed: ${27 - failures.length}/27`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
