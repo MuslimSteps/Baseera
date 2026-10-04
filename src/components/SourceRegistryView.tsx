@@ -32,6 +32,8 @@ const OFFICIAL_URLS: Record<string, string> = {
 
 export const SourceRegistryView: React.FC = () => {
   const [selectedSource, setSelectedSource] = useState(registryData.sources[0]);
+  const [smoke, setSmoke] = useState<any[] | null>(null);
+  const [smokeLoading, setSmokeLoading] = useState(false);
 
   const sourceUrl = OFFICIAL_URLS[selectedSource.id];
 
@@ -77,6 +79,50 @@ export const SourceRegistryView: React.FC = () => {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="bento-card border border-emerald-500/25 p-5 shadow-lg space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-white font-display text-base">حالة اتصال المصادر الحية</h3>
+            <p className="text-xs text-muted mt-1">
+              فحص تشغيلي اختياري لنقاط المصادر المستخدمة في التحقق. الفشل في مصدر خارجي لا يسمح بصيرة باختراع نتيجة بديلة.
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              setSmokeLoading(true);
+              try {
+                const res = await fetch('/api/source-smoke');
+                const data = await res.json();
+                setSmoke(data.checks || []);
+              } catch {
+                setSmoke([{ source_id: 'backend', ok: false, detail: 'تعذر الاتصال بخادم بصيرة' }]);
+              } finally {
+                setSmokeLoading(false);
+              }
+            }}
+            disabled={smokeLoading}
+            className="px-3 py-1.5 rounded-lg bg-emerald-950/50 border border-emerald-500/30 text-emerald-300 text-xs font-semibold disabled:opacity-50"
+          >
+            {smokeLoading ? 'جارٍ الفحص...' : 'فحص المصادر الآن'}
+          </button>
+        </div>
+        {smoke && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {smoke.map((check: any) => (
+              <div key={check.source_id} className="rounded-lg border border-hairline bg-black/25 p-2.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-ink">{check.source_id}</span>
+                  <span className={check.ok ? 'text-emerald-400' : 'text-rose-300'}>
+                    {check.ok ? 'متاح' : 'غير متاح'}
+                  </span>
+                </div>
+                <div className="text-[10px] text-muted mt-1 break-words">{check.detail}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Sources Grid & Selected Details */}
