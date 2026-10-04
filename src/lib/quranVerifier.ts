@@ -108,6 +108,48 @@ function quranCandidateScore(input: string, canonical: string): {
   };
 }
 
+export function getQuranCandidatesForAI(item: ExtractedItem, limit = 12) {
+  const normInput = normalizeArabic(item.text);
+  const inputWords = new Set(normInput.split(/\s+/).filter(Boolean));
+  const fuzzySurah = findSurahFuzzy(item.claimed_surah);
+
+  const pool = fuzzySurah
+    ? quranData.verses.filter(v => v.surah_number === fuzzySurah.number)
+    : quranData.verses;
+
+  const scored = pool.map(v => {
+    const canonical = normalizeArabic(v.text_clean);
+    const canonicalWords = new Set(canonical.split(/\s+/).filter(Boolean));
+    let shared = 0;
+    for (const word of inputWords) if (canonicalWords.has(word)) shared++;
+
+    const overlap = inputWords.size ? shared / inputWords.size : 0;
+    const sequence = orderedTokenSimilarity(item.text, v.text_clean);
+    const exact = normalizeArabicStrict(item.text) === normalizeArabicStrict(v.text_clean);
+
+    return {
+      verse: v,
+      retrievalScore: exact ? 2 : Math.max(sequence, overlap * 0.8)
+    };
+  });
+
+  scored.sort((a, b) => b.retrievalScore - a.retrievalScore);
+
+  return scored
+    .filter(x => x.retrievalScore > 0.05)
+    .slice(0, limit)
+    .map(x => ({
+      id: `quran-${x.verse.surah_number}-${x.verse.ayah_number}`,
+      source: 'quran-uthmani',
+      title: `سورة ${cleanSurahDisplayName(x.verse.surah_name_ar)} — الآية ${x.verse.ayah_number}`,
+      text: x.verse.text_clean,
+      surah_number: x.verse.surah_number,
+      ayah_number: x.verse.ayah_number,
+      surah_name_ar: cleanSurahDisplayName(x.verse.surah_name_ar),
+      text_uthmani: x.verse.text_uthmani
+    }));
+}
+
 function findSurahFuzzy(rawName?: string) {
   if (!rawName) return null;
   const norm = normalizeArabic(rawName).replace(/^سوره?\s+/, '').replace(/^ال/, '').trim();
