@@ -43,7 +43,7 @@ function matchingDictionaryLink(html: string, query: string): { href: string; ti
   const normalizedQuery = normalizeArabic(query).trim();
   if (!normalizedQuery) return null;
 
-  const links = [...html.matchAll(/<a\\b[^>]*href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi)]
+  const links = [...html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
     .map(m => ({ href: m[1], title: cleanHtml(m[2]) }))
     .filter(x => {
       try {
