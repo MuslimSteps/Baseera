@@ -26,6 +26,12 @@ await run(
   () => searchDorarFiqhLive('نقض الوضوء بلمس المرأة'),
   (value: any) => 'found=' + Boolean(value?.found)
 );
+
+await run(
+  'Dorar Fiqh — ruling intent regression',
+  () => searchDorarFiqhLive('ما حكم الختان؟'),
+  (value: any) => 'found=' + Boolean(value?.found) + ' title=' + (value?.title || '') + ' url=' + (value?.url || '')
+);
 await run(
   'Dorar Tafsir',
   () => searchDorarTafsirLive('تفسير سورة الفاتحة'),
