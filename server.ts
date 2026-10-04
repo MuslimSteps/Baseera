@@ -12,7 +12,6 @@ import { GoogleGenAI } from '@google/genai';
 
 import sourceRegistry from './sources/source-registry.json' with { type: 'json' };
 import quranData from './sources/quran.json' with { type: 'json' };
-import hadithData from './sources/hadith.json' with { type: 'json' };
 import termData from './sources/terminology.json' with { type: 'json' };
 import fiqhData from './sources/fiqh.json' with { type: 'json' };
 
@@ -55,7 +54,7 @@ function enforceApprovedCitations(report: any): void {
       verification.status = 'NEEDS_REVIEW';
       verification.status_label_ar = 'يحتاج مراجعة — المرجع خارج سجل المصادر المعتمد';
       verification.status_label_en = 'Needs Review — Citation is outside the approved source registry';
-      verification.reason = 'تم منع هذه النتيجة لأن المرجع ليس ضمن سجل المصادر المعتمد للحزمة العلمية.';
+      verification.reason = 'تم منع هذه النتيجة لأن المرجع أو نطاق الرابط ليس ضمن سجل المصادر المعتمد للحزمة العلمية.';
     }
   }
 }
@@ -79,7 +78,9 @@ const APPROVED_SOURCE_IDS = new Set([
 function enforceApprovedCitations(report: any): void {
   for (const verification of report.verifications || []) {
     const citation = verification.citation;
-    if (citation && !APPROVED_SOURCE_IDS.has(citation.source_id)) {
+    const host = citation?.url ? (() => { try { return new URL(citation.url).hostname.toLowerCase(); } catch { return ''; } })() : '';
+    const approvedHost = !host || host === 'dorar.net' || host.endsWith('.dorar.net') || host === 'qurancomplex.gov.sa' || host.endsWith('.qurancomplex.gov.sa') || host === 'quranpedia.com' || host.endsWith('.quranpedia.com') || host === 'islamic-content.com' || host.endsWith('.islamic-content.com') || host === 'dawa.center' || host.endsWith('.dawa.center') || host === 'shamela.ws' || host.endsWith('.shamela.ws');
+    if (citation && (!APPROVED_SOURCE_IDS.has(citation.source_id) || !approvedHost)) {
       verification.status = 'NEEDS_REVIEW';
       verification.status_label_ar = 'يحتاج مراجعة — المرجع خارج سجل المصادر المعتمد';
       verification.status_label_en = 'Needs Review — Citation outside approved registry';
@@ -126,7 +127,7 @@ app.get('/api/sources', (_req, res) => {
     registry: sourceRegistry,
     stats: {
       quran_verses_indexed: quranData.verses.length,
-      hadiths_indexed: hadithData.hadiths.length,
+      hadith_verification_mode: 'live_dorar_only',
       terms_indexed: termData.terms.length,
       fiqh_topics_indexed: fiqhData.topics.length
     }
