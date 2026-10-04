@@ -10,7 +10,6 @@
  */
 
 import fiqhData from '../../sources/fiqh.json' with { type: 'json' };
-import hadithData from '../../sources/hadith.json' with { type: 'json' };
 import { normalizeArabic } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
 import { generateSearchQueries, cleanSearchQuery, buildDorarFiqhUrl } from './dorarClient.ts';
