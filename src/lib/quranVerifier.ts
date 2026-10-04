@@ -222,6 +222,29 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
     }
   }
 
+  // AI may suggest a source candidate, but that suggestion is never
+  // treated as user-supplied attribution. Use it only as an additional
+  // retrieval/ranking signal, then validate against the canonical text.
+  const aiHintId = (item as any).ai_match_hint?.candidate_id as string | undefined;
+  if (aiHintId) {
+    const aiMatch = aiHintId.match(/^quran-(\d+)-(\d+)$/);
+    if (aiMatch) {
+      const aiSurah = Number(aiMatch[1]);
+      const aiAyah = Number(aiMatch[2]);
+      const aiCandidate = quranData.verses.find(
+        v => v.surah_number === aiSurah && v.ayah_number === aiAyah
+      );
+      if (aiCandidate) {
+        const scored = quranCandidateScore(item.text, aiCandidate.text_clean);
+        if (scored.score > highestScore) {
+          bestMatch = aiCandidate;
+          highestScore = scored.score;
+          wordDiffResult = scored.diff;
+        }
+      }
+    }
+  }
+
   // 2. If only a surah was supplied, the search above is scoped to that
   // surah. Otherwise search the entire Quran. Either way, do not fabricate
   // a minimum score: similarity must come from the actual text comparison.
@@ -229,7 +252,7 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
     ? quranData.verses.filter(v => {
         const surah = findSurahFuzzy(item.claimed_surah);
         if (surah) return v.surah_number === surah.number;
-        return normalizeArabic(v.surah_name_ar).includes(normalizeArabic(item.claimed_surah));
+        return normalizeArabic(v.surah_name_ar).includes(normalizeArabic(item.claimed_surah || ''));
       })
     : quranData.verses;
 
