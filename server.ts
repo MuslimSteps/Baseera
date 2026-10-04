@@ -20,6 +20,8 @@ import { verifyExtractedItems } from './src/lib/decisionEngine.ts';
 import { isSensitiveFiqhQuestion } from './src/lib/fiqhEngine.ts';
 import { enforceApprovedCitations } from './src/lib/sourcePolicy.ts';
 import { isGroundedInInput } from './src/lib/inputGrounding.ts';
+import { getAvailableTranslationLanguages, getAyahTranslations } from './src/lib/quranpediaClient.ts';
+import { buildDorarAqeedahUrl, buildDorarTafsirUrl, searchDorarAqeedahLive, searchDorarTafsirLive } from './src/lib/dorarEncyclopediaClient.ts';
 import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
 import { normalizeArabic, normalizeArabicStrict } from './src/lib/normalizer.ts';
 import { getComparativeBenchmarkResults } from './src/lib/benchmarkRunner.ts';
@@ -290,8 +292,57 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
 
   const queryToSearch = v.item.text.trim();
   const isFiqhQuestion = v.item.type === 'fiqh_question';
+  const isTafsirQuestion = v.item.type === 'tafsir_question';
+  const isAqeedahQuestion = v.item.type === 'aqeedah_question';
 
   try {
+    if (isTafsirQuestion || isAqeedahQuestion) {
+      const isAqeedah = isAqeedahQuestion;
+      const found = isAqeedah
+        ? await searchDorarAqeedahLive(queryToSearch)
+        : await searchDorarTafsirLive(queryToSearch);
+      const fallbackUrl = isAqeedah ? buildDorarAqeedahUrl(queryToSearch) : buildDorarTafsirUrl(queryToSearch);
+      const sourceId = isAqeedah ? 'dorar-aqeedah' : 'quran-tafsir-salaf';
+      const sourceName = isAqeedah
+        ? 'الموسوعة العقدية — الدرر السنية'
+        : 'موسوعة التفسير — الدرر السنية';
+
+      if (found?.found) {
+        v.status = 'NEEDS_REVIEW';
+        v.status_label_ar = isAqeedah
+          ? 'مادة عقدية من مصدر معتمد — تحتاج مراجعة'
+          : 'مادة تفسيرية من مصدر معتمد — تحتاج مراجعة';
+        v.status_label_en = isAqeedah
+          ? 'Approved Aqeedah Source Found — Review Required'
+          : 'Approved Tafsir Source Found — Review Required';
+        v.reason = `تم العثور على مادة مصدرية في ${sourceName} («${found.title}»). تُعرض المادة كمحتوى مرجعي فقط؛ لا تنشئ بصيرة تفسيراً أو حكماً عقدياً مستقلاً ولا تختار قولاً من خارج المصدر.`;
+        v.canonical_text = found.text || found.title;
+        v.decision_level = 'B';
+        v.citation = {
+          source_id: sourceId,
+          source_name: sourceName,
+          authority: 'منصة الدرر السنية',
+          book: found.title,
+          url: found.url
+        };
+      } else {
+        v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
+        v.status_label_ar = 'لم يُعثر عليه في المرجع المعتمد المفحوص';
+        v.status_label_en = 'Not Found in Checked Approved Source';
+        v.reason = `لم يُعثر على مادة مطابقة في ${sourceName}. لا تُنشئ بصيرة بديلاً مولداً من النموذج، ويمكن مراجعة صفحة المصدر مباشرة.`;
+        v.citation = {
+          source_id: sourceId,
+          source_name: sourceName,
+          authority: 'منصة الدرر السنية',
+          url: fallbackUrl
+        };
+        v.decision_level = 'B';
+      }
+
+      delete r._needs_live_search;
+      return;
+    }
+
     if (isFiqhQuestion) {
       // ── FIQH PATH: Dorar Fiqh Encyclopedia (dorar.net/feqhia) ─────────────────
       const fiqhSearchUrl = r._fiqh_url || buildDorarFiqhUrl(queryToSearch);
@@ -772,6 +823,70 @@ app.get('/api/dorar/search', async (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'فشل البحث في الدرر السنية.' });
+  }
+});
+
+// 2c. Live approved source APIs: Quranpedia translations + Dorar tafsir/aqeedah
+app.get('/api/quran/translations', async (req, res) => {
+  try {
+    const surah = Number(req.query.surah);
+    const ayah = Number(req.query.ayah);
+    const language = typeof req.query.language === 'string' ? req.query.language.trim() : undefined;
+    if (!Number.isInteger(surah) || surah < 1 || surah > 114 || !Number.isInteger(ayah) || ayah < 1) {
+      return res.status(400).json({ error: 'يرجى تقديم رقم السورة والآية بشكل صحيح.' });
+    }
+
+    const data = await getAyahTranslations(surah, ayah, language);
+    const languages = language ? [] : await getAvailableTranslationLanguages(surah, ayah);
+    res.json({
+      success: true,
+      source: 'Quranpedia — quranpedia.net',
+      surah,
+      ayah,
+      language: language || null,
+      available_languages: languages,
+      translations: data
+    });
+  } catch (err: any) {
+    res.status(502).json({ error: err.message || 'تعذر الوصول إلى خدمة ترجمات القرآن المعتمدة.' });
+  }
+});
+
+app.get('/api/dorar/aqeedah', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'يرجى تقديم سؤال أو موضوع عقدي.' });
+    const result = await searchDorarAqeedahLive(q);
+    res.json({
+      success: true,
+      source_id: 'dorar-aqeedah',
+      source: 'الموسوعة العقدية — الدرر السنية',
+      found: Boolean(result?.found),
+      title: result?.title || '',
+      text: result?.text || '',
+      url: result?.url || buildDorarAqeedahUrl(q)
+    });
+  } catch (err: any) {
+    res.status(502).json({ error: err.message || 'تعذر البحث في الموسوعة العقدية.' });
+  }
+});
+
+app.get('/api/dorar/tafseer', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'يرجى تقديم سؤال أو موضوع تفسيري.' });
+    const result = await searchDorarTafsirLive(q);
+    res.json({
+      success: true,
+      source_id: 'quran-tafsir-salaf',
+      source: 'موسوعة التفسير — الدرر السنية',
+      found: Boolean(result?.found),
+      title: result?.title || '',
+      text: result?.text || '',
+      url: result?.url || buildDorarTafsirUrl(q)
+    });
+  } catch (err: any) {
+    res.status(502).json({ error: err.message || 'تعذر البحث في موسوعة التفسير.' });
   }
 });
 
