@@ -347,8 +347,11 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
       t => t.surah === bestMatch!.surah_number && t.ayah === bestMatch!.ayah_number
     );
 
-    // Exact or normalized complete match
-    if (highestScore >= 0.99 && !wordDiffResult.hasDiscrepancy) {
+    // MATCHED is reserved for a complete canonical verse match.
+    // A prefix/partial quotation may score 1.0 against a contiguous window,
+    // but it is still not the full Quranic text.
+    const strictExact = normalizeArabicStrict(item.text) === normalizeArabicStrict(bestMatch.text_clean);
+    if (strictExact) {
       const claimedSurah = item.claimed_surah ? findSurahFuzzy(item.claimed_surah) : null;
 
       if (claimedSurah && claimedSurah.number !== bestMatch.surah_number) {
