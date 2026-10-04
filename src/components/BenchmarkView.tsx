@@ -27,7 +27,7 @@ import { getComparativeBenchmarkResults } from '../lib/benchmarkRunner.ts';
 export const BenchmarkView: React.FC = () => {
   const [cases] = useState<BenchmarkCase[]>(getAllFrozenBenchmarkCases());
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedSystemInspection, setSelectedSystemInspection] = useState<'baseeraFull' | 'baseeraNoVerifier' | 'llmWithSearch' | 'rawLlm'>('baseeraFull');
+  const [selectedSystemInspection, setSelectedSystemInspection] = useState<'baseeraFull'>('baseeraFull');
   const [comparativeData, setComparativeData] = useState<ReturnType<typeof getComparativeBenchmarkResults> | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState<'matrix' | 'cases'>('matrix');
@@ -60,7 +60,7 @@ export const BenchmarkView: React.FC = () => {
           <span aria-hidden="true" className="text-faint">·</span>
           <span className="font-mono-numbers">150 حالة اختبار معيارية</span>
           <span aria-hidden="true" className="text-faint">·</span>
-          <span className="text-gold font-medium">تقييم حي ومقارن عبر 4 أنظمة</span>
+          <span className="text-gold font-medium">تقييم حي للمنظومة الكاملة</span>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -69,7 +69,7 @@ export const BenchmarkView: React.FC = () => {
               لوحة قياس الدقة ومقارنة الأنظمة
             </h1>
             <p className="text-sm text-muted mt-3 max-w-3xl leading-relaxed">
-              تم تجميد حالات الاختبار مسبقاً وفق الحزمة العلمية لإثبات الفارق الجوهري بين الاعتماد على ذاكرة النماذج اللغوية التوليدية (المعرضة للهلاوس وقبول التحريف) وبين طبقة التحقق البرمجية المرجعية الصارمة.
+              تم تجميد حالات الاختبار مسبقاً وفق الحزمة العلمية لقياس أداء طبقة التحقق البرمجية المرجعية في بصيرة.
             </p>
           </div>
 
@@ -79,7 +79,7 @@ export const BenchmarkView: React.FC = () => {
             className="px-5 py-2.5 rounded-xl bg-gold-strong hover:bg-[#c96a12] font-semibold text-white shadow-md shadow-black/40 flex items-center gap-2 transition-all cursor-pointer self-start md:self-auto text-xs active:scale-[0.98]"
           >
             <Play className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} />
-            <span>{isRunning ? 'جاري تشغيل الفحص الحي...' : 'تشغيل الاختبار المجمّد (150 حالة)'}</span>
+            <span>{isRunning ? 'جاري تشغيل الفحص الحي...' : 'تشغيل الاختبار المجمّد'}</span>
           </button>
         </div>
       </div>
@@ -161,137 +161,32 @@ export const BenchmarkView: React.FC = () => {
         </button>
       </div>
 
-      {/* Tab 1: Comparative Matrix */}
+      {/* Tab 1: Frozen Benchmark Results */}
       {activeTab === 'matrix' && comparativeData && (
         <div className="space-y-6">
           <div className="bento-card border border-hairline overflow-hidden shadow-lg">
-            <div className="p-5 border-b border-hairline flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold font-display text-ink">
-                  المقارنة المعيارية لأنظمة الاسترجاع والتحقق
-                </h3>
-                <p className="text-xs text-muted mt-0.5">
-                  تم اختبار الـ 150 حالة فعلياً لقياس الفارق في موثوقية النتائج.
-                </p>
-              </div>
+            <div className="p-5 border-b border-hairline">
+              <h3 className="text-base font-bold font-display text-ink">نتائج الاختبار المجمّد — بصيرة</h3>
+              <p className="text-xs text-muted mt-1">هذه أرقام تشغيل فعلي للمحرك الموجود في هذا المستودع. لا توجد نتائج مولدة أو عشوائية لنماذج خارجية.</p>
             </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-right text-xs">
-                <thead className="bg-black/40 text-muted border-b border-hairline">
-                  <tr>
-                    <th className="py-3 px-5 font-semibold">النظام المفحوص</th>
-                    <th className="py-3 px-4 font-semibold text-center text-emerald-400">معدل التأكيد الخاطئ (FCR) ⬇</th>
-                    <th className="py-3 px-4 font-semibold text-center">دقة التوثيق (Citation) ⬆</th>
-                    <th className="py-3 px-4 font-semibold text-center">دقة الامتناع (Abstention) ⬆</th>
-                    <th className="py-3 px-4 font-semibold text-center">الثبات (Consistency) ⬆</th>
-                    <th className="py-3 px-5 font-semibold text-center">الدقة الإجمالية</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-hairline">
-                  {/* System 4: Full Baseera */}
-                  <tr className="bg-emerald-950/20 font-medium">
-                    <td className="py-4 px-5 text-white flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <strong className="font-bold">بصيرة — المنظومة الكاملة (Baseera)</strong>
-                      <span className="text-[10px] text-emerald-400 mr-2 font-mono">(المعتمد)</span>
-                    </td>
-                    <td className="py-4 px-4 text-center font-bold text-emerald-400 font-mono-numbers text-sm">
-                      {comparativeData.baseeraFull.false_confirmation_rate}%
-                    </td>
-                    <td className="py-4 px-4 text-center text-ink font-mono-numbers">
-                      {comparativeData.baseeraFull.citation_accuracy}%
-                    </td>
-                    <td className="py-4 px-4 text-center text-ink font-mono-numbers">
-                      {comparativeData.baseeraFull.abstention_accuracy}%
-                    </td>
-                    <td className="py-4 px-4 text-center text-ink font-mono-numbers">
-                      {comparativeData.baseeraFull.consistency_score}%
-                    </td>
-                    <td className="py-4 px-5 text-center font-bold text-emerald-400 font-mono-numbers">
-                      {comparativeData.baseeraFull.accuracy}%
-                    </td>
-                  </tr>
-
-                  {/* System 3: Baseera No Verifier */}
-                  <tr className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3.5 px-5 text-ink/85">
-                      بصيرة بدون طبقة المطابقة (Baseera AI-Only)
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-amber-400 font-mono-numbers">
-                      {comparativeData.baseeraNoVerifier.false_confirmation_rate}%
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-muted font-mono-numbers">
-                      {comparativeData.baseeraNoVerifier.citation_accuracy}%
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-muted font-mono-numbers">
-                      {comparativeData.baseeraNoVerifier.abstention_accuracy}%
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-muted font-mono-numbers">
-                      {comparativeData.baseeraNoVerifier.consistency_score}%
-                    </td>
-                    <td className="py-3.5 px-5 text-center text-ink/85 font-mono-numbers">
-                      {comparativeData.baseeraNoVerifier.accuracy}%
-                    </td>
-                  </tr>
-
-                  {/* System 2: LLM + Search */}
-                  <tr className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3.5 px-5 text-ink/85">
-                      نموذج لغوي + بحث ويب مفتوح (LLM + Open Search)
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-rose-400 font-mono-numbers">
-                      {comparativeData.llmWithSearch.false_confirmation_rate}%
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-muted font-mono-numbers">
-                      {comparativeData.llmWithSearch.citation_accuracy}%
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-muted font-mono-numbers">
-                      {comparativeData.llmWithSearch.abstention_accuracy}%
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-muted font-mono-numbers">
-                      {comparativeData.llmWithSearch.consistency_score}%
-                    </td>
-                    <td className="py-3.5 px-5 text-center text-ink/85 font-mono-numbers">
-                      {comparativeData.llmWithSearch.accuracy}%
-                    </td>
-                  </tr>
-
-                  {/* System 1: Raw Generic LLM */}
-                  <tr className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3.5 px-5 text-ink/85">
-                      النموذج اللغوي العام المجرد (Raw Generic LLM)
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-bold text-rose-500 font-mono-numbers">
-                      {comparativeData.rawLlm.false_confirmation_rate}%
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-faint font-mono-numbers">
-                      {comparativeData.rawLlm.citation_accuracy}%
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-faint font-mono-numbers">
-                      {comparativeData.rawLlm.abstention_accuracy}%
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-faint font-mono-numbers">
-                      {comparativeData.rawLlm.consistency_score}%
-                    </td>
-                    <td className="py-3.5 px-5 text-center text-muted font-mono-numbers">
-                      {comparativeData.rawLlm.accuracy}%
-                    </td>
-                  </tr>
-                </tbody>
+                <thead className="bg-black/40 text-muted border-b border-hairline"><tr>
+                  <th className="py-3 px-5">النظام</th><th className="py-3 px-4 text-center">FCR ⬇</th><th className="py-3 px-4 text-center">تغطية التوثيق ⬆</th><th className="py-3 px-4 text-center">الامتناع ⬆</th><th className="py-3 px-4 text-center">الثبات ⬆</th><th className="py-3 px-5 text-center">الدقة</th>
+                </tr></thead>
+                <tbody><tr className="bg-emerald-950/20 font-medium">
+                  <td className="py-4 px-5 text-white">بصيرة — المنظومة الكاملة</td>
+                  <td className="py-4 px-4 text-center text-emerald-400">{comparativeData.baseeraFull.false_confirmation_rate}%</td>
+                  <td className="py-4 px-4 text-center">{comparativeData.baseeraFull.citation_accuracy}%</td>
+                  <td className="py-4 px-4 text-center">{comparativeData.baseeraFull.abstention_accuracy}%</td>
+                  <td className="py-4 px-4 text-center">{comparativeData.baseeraFull.consistency_score}%</td>
+                  <td className="py-4 px-5 text-center text-emerald-400">{comparativeData.baseeraFull.accuracy}%</td>
+                </tr></tbody>
               </table>
             </div>
           </div>
-
-          {/* Academic Insight Callout */}
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-hairline text-xs text-ink/85 space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-emerald-400">
-              <Info className="w-4 h-4" />
-              <span>الاستنتاج العلمي المحقق من الاختبار المجمّد:</span>
-            </div>
-            <p className="leading-relaxed text-muted">
-              يثبت الاختبار أن النماذج اللغوية التوليدية العامة تقع في التأكيد الخاطئ بنسبة تزيد عن 85% في النصوص المحرفة والأحاديث الضعيفة المشتهرة على الإنترنت، بينما تنجح طبقة التحقق المستقلة في "بصيرة" في خفض التأكيد الخاطئ الحرج إلى 0.0% عبر إرجاع كل كلمة إلى فهرسها العثماني وسندها الحديثي المعتمد.
-            </p>
+          <div className="p-4 rounded-xl bg-white/[0.02] border border-hairline text-xs text-muted">
+            <strong className="text-ink">ملاحظة منهجية:</strong> المقارنة مع LLM عام أو LLM + بحث ويب ليست محسوبة هنا لأنها كانت سابقاً محاكاة برمجية وليست تجارب فعلية. عرضها كنتائج علمية سيكون مضللاً.
           </div>
         </div>
       )}
@@ -303,16 +198,11 @@ export const BenchmarkView: React.FC = () => {
           <div className="p-4 rounded-xl bento-card border border-hairline flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-ink">
               <Award className="w-4 h-4 text-emerald-400" />
-              <span>اختر النظام لفحص تدقيقه على الـ 150 حالة اختبار:</span>
+              <span>فحص تدقيق بصيرة على حالات الاختبار المجمّدة:</span>
             </div>
 
             <div className="flex flex-wrap gap-2 text-xs">
-              {[
-                { id: 'baseeraFull', label: 'بصيرة الكاملة', activeClass: 'bg-emerald-950 text-emerald-300 border-emerald-600' },
-                { id: 'baseeraNoVerifier', label: 'بصيرة بدون مطابقة', activeClass: 'bg-amber-950 text-amber-300 border-amber-600' },
-                { id: 'llmWithSearch', label: 'نموذج + بحث ويب', activeClass: 'bg-rose-950 text-rose-300 border-rose-600' },
-                { id: 'rawLlm', label: 'النموذج العام', activeClass: 'bg-slate-800 text-ink border-slate-600' }
-              ].map(sys => (
+              {[{ id: 'baseeraFull', label: 'بصيرة الكاملة', activeClass: 'bg-emerald-950 text-emerald-300 border-emerald-600' }].map(sys => (
                 <button
                   key={sys.id}
                   onClick={() => setSelectedSystemInspection(sys.id as any)}
