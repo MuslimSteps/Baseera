@@ -77,6 +77,26 @@ test('source URL guard rejects unapproved domains', () => {
   assert.equal(isApprovedSourceUrl('https://example.com/fake-fatwa'), false);
 });
 
+test('source policy binds the source ID to the correct official path', () => {
+  const report: any = {
+    overall_status: 'MATCHED',
+    verifications: [{
+      status: 'MATCHED',
+      canonical_text: 'must be removed',
+      citation: { source_id: 'fiqh-madhahib-dorar', source_name: 'Dorar', url: 'https://dorar.net/hadith/search?q=foo' }
+    }]
+  };
+  enforceApprovedCitations(report);
+  assert.equal(report.verifications[0].status, 'NEEDS_REVIEW');
+  assert.equal('canonical_text' in report.verifications[0], false);
+});
+
+test('swearing-by-other-than-Allah is handled as fiqh review, not consensus', () => {
+  const result = verifyFiqhQuestion(item('fiqh_question', 'ما حكم الحلف بغير الله؟'));
+  assert.equal(result.status, 'NEEDS_REVIEW');
+  assert.equal(result.decision_level, 'C');
+});
+
 test('citation guard downgrades an unapproved citation', () => {
   const report: any = {
     overall_status: 'MATCHED',
@@ -325,7 +345,7 @@ test('fiqh corpus exposes only the implemented A/C/D levels', () => {
   assert.deepEqual([...levels].sort(), ['A', 'C', 'D']);
 });
 
-console.log(`\nPassed: ${32 - failures.length}/32`);
+console.log(`\nPassed: ${34 - failures.length}/34`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
