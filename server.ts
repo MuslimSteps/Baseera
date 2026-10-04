@@ -794,10 +794,16 @@ ${extractedText}
       referral_count: referralCount
     };
 
+    const alteredQuranCount = report.verifications.filter((v: any) => v.finding_type === 'altered_quran_text').length;
+
     if (referralCount > 0) {
       report.overall_status = 'REFER_TO_SPECIALIST';
       report.summary_ar = `إحالة شرعية: يتضمن المحتوى مسائل فقهية أو حالات شخصية تتطلب استشارة أهل الاختصاص والهيئات الإفتائية المعتمدة.`;
       report.summary_en = `Specialist Referral: Input contains legal/personal queries that require direct qualified religious consultation.`;
+    } else if (alteredQuranCount > 0) {
+      report.overall_status = 'NEEDS_REVIEW';
+      report.summary_ar = `تم رصد تحريف في ${alteredQuranCount} نص قرآني: النص لا يطابق المصحف المعتمد، ولا يجوز عرضه على أنه آية مطابقة.`;
+      report.summary_en = `Altered Quranic wording detected in ${alteredQuranCount} item(s): the text does not match the approved Quranic corpus.`;
     } else if (needsReviewCount > 0) {
       report.overall_status = 'NEEDS_REVIEW';
       report.summary_ar = `تنبيه: يتضمن المحتوى عناصر تحتاج لمراجعة ودقة في النقل (${needsReviewCount} عناصر) لتجنب الخلط أو الخطأ في العزو.`;
