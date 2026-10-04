@@ -18,6 +18,7 @@ import fiqhData from './sources/fiqh.json' with { type: 'json' };
 
 import { extractItemsRuleBased } from './src/lib/extractor.ts';
 import { verifyExtractedItems } from './src/lib/decisionEngine.ts';
+import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
 import { getComparativeBenchmarkResults } from './src/lib/benchmarkRunner.ts';
 import { searchDorarApiLive, searchDorarWithSmartQueries, searchDorarFiqhLive, buildDorarFiqhUrl, cleanSearchQuery, generateFiqhSearchKeywords } from './src/lib/dorarClient.ts';
 import { generateDawahContent, formatContentAsText, generateInfographicSvg, DawahContentRequest } from './src/lib/dawahGenerator.ts';
@@ -400,55 +401,13 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
         const top = smart.topResult;
         const queryUsed = smart.queryUsed;
         const gradeCategory = top.gradeCategory;
+        const hadithDecision = buildHadithDecision(v.item, top);
 
-        if (top.isDisputed || gradeCategory === 'disputed') {
-          v.status = 'NEEDS_REVIEW';
-          v.status_label_ar = '⚠️ حديث مختلف في صحته بين أئمة الحديث (الدرر السنية)';
-          v.status_label_en = 'Disputed Hadith (Dorar.net)';
-          v.reason = `الحديث مختلف في ثبوته وصحته بين أئمة الحديث في الموسوعة الحديثية: ${top.disputeDetails || 'صححه بعضهم وضعفه واستنكره آخرون'}. الراوي: ${top.rawi || ''}، المحدث: ${top.muhaddith || ''}، المصدر: ${top.book} (${top.numberOrPage}). لا يجوز الجزم بنسبته للنبي ﷺ أو اعتماده حكماً قاطعاً لوجود الخلاف المعتبر في سنده.`;
-          v.canonical_text = top.text;
-          v.decision_level = 'B';
-        } else if (gradeCategory === 'fabricated' || /موضوع|مكذوب|باطل|لا أصل/.test(top.grade)) {
-          v.status = 'NEEDS_REVIEW';
-          v.status_label_ar = `⛔ حديث موضوع مكذوب (${top.grade || 'موضوع'}) — لا أصل له`;
-          v.status_label_en = 'Fabricated Hadith (Dorar.net)';
-          v.reason = `النص موضوع أو مكذوب لا أصل له في الموسوعة الحديثية بالدرر السنية بدرجة: "${top.grade}". الراوي: ${top.rawi || 'غير محدد'}، المحدث: ${top.muhaddith || 'غير محدد'}، المصدر: ${top.book} (${top.numberOrPage}). يحرم نسبته للنبي ﷺ.`;
-          v.canonical_text = top.text;
-          v.decision_level = 'B';
-        } else if (gradeCategory === 'weak' || /ضعيف|منكر|لا يصح|لا يثبت/.test(top.grade)) {
-          v.status = 'NEEDS_REVIEW';
-          v.status_label_ar = `⚠️ حديث ضعيف (${top.grade || 'ضعيف'}) — لا تصح نسبته للنبي ﷺ`;
-          v.status_label_en = 'Weak Hadith (Dorar.net)';
-          v.reason = `وُجد النص في الموسوعة الحديثية بالدرر السنية بدرجة: "${top.grade}". الراوي: ${top.rawi || 'غير محدد'}، المحدث: ${top.muhaddith || 'غير محدد'}، المصدر: ${top.book} (${top.numberOrPage}). لا يجوز الجزم بنسبته للنبي ﷺ إلا مع بيان ضعفه.`;
-          v.canonical_text = top.text;
-          v.decision_level = 'B';
-        } else if (gradeCategory === 'sahih' || gradeCategory === 'hasan') {
-          const isHasan = gradeCategory === 'hasan' || /حسن/.test(top.grade);
-          v.status = 'MATCHED';
-          v.status_label_ar = isHasan
-            ? `✅ حديث حسن وثابت (${top.grade || 'حسن'}) — الدرر السنية`
-            : `✅ حديث صحيح وثابت (${top.grade || 'صحيح'}) — الدرر السنية`;
-          v.status_label_en = 'Established Authentic Hadith (Dorar.net)';
-          v.reason = `ثبت النص بالدليل الصحيح في الموسوعة الحديثية بالدرر السنية: «${top.text}». الراوي: ${top.rawi || 'صحابي جليل'}، المحدث: ${top.muhaddith || 'المحدث'}، المصدر: ${top.book} (${top.numberOrPage})، خلاصة حكم المحدث: ${top.grade}.`;
-          v.canonical_text = top.text;
-          v.decision_level = 'A';
+        if (hadithDecision.status === 'NEEDS_REVIEW' || hadithDecision.status === 'MATCHED') {
+          Object.assign(v, hadithDecision);
         } else {
-          v.status = 'NEEDS_REVIEW';
-          v.status_label_ar = `⚠️ تخريج حديث (${top.grade || 'غير محدد'}) — الدرر السنية`;
-          v.status_label_en = 'Check Dorar Takhrij';
-          v.reason = `وُجد في منصة الدرر السنية — حُكم المحدث: "${top.grade}". المصدر: ${top.book}. يُرجى مراجعة تفاصيل التخريج.`;
-          v.canonical_text = top.text;
-          v.decision_level = 'B';
+          Object.assign(v, hadithDecision);
         }
-
-        v.citation = {
-          source_id: 'dorar-hadith-live',
-          source_name: 'الموسوعة الحديثية — الدرر السنية',
-          authority: 'مؤسسة الدرر السنية للإشراف العلمي',
-          book: `${top.book} (${top.numberOrPage})`,
-          grade: top.grade,
-          url: `https://dorar.net/hadith/search?q=${encodeURIComponent(queryUsed)}`
-        };
       } else {
         if (v.status !== 'REFER_TO_SPECIALIST') {
           v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
