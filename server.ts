@@ -839,6 +839,67 @@ ${extractedText}
   }
 });
 
+// 2a. Live source readiness check for judging/demo environments.
+app.get('/api/source-smoke', async (_req, res) => {
+  const checks = await Promise.all([
+    (async () => {
+      try {
+        const rows = await searchDorarApiLive('إنما الأعمال بالنيات');
+        return { source_id: 'dorar-hadith', ok: rows.length > 0, detail: 'results=' + rows.length };
+      } catch (e: any) {
+        return { source_id: 'dorar-hadith', ok: false, detail: e.message || 'error' };
+      }
+    })(),
+    (async () => {
+      try {
+        const row = await searchDorarFiqhLive('نقض الوضوء بلمس المرأة');
+        return { source_id: 'fiqh-madhahib-dorar', ok: Boolean(row?.found), detail: 'found=' + Boolean(row?.found) };
+      } catch (e: any) {
+        return { source_id: 'fiqh-madhahib-dorar', ok: false, detail: e.message || 'error' };
+      }
+    })(),
+    (async () => {
+      try {
+        const row = await searchDorarTafsirLive('تفسير سورة الفاتحة');
+        return { source_id: 'quran-tafsir-salaf', ok: Boolean(row?.found), detail: 'found=' + Boolean(row?.found) };
+      } catch (e: any) {
+        return { source_id: 'quran-tafsir-salaf', ok: false, detail: e.message || 'error' };
+      }
+    })(),
+    (async () => {
+      try {
+        const row = await searchDorarAqeedahLive('التوحيد');
+        return { source_id: 'dorar-aqeedah', ok: Boolean(row?.found), detail: 'found=' + Boolean(row?.found) };
+      } catch (e: any) {
+        return { source_id: 'dorar-aqeedah', ok: false, detail: e.message || 'error' };
+      }
+    })(),
+    (async () => {
+      try {
+        const row = await searchJamharaLive('التوحيد');
+        return { source_id: 'jamhara-terms', ok: Boolean(row?.found), detail: 'found=' + Boolean(row?.found) };
+      } catch (e: any) {
+        return { source_id: 'jamhara-terms', ok: false, detail: e.message || 'error' };
+      }
+    })(),
+    (async () => {
+      try {
+        const langs = await getAvailableTranslationLanguages(1, 1);
+        return { source_id: 'quran-translations', ok: Array.isArray(langs) && langs.length > 0, detail: 'languages=' + (Array.isArray(langs) ? langs.length : 0) };
+      } catch (e: any) {
+        return { source_id: 'quran-translations', ok: false, detail: e.message || 'error' };
+      }
+    })()
+  ]);
+
+  res.json({
+    success: true,
+    checked_at: new Date().toISOString(),
+    all_ok: checks.every(x => x.ok),
+    checks
+  });
+});
+
 // 2b. Direct Dorar.net Live Search API Endpoint
 app.get('/api/dorar/search', async (req, res) => {
   try {
