@@ -15,7 +15,7 @@ import { verifyFiqhQuestion, isSensitiveFiqhQuestion } from '../src/lib/fiqhEngi
 import { buildHadithDecision } from '../src/lib/hadithVerifier.ts';
 import { normalizeArabicStrict } from '../src/lib/normalizer.ts';
 import { runBaseeraBenchmark } from '../src/lib/benchmarkRunner.ts';
-import { getAllFrozenBenchmarkCases } from '../src/lib/benchmarkData.ts';
+import { getAllFrozenBenchmarkCases, getRobustnessBenchmarkCases } from '../src/lib/benchmarkData.ts';
 import { APPROVED_SOURCE_IDS, enforceApprovedCitations, isApprovedSourceUrl } from '../src/lib/sourcePolicy.ts';
 import { isGroundedInInput } from '../src/lib/inputGrounding.ts';
 import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from '../src/lib/dorarEncyclopediaClient.ts';
@@ -305,6 +305,16 @@ test('frozen benchmark has the required size and zero false confirmations', () =
   assert.equal(result.consistency_score, 100);
 });
 
+test('robustness suite is deterministic, same-size, and ID-isolated', () => {
+  const base = getAllFrozenBenchmarkCases();
+  const robustness = getRobustnessBenchmarkCases();
+  assert.equal(base.length, 150);
+  assert.equal(robustness.length, 150);
+  assert.equal(new Set(robustness.map((x: any) => x.id)).size, 150);
+  assert.ok(robustness.every((x: any) => x.id.startsWith('BM-RB-')));
+  assert.ok(robustness.every((x: any) => base.every((b: any) => b.id !== x.id)));
+});
+
 // I. Frozen benchmark integrity and repository hygiene
 test('frozen benchmark covers the required categories, statuses, languages, and frozen flag', async () => {
   const cases = getAllFrozenBenchmarkCases();
@@ -357,7 +367,7 @@ test('fiqh corpus exposes only the implemented A/C/D levels', () => {
   assert.deepEqual([...levels].sort(), ['A', 'C', 'D']);
 });
 
-console.log(`\nPassed: ${36 - failures.length}/36`);
+console.log(`\nPassed: ${37 - failures.length}/37`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
