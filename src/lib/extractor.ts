@@ -198,6 +198,8 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
 
     if (containsAr || containsEn) {
       const foundIdx = containsAr ? text.indexOf(termAr) : text.search(regexEn);
+      const termEnd = foundIdx + (containsAr ? termAr.length : termEn.length);
+      if (foundIdx >= 0 && isOverlapping(foundIdx, termEnd)) continue;
       const surroundingContext = text.slice(Math.max(0, foundIdx - 60), Math.min(text.length, foundIdx + 140));
 
       items.push({
