@@ -70,7 +70,7 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
     normalizedInput.split(/\s+/).length >= 4;
 
   const citation = {
-    source_id: 'dorar-hadith-live',
+    source_id: 'dorar-hadith',
     source_name: 'الموسوعة الحديثية — الدرر السنية',
     authority: 'مؤسسة الدرر السنية للإشراف العلمي',
     book: bestMatch.book,
