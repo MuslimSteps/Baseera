@@ -10,6 +10,8 @@
  */
 
 import { fetchRemoteSafely, readTextWithLimit } from './safeRemoteFetch.ts';
+import quranData from '../../sources/quran.json' with { type: 'json' };
+import { normalizeArabic } from './normalizer.ts';
 
 export type DorarEncyclopediaKind = 'tafsir' | 'aqeedah';
 
@@ -40,8 +42,25 @@ function cleanHtml(raw: string): string {
 }
 
 function searchUrl(kind: DorarEncyclopediaKind, query: string): string {
-  const root = kind === 'aqeedah' ? 'aqeeda' : 'tafseer';
-  return `https://dorar.net/${root}/search?skeys=${encodeURIComponent(query.trim())}`;
+  if (kind === 'aqeedah') {
+    return `https://dorar.net/aqeeda/search?skeys=${encodeURIComponent(query.trim())}`;
+  }
+
+  const norm = normalizeArabic(query);
+  const explicit = query.match(/(?:سورة|سوره)\\s+([^:0-9]+)(?::|\\s+آية\\s*|\\s+(\\d+))?/i);
+  if (explicit?.[1]) {
+    const name = normalizeArabic(explicit[1]).trim();
+    const surah = (quranData.surahs as any[]).find((s: any) => normalizeArabic(s.name_ar).includes(name));
+    if (surah) return `https://dorar.net/tafseer/${surah.number}`;
+  }
+
+  const surahFromName = (quranData.surahs as any[]).find((s: any) => {
+    const sn = normalizeArabic(s.name_ar);
+    return norm.includes(sn) || norm.includes(sn.replace(/^ال/, ''));
+  });
+  if (surahFromName) return `https://dorar.net/tafseer/${surahFromName.number}`;
+
+  return 'https://dorar.net/tafseer';
 }
 
 function allowedPath(kind: DorarEncyclopediaKind, href: string): boolean {
@@ -62,6 +81,22 @@ async function search(kind: DorarEncyclopediaKind, query: string): Promise<Dorar
 
   const url = searchUrl(kind, cleanQuery);
   try {
+    // Direct Surah tafsir pages are the stable source path. For generic tafsir
+    // questions without a resolvable Surah, return the official index rather
+    // than pretending that a search endpoint is an evidence API.
+    if (kind === 'tafsir' && url === 'https://dorar.net/tafseer') {
+      const result = {
+        found: false,
+        title: '',
+        text: '',
+        url,
+        source: 'موسوعة التفسير — الدرر السنية',
+        kind
+      };
+      cache.set(key, result);
+      return result;
+    }
+
     const response = await fetchRemoteSafely(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 Baseera/1.0',
