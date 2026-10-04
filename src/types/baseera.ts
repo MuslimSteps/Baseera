@@ -9,7 +9,7 @@ export type VerificationStatus =
   | 'NOT_FOUND_IN_CHECKED_SOURCES'
   | 'REFER_TO_SPECIALIST';
 
-export type ItemType = 'ayah' | 'hadith' | 'term' | 'fiqh_question' | 'claim';
+export type ItemType = 'ayah' | 'hadith' | 'term' | 'fiqh_question' | 'tafsir_question' | 'aqeedah_question' | 'claim';
 
 export interface SourceCitation {
   source_id: string;
@@ -20,6 +20,7 @@ export interface SourceCitation {
   grade?: string;
   url?: string;
   access_method?: string;
+  language?: string;
 }
 
 export interface DiffWord {
