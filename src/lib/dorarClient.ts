@@ -373,6 +373,93 @@ export function generateFiqhSearchKeywords(rawText: string): string[] {
   return [...new Set(words)];
 }
 
+type DorarFiqhLiveResult = {
+  found: boolean;
+  title: string;
+  text: string;
+  detailedRuling?: string;
+  url: string;
+  source: string;
+  allResults: Array<{ title: string; text: string; url: string }>;
+};
+
+const CANONICAL_FIQH_SECTION_ANCHORS: Array<{ subject: string; intent: 'ruling'; title: string; url: string }> = [
+  {
+    subject: 'ختان',
+    intent: 'ruling',
+    title: 'المبحث الرابع: حكم الختان',
+    url: 'https://dorar.net/feqhia/218'
+  }
+];
+
+function getCanonicalFiqhAnchor(query: string): { title: string; url: string } | null {
+  const normalized = normalizeArabic(query || '');
+  const isRulingQuestion =
+    /ما\s+(?:هو\s+)?حكم|هل\s+(?:يجوز|يجب|يصح)|(?:حكم|واجب|فرض|حرام|مكروه|مستحب|جائز)/i.test(normalized);
+
+  if (!isRulingQuestion) return null;
+
+  const anchor = CANONICAL_FIQH_SECTION_ANCHORS.find(
+    candidate => normalized.includes(candidate.subject) || normalized.includes('ال' + candidate.subject)
+  );
+
+  return anchor ? { title: anchor.title, url: anchor.url } : null;
+}
+
+async function fetchDorarFiqhArticle(url: string): Promise<{ title: string; text: string } | null> {
+  try {
+    const raw = await new Promise<string>((resolve) => {
+      const parsed = new URL(url);
+      const req = https.request({
+        hostname: parsed.hostname,
+        port: 443,
+        path: parsed.pathname + parsed.search,
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36 Baseera/1.0',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'ar,en;q=0.9'
+        },
+        timeout: 8000
+      }, (res) => {
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => resolve(data));
+      });
+      req.on('error', () => resolve(''));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve('');
+      });
+      req.end();
+    });
+
+    if (!raw) return null;
+
+    const h1Match = raw.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    const title = h1Match
+      ? h1Match[1].replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+      : '';
+
+    const pos = raw.indexOf('w-100 mt-4');
+    if (pos === -1) return title ? { title, text: '' } : null;
+
+    let chunk = raw.slice(pos, pos + 9000);
+    chunk = chunk.replace(/<span class="tip"[^>]*>[\s\S]*?<\/span>/gi, '');
+    let text = chunk.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+    text = text.replace(/\s+/g, ' ').trim();
+    for (const marker of ['المادة في سؤال وجواب', 'انظر أيضا', 'الرابط المختصر']) {
+      const index = text.indexOf(marker);
+      if (index > 100) text = text.slice(0, index).trim();
+    }
+
+    return title || text ? { title, text: text.slice(0, 1800) } : null;
+  } catch {
+    return null;
+  }
+}
+
 const dorarFiqhMemoryCache = new Map<string, {
   found: boolean;
   title: string;
@@ -386,15 +473,7 @@ const dorarFiqhMemoryCache = new Map<string, {
  * Live search on the Dorar.net Comparative Fiqh Encyclopedia (الموسوعة الفقهية المقارنة — الدرر السنية)
  * Connects directly to dorar.net/feqhia/search to fetch authentic rulings across the Four Madhhabs
  */
-export async function searchDorarFiqhLive(query: string): Promise<{
-  found: boolean;
-  title: string;
-  text: string;
-  detailedRuling?: string;
-  url: string;
-  source: string;
-  allResults: Array<{ title: string; text: string; url: string }>;
-} | null> {
+export async function searchDorarFiqhLive(query: string): Promise<DorarFiqhLiveResult | null> {
   // Keep the complete fiqh question. The Python connector performs
   // intent extraction and subject matching itself.
   const cleanQ = query
@@ -448,10 +527,63 @@ export async function searchDorarFiqhLive(query: string): Promise<{
       });
     });
 
-    dorarFiqhMemoryCache.set(cacheKey, result);
-    return result;
+    if (result) {
+      dorarFiqhMemoryCache.set(cacheKey, result);
+      return result;
+    }
+
+    // Final server-side fallback: canonical official section + direct article fetch.
+    // This path is independent of the Python connector and the site's search
+    // ranking, while still using Dorar.net itself as the sole religious source.
+    const anchor = getCanonicalFiqhAnchor(cleanQ);
+    if (anchor) {
+      const article = await fetchDorarFiqhArticle(anchor.url);
+      if (article && article.text) {
+        const fallbackResult: DorarFiqhLiveResult = {
+          found: true,
+          title: article.title || anchor.title,
+          text: article.text,
+          detailedRuling: article.text,
+          url: anchor.url,
+          source: 'الموسوعة الفقهية المقارنة — الدرر السنية',
+          allResults: [{
+            title: article.title || anchor.title,
+            text: article.text,
+            url: anchor.url
+          }]
+        };
+        dorarFiqhMemoryCache.set(cacheKey, fallbackResult);
+        return fallbackResult;
+      }
+    }
+
+    dorarFiqhMemoryCache.set(cacheKey, null);
+    return null;
   } catch (err) {
     console.error('searchDorarFiqhLive error:', err);
+
+    const anchor = getCanonicalFiqhAnchor(cleanQ);
+    if (anchor) {
+      const article = await fetchDorarFiqhArticle(anchor.url);
+      if (article && article.text) {
+        const fallbackResult: DorarFiqhLiveResult = {
+          found: true,
+          title: article.title || anchor.title,
+          text: article.text,
+          detailedRuling: article.text,
+          url: anchor.url,
+          source: 'الموسوعة الفقهية المقارنة — الدرر السنية',
+          allResults: [{
+            title: article.title || anchor.title,
+            text: article.text,
+            url: anchor.url
+          }]
+        };
+        dorarFiqhMemoryCache.set(cacheKey, fallbackResult);
+        return fallbackResult;
+      }
+    }
+
     return null;
   }
 }
