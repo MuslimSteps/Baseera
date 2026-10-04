@@ -22,6 +22,7 @@ import { getComparativeBenchmarkResults } from './src/lib/benchmarkRunner.ts';
 import { searchDorarApiLive, searchDorarWithSmartQueries, searchDorarFiqhLive, buildDorarFiqhUrl, cleanSearchQuery, generateFiqhSearchKeywords } from './src/lib/dorarClient.ts';
 import { generateDawahContent, formatContentAsText, generateInfographicSvg, DawahContentRequest } from './src/lib/dawahGenerator.ts';
 import { ExtractedItem } from './src/types/baseera.ts';
+import { fetchRemoteSafely, readTextWithLimit, readBytesWithLimit } from './src/lib/safeRemoteFetch.ts';
 
 dotenv.config();
 
@@ -33,7 +34,12 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Enable CORS for Chrome Extension and all local/external clients
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(v => v.trim()).filter(Boolean);
+  const origin = req.headers.origin;
+  if (origin && (allowedOrigins.length === 0 || allowedOrigins.includes(origin))) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   if (req.method === 'OPTIONS') {
@@ -79,7 +85,7 @@ app.post('/api/fetch-url', async (req, res) => {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    const response = await fetch(url, {
+    const response = await fetchRemoteSafely(url, {
       signal: controller.signal,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Baseera/1.0',
@@ -95,7 +101,7 @@ app.post('/api/fetch-url', async (req, res) => {
       return res.status(400).json({ error: `فشل جلب الصفحة: رمز الاستجابة ${response.status} (${response.statusText})` });
     }
 
-    const html = await response.text();
+    const html = await readTextWithLimit(response);
     const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : '';
 
@@ -133,6 +139,39 @@ app.post('/api/fetch-url', async (req, res) => {
 });
 
 // 1c. Dedicated Image OCR API (Supports Gemini Vision + Tesseract.js local fallback)
+app.post('/api/transcribe', async (req, res) => {
+  try {
+    const { mediaBase64, mediaMimeType = 'audio/mpeg', apiKey } = req.body;
+    if (!mediaBase64 || !String(mediaMimeType).startsWith('audio/')) {
+      return res.status(400).json({ error: 'يرجى توفير ملف صوتي صالح.' });
+    }
+    const activeKey = apiKey || process.env.GEMINI_API_KEY;
+    if (!activeKey || activeKey === 'MY_GEMINI_API_KEY') {
+      return res.status(400).json({ error: 'ميزة تحويل الصوت تحتاج مفتاح Gemini على الخادم أو مفتاحاً محلياً صالحاً.' });
+    }
+    const raw = String(mediaBase64);
+    const headerMatch = raw.match(/^data:([^;]+);base64,(.+)$/s);
+    const cleanBase64 = headerMatch ? headerMatch[2] : raw;
+    const estimatedBytes = Math.floor(cleanBase64.length * 0.75);
+    if (estimatedBytes > 15_000_000) {
+      return res.status(413).json({ error: 'حجم الملف الصوتي أكبر من الحد المسموح.' });
+    }
+    const client = new GoogleGenAI({ apiKey: activeKey });
+    const response = await client.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: 'user', parts: [
+        { inlineData: { data: cleanBase64, mimeType: mediaMimeType } },
+        { text: 'حوّل هذا التسجيل الصوتي إلى نص حرفي قدر الإمكان، مع الحفاظ على العربية والأسماء والآيات والأحاديث دون إضافة أو تفسير. أعد النص فقط.' }
+      ] }]
+    });
+    const text = response.text?.trim() || '';
+    if (!text) return res.status(400).json({ error: 'لم يتم استخراج نص من التسجيل الصوتي.' });
+    res.json({ success: true, text, method: 'gemini-audio' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'فشل تحويل الصوت إلى نص.' });
+  }
+});
+
 app.post('/api/ocr', async (req, res) => {
   try {
     const { mediaBase64, mediaMimeType = 'image/jpeg', apiKey } = req.body;
@@ -240,12 +279,12 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           ? fiqhResult.detailedRuling
           : (fiqhResult.text ? `${fiqhResult.title} — ${fiqhResult.text}` : fiqhResult.title);
 
-        v.status = 'MATCHED';
-        v.status_label_ar = 'مسألة فقهية موثقة من الموسوعة الفقهية المقارنة بالدرر السنية';
+        v.status = 'NEEDS_REVIEW';
+        v.status_label_ar = 'مسألة فقهية موثقة المصدر — تحتاج مراجعة ولا تمثل فتوى آلية';
         v.status_label_en = 'Documented Ruling from Comparative Fiqh Encyclopedia (Dorar.net)';
         v.reason = `المسألة مفصلة وموثقة في الموسوعة الفقهية المقارنة بالدرر السنية وفق المذاهب الأربعة:\n«${fiqhResult.title}»\n\nنص الحكم الشرعي المعتمد والدليل من الموسوعة الفقهية:\n${rulingDetails}`;
         v.canonical_text = rulingDetails;
-        v.decision_level = 'B';
+        v.decision_level = 'C';
         v.citation = {
           source_id: 'dorar-feqhia-live',
           source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية (بحث مباشر في المذاهب الأربعة)',
@@ -282,7 +321,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
               v.status_label_en = 'Disputed Fiqh Matter — Supporting Hadith is Disputed';
               v.reason = `المسألة محل اختلاف فقهي بين أئمة المذاهب؛ لاستنادها إلى حديث «${top.text}». ${top.disputeDetails || 'والحديث مختلف في ثبوته وصحته بين أئمة الحديث: صححه بعضهم واستنكره آخرون'}. المصدر: ${top.book} (${top.numberOrPage}).`;
               v.canonical_text = top.text;
-              v.decision_level = 'B';
+              v.decision_level = 'C';
               v.citation = {
                 source_id: 'dorar-hadith-fiqh',
                 source_name: 'الموسوعة الحديثية — الدرر السنية (دليل المسألة الفقهية)',
@@ -292,8 +331,8 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
                 url: `https://dorar.net/hadith/search?q=${encodeURIComponent(hadithSearch.queryUsed)}`
               };
             } else if (top.gradeCategory === 'sahih' || top.gradeCategory === 'hasan') {
-              v.status = 'MATCHED';
-              v.status_label_ar = 'مسألة فقهية موثقة بدليل صريح من السنة الصحيحة (الدرر السنية)';
+              v.status = 'NEEDS_REVIEW';
+              v.status_label_ar = 'مسألة فقهية لها دليل حديثي موثق — لا ترجيح آلي';
               v.status_label_en = 'Fiqh Ruling — Established by Authentic Sunnah (Dorar.net)';
               v.reason = `المسألة مستندة إلى الدليل الصريح من السنة النبوية المطهرة في الموسوعة الحديثية: «${top.text}». الراوي: ${top.rawi || 'الصحابة الكرام'}، المحدث: ${top.muhaddith || ''}، المصدر: ${top.book} (${top.numberOrPage})، خلاصة حكم المحدث: ${top.grade}.`;
               v.canonical_text = top.text;
@@ -413,9 +452,9 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       } else {
         if (v.status !== 'REFER_TO_SPECIALIST') {
           v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
-          v.status_label_ar = 'لم يُعثر على تطابق موثوق في المراجع المفحوصة';
+          v.status_label_ar = 'لم يُعثر عليه في المراجع المفحوصة';
           v.status_label_en = 'Not Found in Checked Sources';
-          v.reason = 'لم يُعثر على تطابق موثوق لهذا النص في الموسوعة الحديثية بالدرر السنية (أكثر من 40,000 حديث). تلتزم المنظومة بالامتناع عن الجزم بصحة أي رواية غير مثبتة.';
+          v.reason = 'لم يُعثر على تطابق موثوق لهذا النص في الموسوعة الحديثية بالدرر السنية. تلتزم المنظومة بالامتناع عن الجزم بصحة أي رواية غير مثبتة.';
           v.citation = {
             source_id: 'dorar-hadith',
             source_name: 'الموسوعة الحديثية — الدرر السنية',
@@ -443,14 +482,14 @@ app.post('/api/verify', async (req, res) => {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
-        const response = await fetch(url, {
+        const response = await fetchRemoteSafely(url, {
           signal: controller.signal,
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Baseera/1.0', 'Accept': 'text/html,*/*' }
         });
         clearTimeout(timeout);
 
         if (response.ok) {
-          const html = await response.text();
+          const html = await readTextWithLimit(response);
           const cleanText = html
             .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
             .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -836,8 +875,7 @@ app.post('/api/extension-lookup-image', async (req, res) => {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 9000);
-        const imgRes = await fetch(imageUrl, {
-          signal: controller.signal,
+        const imgRes = await fetchRemoteSafely(imageUrl, { signal: controller.signal,
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
@@ -845,8 +883,8 @@ app.post('/api/extension-lookup-image', async (req, res) => {
         });
         clearTimeout(timeout);
         if (imgRes.ok) {
-          const arrBuf = await imgRes.arrayBuffer();
-          base64 = Buffer.from(arrBuf).toString('base64');
+          const imageBuffer = await readBytesWithLimit(imgRes, 10_000_000);
+          base64 = imageBuffer.toString('base64');
           mimeType = imgRes.headers.get('content-type') || mimeType;
         }
       } catch (fetchErr) {
