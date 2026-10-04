@@ -4,7 +4,7 @@
  */
 
 import https from 'https';
-import { normalizeArabic } from './normalizer.ts';
+import { normalizeArabic, normalizeArabicStrict } from './normalizer.ts';
 
 export interface DorarHadithResult {
   text: string;
@@ -588,8 +588,30 @@ export async function searchDorarWithSmartQueries(text: string): Promise<{
   candidates.sort((a, b) => b.score - a.score);
   const bestCandidate = candidates[0];
 
+  // When the exact same hadith text has conflicting grades across Dorar results,
+  // preserve the disagreement instead of selecting one grade by ranking alone.
+  const exactText = normalizeArabicStrict(bestCandidate.result.text);
+  const exactVariants = candidates
+    .map(c => c.result)
+    .filter(r => normalizeArabicStrict(r.text) === exactText);
+
+  const hasAuthentic = exactVariants.some(r => r.gradeCategory === 'sahih' || r.gradeCategory === 'hasan');
+  const hasWeak = exactVariants.some(r =>
+    r.gradeCategory === 'weak' ||
+    r.gradeCategory === 'fabricated'
+  );
+  const explicitDispute = exactVariants.some(r => r.gradeCategory === 'disputed' || r.isDisputed);
+
+  const finalResult: DorarHadithResult = { ...bestCandidate.result };
+  if ((hasAuthentic && hasWeak) || explicitDispute) {
+    finalResult.isDisputed = true;
+    finalResult.gradeCategory = 'disputed';
+    finalResult.grade = 'مختلف في صحته بين نتائج المحدثين في المصدر المعتمد';
+    finalResult.disputeDetails = 'وُجد للنص نفسه في المصدر المعتمد أحكام حديثية مختلفة؛ لذلك لا يختار النظام حكماً واحداً آلياً.';
+  }
+
   return {
-    topResult: bestCandidate.result,
+    topResult: finalResult,
     queryUsed: bestCandidate.queryUsed,
     allResults: candidates.map(c => c.result)
   };
