@@ -79,6 +79,9 @@ function hostAllowedForSource(sourceId: string, rawUrl?: string): boolean {
 }
 
 export function isApprovedCitation(citation: { source_id?: string; url?: string }): boolean {
+  // Registry metadata is policy metadata, not religious evidence. It is allowed
+  // only without a fabricated evidence URL; evidence citations must be source-specific.
+  if (citation?.source_id === 'source-registry-all') return !citation.url;
   if (!citation?.source_id || !APPROVED_SOURCE_IDS.has(citation.source_id)) return false;
   return isApprovedSourceUrl(citation.url) &&
     hostAllowedForSource(citation.source_id, citation.url) &&
