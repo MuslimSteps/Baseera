@@ -18,6 +18,7 @@ import { runBaseeraBenchmark } from '../src/lib/benchmarkRunner.ts';
 import { getAllFrozenBenchmarkCases, getRobustnessBenchmarkCases } from '../src/lib/benchmarkData.ts';
 import { APPROVED_SOURCE_IDS, enforceApprovedCitations, isApprovedSourceUrl } from '../src/lib/sourcePolicy.ts';
 import { isGroundedInInput } from '../src/lib/inputGrounding.ts';
+import { isApprovedCitation } from '../src/lib/sourcePolicy.ts';
 import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from '../src/lib/dorarEncyclopediaClient.ts';
 import { buildJamharaSearchUrl } from '../src/lib/jamharaClient.ts';
 import { buildQuranpediaAyahUrl } from '../src/lib/quranpediaClient.ts';
@@ -315,6 +316,15 @@ test('robustness suite is deterministic, same-size, and ID-isolated', () => {
   assert.ok(robustness.every((x: any) => base.every((b: any) => b.id !== x.id)));
 });
 
+test('Dawah output citations are bound to approved source IDs and official domains/paths', () => {
+  assert.equal(isApprovedCitation({ source_id: 'quran-uthmani', url: 'https://qurancomplex.gov.sa/' }), true);
+  assert.equal(isApprovedCitation({ source_id: 'quran-translations', url: 'https://quranpedia.net/verse/1/1' }), true);
+  assert.equal(isApprovedCitation({ source_id: 'dorar-hadith', url: 'https://dorar.net/hadith/search?q=test' }), true);
+  assert.equal(isApprovedCitation({ source_id: 'jamhara-terms', url: 'https://islamic-content.com/dictionary' }), true);
+  assert.equal(isApprovedCitation({ source_id: 'dawa-center', url: 'https://dawa.center/search?q=test' }), true);
+  assert.equal(isApprovedCitation({ source_id: 'dorar-hadith', url: 'https://dorar.net/feqhia/search?q=test' }), false);
+});
+
 // I. Frozen benchmark integrity and repository hygiene
 test('frozen benchmark covers the required categories, statuses, languages, and frozen flag', async () => {
   const cases = getAllFrozenBenchmarkCases();
@@ -367,7 +377,7 @@ test('fiqh corpus exposes only the implemented A/C/D levels', () => {
   assert.deepEqual([...levels].sort(), ['A', 'C', 'D']);
 });
 
-console.log(`\nPassed: ${37 - failures.length}/37`);
+console.log(`\nPassed: ${38 - failures.length}/38`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
