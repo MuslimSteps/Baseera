@@ -42,14 +42,18 @@ await run(
   (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
 );
 await run(
-  'Quranpedia translations',
+  'Quranpedia translation language discovery',
   () => getAvailableTranslationLanguages(1, 1),
   (value: any[]) => 'languages=' + (Array.isArray(value) ? value.length : 0)
 );
 await run(
-  'Quranpedia English translation',
-  () => getAyahTranslations(1, 1, 'en'),
-  (value: any[]) => 'translations=' + (Array.isArray(value) ? value.length : 0)
+  'Quranpedia all available translations for ayah',
+  () => getAyahTranslations(1, 1),
+  (value: any) => {
+    const groups = value && typeof value === 'object' ? Object.entries(value) : [];
+    const nonEmpty = groups.filter(([, rows]: any) => Array.isArray(rows) && rows.some((row: any) => row?.text)).length;
+    return 'languages_with_text=' + nonEmpty;
+  }
 );
 
 const passed = checks.filter(x => x.ok).length;
