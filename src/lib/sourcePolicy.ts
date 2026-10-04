@@ -49,7 +49,7 @@ function hostAllowedForSource(sourceId: string, rawUrl?: string): boolean {
   try {
     const host = new URL(rawUrl).hostname.toLowerCase();
     const allowed = SOURCE_ALLOWED_HOSTS[sourceId] || [];
-    return allowed.some(domain => host === domain || host.endsWith(`.\${domain}`));
+    return allowed.some(domain => host === domain || host.endsWith('.' + domain));
   } catch {
     return false;
   }
