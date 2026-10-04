@@ -1,0 +1,127 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * AI semantic candidate matcher.
+ *
+ * Gemini is used only to rank/reject candidates already retrieved from
+ * approved source data. It never creates source text, citation, or ruling.
+ * The deterministic source verifier remains the final authority.
+ */
+
+import { GoogleGenAI } from '@google/genai';
+
+export type AICandidate = {
+  id: string;
+  source: string;
+  title?: string;
+  text: string;
+};
+
+export type AIMatchResult = {
+  candidate_id: string | null;
+  relation: 'exact' | 'altered' | 'partial' | 'related' | 'none';
+  confidence: number;
+};
+
+function getClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') return null;
+  try {
+    return new GoogleGenAI({ apiKey });
+  } catch {
+    return null;
+  }
+}
+
+export async function rankCandidatesWithAI(
+  kind: 'quran' | 'hadith' | 'fiqh',
+  inputText: string,
+  candidates: AICandidate[],
+  timeoutMs = 3500
+): Promise<AIMatchResult | null> {
+  const client = getClient();
+  if (!client || !inputText.trim() || candidates.length === 0) return null;
+
+  const compactCandidates = candidates.slice(0, 16).map(c => ({
+    id: c.id,
+    source: c.source,
+    title: c.title || '',
+    text: c.text.slice(0, 1400)
+  }));
+
+  const prompt = `أنت طبقة مضاهاة دلالية في منظومة «بصيرة».
+مهمتك اختيار أفضل مرشح من قائمة مصادر أرسلها لك، أو رفض جميع المرشحين.
+
+قواعد إلزامية:
+1) لا تنشئ نصاً دينياً من عندك.
+2) لا تنشئ مصدراً أو رقم آية أو حديثاً أو حكماً.
+3) لا تعتبر معرفتك السابقة دليلاً مستقلاً.
+4) لا تختر مرشحاً إلا من القائمة المرسلة حرفياً بالمعرّف id.
+5) في القرآن: تعامل مع اختلاف التشكيل، أخطاء OCR، حذف/تبديل كلمة، أو اقتباس جزء من الآية؛ المطلوب اكتشاف الآية المرجعية المحتملة فقط.
+6) في الحديث: تعامل مع اختلاف الصياغة أو الاقتباس الجزئي؛ اختر المرشح فقط إذا كان معناه/لفظه قريباً فعلاً.
+7) إذا كانت المرشحات غير مرتبطة بالنص، أعد candidate_id = null.
+8) «altered» تعني أن المرشح يبدو الأصل المرجعي للنص المدخل مع وجود تغيير/استبدال في اللفظ.
+9) «partial» تعني أن المدخل اقتباس من جزء المرشح.
+10) نتيجة الذكاء الاصطناعي ليست حكماً نهائياً؛ سيجري التحقق آلياً من النص المصدر بعد ذلك.
+
+نوع المادة: ${kind}
+
+النص المدخل:
+<<<
+${inputText}
+>>>
+
+المرشحون من المصدر المعتمد:
+${JSON.stringify(compactCandidates, null, 2)}
+
+أعد JSON فقط:
+{
+  "candidate_id": "id من القائمة أو null",
+  "relation": "exact | altered | partial | related | none",
+  "confidence": 0.0
+}`;
+
+  try {
+    const response = await Promise.race([
+      client.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: { responseMimeType: 'application/json' }
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('AI semantic match timeout')), timeoutMs)
+      )
+    ]);
+
+    const raw = response.text?.trim();
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<AIMatchResult>;
+    const allowed = new Set(compactCandidates.map(c => c.id));
+
+    const candidateId =
+      typeof parsed.candidate_id === 'string' && allowed.has(parsed.candidate_id)
+        ? parsed.candidate_id
+        : null;
+
+    const relation =
+      parsed.relation === 'exact' ||
+      parsed.relation === 'altered' ||
+      parsed.relation === 'partial' ||
+      parsed.relation === 'related'
+        ? parsed.relation
+        : 'none';
+
+    const confidence =
+      typeof parsed.confidence === 'number'
+        ? Math.max(0, Math.min(1, parsed.confidence))
+        : 0;
+
+    if (!candidateId) return { candidate_id: null, relation: 'none', confidence };
+    return { candidate_id: candidateId, relation, confidence };
+  } catch (err) {
+    console.warn('AI semantic matching failed:', err);
+    return null;
+  }
+}
