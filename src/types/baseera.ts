@@ -87,20 +87,7 @@ export interface AnalysisReport {
 export interface BenchmarkCase {
   id: string;
   category: 'ayah' | 'hadith' | 'term' | 'fiqh' | 'multilingual';
-  sub_category:
-    | 'ayah_exact'
-    | 'ayah_altered_word'
-    | 'ayah_wrong_number'
-    | 'hadith_sahih'
-    | 'hadith_weak'
-    | 'hadith_fabricated'
-    | 'hadith_wrong_attribution'
-    | 'hadith_hallucinated'
-    | 'term_correct'
-    | 'term_reduced'
-    | 'fiqh_consensus'
-    | 'fiqh_disputed'
-    | 'fiqh_personal_fatwa';
+  sub_category: string;
   title_ar: string;
   title_en: string;
   input_text: string;
