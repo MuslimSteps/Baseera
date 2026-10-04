@@ -1006,6 +1006,15 @@ app.post('/api/extension-lookup-image', async (req, res) => {
 
     // 3. Run verification on extracted text
     const lookupResult = await performExtensionLookup(extractedText);
+    if (lookupResult.report && lookupResult.report.status === 'MATCHED') {
+      lookupResult.report.status = 'NEEDS_REVIEW';
+      lookupResult.report.status_label_ar = 'النص المستخرج من الصورة مطابق للمصدر، لكن دقة OCR تحتاج مراجعة بشرية';
+      lookupResult.report.status_label_en = 'Image text matches source, but OCR still requires human review';
+      lookupResult.report.reason = `${lookupResult.report.reason} لم يُعتبر استخراج الصورة دليلاً آلياً بنسبة 100%.`;
+      lookupResult.overall_status = 'NEEDS_REVIEW';
+      lookupResult.summary = 'تنبيه: وُجد تطابق في المصدر، لكن دقة استخراج النص من الصورة تحتاج مراجعة بشرية.';
+    }
+    enforceApprovedCitations({ verifications: lookupResult.report ? [lookupResult.report] : [] });
     res.json({
       success: true,
       extractedText,
