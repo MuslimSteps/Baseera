@@ -10,7 +10,7 @@
  * │       ↓                                                                │
  * │  dawa.center       → الموضوعات والمحتوى الإسلامي المعتمد              │
  * │  quran.json        → النص القرآني المعتمد (مجمع الملك فهد)            │
- * │  King Fahd Complex → ترجمات القرآن المعتمدة (الروسية: إلمير كولييف)    │
+ * │  quran_translations.json → الترجمات المفهرسة حالياً (الإنجليزية فقط)     │
  * │  dorar.net/hadith  → الأحاديث الموثقة وأحكامها المعتمدة                │
  * │  islamic-content   → موسوعة الجمهرة للمصطلحات والترجمة الشرعية         │
  * │  dorar.net/feqhia  → الموسوعة الفقهية المقارنة عند الحاجة              │
@@ -187,7 +187,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // 4. Retrieve Terminology from Jamhara
   const termDef = findJamharaTerm(topic);
 
-  // 5. Fetch Official King Fahd Translations (Kuliev for RU, Saheeh for EN)
+  // 5. Use the indexed approved translation catalog currently available (English only).
   const verseTranslations = new Map<number, string>();
   for (const v of relevantVerses) {
     if (language === 'en') {
@@ -270,7 +270,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   if (language === 'ru') {
     introTranslated = isKhutba
       ? `Хвала Аллаху, Которого мы восхваляем, к Которому взываем о помощи и прощении! Мы прибегаем к Нему от зла наших душ и дурных поступков. Кого Аллах ведёт прямым путём, того никто не введёт в заблуждение, а кого Он оставляет без руководства, тому нет наставника. Свидетельствую, что нет божества, кроме Единого Аллаха, и что Мухаммад — Его раб и Посланник ﷺ.\n\nО рабы Аллаха! Призываю вас и самого себя к богобоязненности (таква), ибо она — лучший припас для вечной жизни. Всевышний Аллах сказал: «О те, которые уверовали! Бойтесь Аллаха должным образом и умирайте не иначе, как будучи мусульманами!» (Сура «Али Имран», аят 102).\n\nДорогие братья и сёстры! Тема нашей сегодняшней пятничной хутбы посвящена фундаментальной ценности Ислама — «${topic}».`
-      : `С именем Аллаха, Милостивого, Милосердного! Хвала Аллаху, Господу миров, мир и благословение Посланнику Аллаха Мухаммаду ﷺ.\n\nТема «${topic}» является одной из ключевых основ в формировании личности мусульманина и праведного поведения в обществе в свете Священного Корана и благородной Сунны.`;
+      : `Во имя Аллаха, Милостивого, Милосердного. Хвала Аллаху, Господу миров, и мир и благословение Посланнику Аллаха Мухаммаду ﷺ.\n\nТема «${topic}» является одной из ключевых основ в формировании личности мусульманина и праведного поведения в обществе в свете Священного Корана и благородной Сунны.`;
   } else if (language === 'en') {
     introTranslated = isKhutba
       ? `All praise is due to Allah, we praise Him, seek His help, and ask for His forgiveness. We bear witness that none has the right to be worshipped except Allah alone, and that Muhammad is His servant and Messenger ﷺ.\n\nDear believers, I advise you and myself to adhere to the consciousness of Allah (Taqwa). Our Friday reflection today focuses on a great foundation of faith: "${topic}".`
@@ -398,7 +398,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     dawa_center_url: `https://dawa.center/search?q=${encodeURIComponent(cleanSearchQuery(topic))}`,
     feqhia_url: buildDorarFiqhUrl(topic),
     generated_at: now,
-    verification_note: `هذا المحتوى صادر بنظام «التوليد بعد التوثيق الصارم»؛ استُخرجت الآيات من قاعدة القرآن المحلية المعتمدة (${quranData.verses.length} آية). الترجمات لا تُنسب إلى مجمع الملك فهد إلا إذا كانت مدرجة فعلياً في قاعدة الترجمات المعتمدة، وأُسندت الأحاديث للموسوعة الحديثية بالدرر السنية، وضُبطت المصطلحات بموسوعة الجمهرة.`,
+    verification_note: `المراجع المستعملة في الاستشهادات مقيدة بسجل المصادر المعتمد: النص القرآني من القاعدة القرآنية المحلية، والترجمات من سجل الترجمات المفهرس المتاح حالياً، والأحاديث من بحث الدرر السنية، والمصطلحات من موسوعة الجمهرة. أما النص الإنشائي والتطبيقات المقترحة فهي مسودة مولدة تحتاج مراجعة بشرية قبل النشر.`,
     infographic_suggestion: infographicSuggestion,
     video_reel_script: videoReelScript
   };
@@ -452,7 +452,7 @@ function buildVideoReelScript(
       voiceover_translated: isRu
         ? `Начните применять это в своей жизни уже сегодня и поделитесь этим видео ради довольства Аллаха.`
         : `Implement "${topic}" in your daily routine today and share this reminder.`,
-      on_screen_text: isRu ? `Поделитесь благом · Басира 100% Достоверно` : `شارك تؤجر · موثق عبر منصة بصيرة 100%`
+      on_screen_text: isRu ? `Поделитесь благом · Басира 100% Достоверно` : `شارك تؤجر · مدعوم بمراجع بصيرة`
     }
   ];
 
@@ -504,7 +504,7 @@ function buildInfographicSuggestion(
     verse?.translation ? `  • الترجمة المعتمدة: «${verse.translation.slice(0, 110)}...»` : '',
     hadith ? `  • الحديث الشريف: «${hadith.arabic_text.slice(0, 90)}...» (${hadith.source_name})` : '',
     ``,
-    `🛡️ شارة التوثيق: «تم التحقق والاعتماد عبر منظومة بصيرة · متطابق مع الحزمة العلمية 100%»`,
+    `🛡️ بيان المصدر: «استُرجعت الأدلة من المراجع المعتمدة المدرجة في سجل بصيرة؛ النص الإنشائي الناتج مسودة قابلة للمراجعة.»`,
     `🔗 المرجع الدعوي: dawa.center`,
     `══════════════════════════════════════════════════`
   ].filter(Boolean).join('\n');
