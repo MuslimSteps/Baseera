@@ -49,7 +49,7 @@ function matchingDictionaryLink(html: string, query: string): { href: string; ti
       try {
         const u = new URL(x.href, 'https://islamic-content.com');
         return u.hostname === 'islamic-content.com' &&
-          /^\/dictionary\/word\//.test(u.pathname)
+          /^\/dictionary\/word\//.test(u.pathname) &&
           x.title.length >= 2;
       } catch {
         return false;
