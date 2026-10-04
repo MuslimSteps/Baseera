@@ -4,7 +4,7 @@
  *
  * AI semantic candidate matcher.
  *
- * Gemini is used only to rank/reject candidates already retrieved from
+ * Groq is used only to rank/reject candidates already retrieved from
  * approved source data. It never creates source text, citation, or ruling.
  * The deterministic source verifier remains the final authority.
  */
@@ -130,7 +130,7 @@ ${JSON.stringify(compactCandidates, null, 2)}
     if (!candidateId) return { candidate_id: null, relation: 'none', confidence };
     return { candidate_id: candidateId, relation, confidence };
   } catch (err) {
-    console.warn('Groq semantic matching failed:, err);
+    console.warn('Groq semantic matching failed:', err);
     return null;
   }
 }
