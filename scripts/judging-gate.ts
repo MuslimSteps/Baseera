@@ -177,6 +177,21 @@ test('Quran one-word alteration cannot be MATCHED', () => {
   assert.ok(['NEEDS_REVIEW', 'NOT_FOUND_IN_CHECKED_SOURCES'].includes(result.status));
 });
 
+test('Altered Ayat al-Kursi is matched to the correct verse, not the first verse of the surah', () => {
+  const result = verifyQuranAyah(item(
+    'ayah',
+    'الله لا إله إلا هو الحي الغفور لا تأخذه سنة ولا نوم',
+    { claimed_surah: 'البقرة' }
+  ));
+
+  assert.equal(result.status, 'NEEDS_REVIEW');
+  assert.equal(result.citation.source_id, 'quran-uthmani');
+  assert.equal(result.citation.number_or_page, 'الآية: 255');
+  assert.equal(result.canonical_surah, 'البقرة');
+  assert.equal(result.canonical_ayah_number, 255);
+  assert.match(result.canonical_text || '', /القيوم/);
+});
+
 test('Quran incorrect verse attribution is not MATCHED', () => {
   const result = verifyQuranAyah(item('ayah', 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', {
     claimed_surah: 'البقرة',
