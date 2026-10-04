@@ -31,6 +31,8 @@ import { searchDorarApiLive, searchDorarWithSmartQueries, searchDorarFiqhLive, b
 import { generateDawahContent, formatContentAsText, generateInfographicSvg, DawahContentRequest } from './src/lib/dawahGenerator.ts';
 import { ExtractedItem } from './src/types/baseera.ts';
 import { fetchRemoteSafely, readTextWithLimit, readBytesWithLimit } from './src/lib/safeRemoteFetch.ts';
+import { getQuranCandidatesForAI } from './src/lib/quranVerifier.ts';
+import { rankCandidatesWithAI } from './src/lib/aiMatcher.ts';
 
 dotenv.config();
 
