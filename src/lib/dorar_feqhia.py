@@ -127,7 +127,7 @@ def extract_subject_tokens(raw_text, intent):
         normalized = re.sub(pattern, " ", normalized)
     tokens = []
     for raw in normalized.split():
-        token = re.sub(r"^[ال]+", "", raw)
+        token = re.sub(r"^ال", "", raw)
         token = re.sub(r"[^\u0621-\u064Aa-zA-Z0-9_-]", "", token)
         if len(token) >= 3 and token not in GENERIC_STOP_WORDS and token not in tokens:
             tokens.append(token)
