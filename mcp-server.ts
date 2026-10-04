@@ -205,7 +205,7 @@ async function handleToolCall(name: string, args: Record<string, any>) {
 
       let warning = '';
       if (context && term.reductionist_cues) {
-        for (const cue of matched.reductionist_cues) {
+        for (const cue of term.reductionist_cues) {
           if (context.includes(cue.toLowerCase())) {
             warning = `⚠️ تنبيه: تم رصد مؤشر اختزال للمصطلح (${cue}).\n${term.warning_ar || term.reduction_warning}`;
             break;
