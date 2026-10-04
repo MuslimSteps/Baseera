@@ -378,21 +378,39 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
       };
     }
 
-    // High similarity but with word discrepancies (altered or omitted words)
+    // Distinguish a concrete word substitution from a legitimate excerpt.
+    const changedWords = wordDiffResult.diff.filter(d => d.type === 'changed');
+    const missingWords = wordDiffResult.diff.filter(d => d.type === 'missing');
+    const lexicalAlteration = changedWords.length > 0;
+
     if (highestScore >= 0.55 || wordDiffResult.hasDiscrepancy) {
+      const verdictAr = lexicalAlteration
+        ? 'تحريف في اللفظ القرآني — النص المدخل محرّف عن الآية المعتمدة'
+        : 'اقتباس جزئي من الآية — ليس النص القرآني كاملاً';
+
+      const verdictEn = lexicalAlteration
+        ? 'Altered Quranic Wording — Input differs from the approved verse'
+        : 'Partial Quranic Quotation — Input is not the complete verse';
+
+      const reason = lexicalAlteration
+        ? `ثبّت الفحص وجود النص المدخل كاقتباس قريب من سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)}، الآية ${bestMatch.ayah_number}، لكنه يحتوي على تبديل لفظي صريح: ${changedWords.slice(0, 3).map(d => '«' + d.word + '» بدل «' + (d.expected || '') + '»').join('، ')}. لذلك لا يُعد هذا نصًا قرآنيًا مطابقًا، ويوصف بأنه محرّف عن النص المعتمد.`
+        : missingWords.length > 0
+          ? `النص المدخل يطابق جزءًا من الآية ${bestMatch.ayah_number} في سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)} دون بقية الآية؛ لذلك هو اقتباس جزئي وليس نص الآية كاملاً.`
+          : 'النص لا يطابق الآية مطابقة تامة، لذلك لا يُعتمد كنص قرآني.';
+
       return {
         id: `quran-${bestMatch.surah_number}-${bestMatch.ayah_number}`,
         item,
         status: 'NEEDS_REVIEW',
-        status_label_ar: 'يحتاج مراجعة — لم تثبت المطابقة التامة للنص القرآني',
-        status_label_en: 'Needs Review (Text Discrepancy / OCR Noise)',
-        reason: `عُثر على آية محتملة في المصدر المعتمد، لكن النص المدخل لا يطابقها مطابقة تامة. قد يكون السبب اقتباساً جزئياً أو خطأ OCR أو تغييراً في اللفظ؛ لذلك لا يُعامل كآية مطابقة.`,
+        status_label_ar: verdictAr,
+        status_label_en: verdictEn,
+        reason,
         citation: {
           source_id: 'quran-uthmani',
           source_name: 'المصحف الشريف بالرسم العثماني المعتمد',
           authority: 'مجمع الملك فهد لطباعة المصحف الشريف',
           book: `سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)}`,
-          number_or_page: `الآية ${bestMatch.ayah_number}`
+          number_or_page: `الآية: ${bestMatch.ayah_number}`
         },
         canonical_text: bestMatch.text_uthmani,
         canonical_surah: cleanSurahDisplayName(bestMatch.surah_name_ar),
