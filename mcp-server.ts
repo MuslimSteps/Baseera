@@ -16,10 +16,8 @@ import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
 import { verifyQuranAyah } from './src/lib/quranVerifier.ts';
 import { verifyIslamicTerm } from './src/lib/terminologyEngine.ts';
 import { verifyFiqhQuestion } from './src/lib/fiqhEngine.ts';
-import quranData from './sources/quran.json' with { type: 'json' };
-import translationData from './sources/quran_translations.json' with { type: 'json' };
-import termData from './sources/terminology.json' with { type: 'json' };
-import fiqhData from './sources/fiqh.json' with { type: 'json' };
+import { getAvailableTranslationLanguages, getAyahTranslations } from './src/lib/quranpediaClient.ts';
+import { searchDorarAqeedahLive, searchDorarTafsirLive, buildDorarAqeedahUrl, buildDorarTafsirUrl } from './src/lib/dorarEncyclopediaClient.ts';
 
 const SERVER_NAME = 'baseera-islamic-mcp';
 const SERVER_VERSION = '1.0.0';
@@ -82,6 +80,37 @@ const TOOLS = [
         }
       },
       required: ['term']
+    }
+  },
+  {
+    name: 'lookup_quran_translation',
+    description: 'استرجاع ترجمة معاني آية من Quranpedia بلغتها المطلوبة من المصدر الحي. يعرض اللغات المتاحة للآية ونصوص الترجمات المنسوبة إلى كتب ترجمة محددة.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        surah: { type: 'number', description: 'رقم السورة 1-114' },
+        ayah_number: { type: 'number', description: 'رقم الآية' },
+        language: { type: 'string', description: 'رمز اللغة مثل en أو fr أو ru (اختياري)' }
+      },
+      required: ['surah', 'ayah_number']
+    }
+  },
+  {
+    name: 'search_dorar_tafsir',
+    description: 'بحث مصدرّي في موسوعة التفسير بالدرر السنية. لا ينتج تفسيراً من النموذج؛ يعيد المادة المصدرية أو رابط المرجع للمراجعة.',
+    inputSchema: {
+      type: 'object',
+      properties: { query: { type: 'string' } },
+      required: ['query']
+    }
+  },
+  {
+    name: 'search_dorar_aqeedah',
+    description: 'بحث مصدرّي في الموسوعة العقدية بالدرر السنية. لا يصدر حكماً عقدياً من النموذج.',
+    inputSchema: {
+      type: 'object',
+      properties: { query: { type: 'string' } },
+      required: ['query']
     }
   },
   {
@@ -184,6 +213,55 @@ async function handleToolCall(name: string, args: Record<string, any>) {
             (result.jamhara_definition ? `التعريف المعتمد: ${result.jamhara_definition}\n` : '') +
             (result.verified_translation ? `المقابل المعتمد: ${result.verified_translation}\n` : '') +
             `المصدر: ${result.citation.source_name}`
+        }]
+      };
+    }
+
+    case 'lookup_quran_translation': {
+      const surah = Number(args.surah);
+      const ayah = Number(args.ayah_number);
+      const language = args.language ? String(args.language) : undefined;
+      if (!Number.isInteger(surah) || surah < 1 || surah > 114 || !Number.isInteger(ayah) || ayah < 1) {
+        throw new Error('surah and ayah_number are required');
+      }
+      const languages = await getAvailableTranslationLanguages(surah, ayah);
+      const translations = await getAyahTranslations(surah, ayah, language);
+      return {
+        content: [{
+          type: 'text',
+          text:
+            `المصدر: Quranpedia (quranpedia.net)\n` +
+            `الآية: ${surah}:${ayah}\n` +
+            (language ? `اللغة المطلوبة: ${language}\n` : `اللغات المتاحة لهذه الآية: ${languages.map(x => `${x.code} — ${x.en_name}`).join('، ')}\n`) +
+            `الترجمات: ${JSON.stringify(translations, null, 2)}`
+        }]
+      };
+    }
+
+    case 'search_dorar_tafsir': {
+      const query = String(args.query || '').trim();
+      if (!query) throw new Error('query is required');
+      const result = await searchDorarTafsirLive(query);
+      return {
+        content: [{
+          type: 'text',
+          text: result?.found
+            ? `حالة المصدر: وُجدت مادة تفسيرية.\nالعنوان: ${result.title}\nالنص المصدرّي: ${result.text}\nالرابط: ${result.url}`
+            : `لم يُعثر على مادة تفسيرية آلية في المصدر. راجع الرابط: ${buildDorarTafsirUrl(query)}`
+        }]
+      };
+    }
+
+    case 'search_dorar_aqeedah': {
+      const query = String(args.query || '').trim();
+      if (!query) throw new Error('query is required');
+      const result = await searchDorarAqeedahLive(query);
+      return {
+        content: [{
+          type: 'text',
+          text: result?.found
+            ? `حالة المصدر: وُجدت مادة عقدية.\nالعنوان: ${result.title}\nالنص المصدرّي: ${result.text}\nالرابط: ${result.url}`
+            : `لم يُعثر على مادة عقدية آلية في المصدر. راجع الرابط: ${buildDorarAqeedahUrl(query)}`
         }]
       };
     }
