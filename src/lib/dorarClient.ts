@@ -25,12 +25,13 @@ const dorarMemoryCache = new Map<string, DorarHadithResult[]>();
  * Normalizes text to Arabic search query
  */
 export function cleanSearchQuery(query: string): string {
+  // Preserve the complete fiqh question. Removing "حكم" destroys intent.
   return query
     .replace(/[«»"“؟?.,!]/g, '')
-    .replace(/^(?:ما\s+(?:هو\s+)?حكم(?:\s+الشرع(?:\s+في)?)?|هل\s+(?:يجوز|يصح)|ما\s+القول\s+في|حكم|هل|ما|ماذا|كيف|ما\s+رأي\s+الشرع\s+في)\s*/gi, '')
+    .replace(/^\s+|\s+$/g, '')
     .replace(/^(?:في\s+القرآن(?:\s+الكريم)?|قال\s+رسول\s+الله|قال\s+النبي|في\s+الحديث|عن\s+النبي|ورد\s+في\s+الحديث|روي\s+أن|سمعت\s+رسول\s+الله)[:\s]*/gi, '')
     .trim()
-    .slice(0, 120);
+    .slice(0, 180);
 }
 
 /**
@@ -364,10 +365,11 @@ export function buildDorarFiqhUrl(query: string): string {
  * Generate fiqh-specific search keywords from a question
  */
 export function generateFiqhSearchKeywords(rawText: string): string[] {
-  const clean = cleanSearchQuery(rawText);
-  const words = clean
-    .split(/\s+/)
-    .filter(w => w.length > 2 && !['حكم', 'شرع', 'ماذا', 'يجوز', 'يصح', 'رأي', 'الشريعة', 'في', 'من', 'على', 'عن', 'هل', 'ما'].includes(w));
+  const clean = rawText.replace(/[«»"“؟?.,!]/g, ' ').replace(/\s+/g, ' ').trim();
+  const words = clean.split(/\s+/).filter(w => w.length > 2 && ![
+    'ما','هو','هي','هل','في','من','على','عن','الى','إلى','مع','بعد','قبل',
+    'أن','إن','رأي','الشرع','الشرعي','الشريعة','الإسلام','الإسلامي','الفقه','الدين'
+  ].includes(w));
   return [...new Set(words)];
 }
 
@@ -393,11 +395,8 @@ export async function searchDorarFiqhLive(query: string): Promise<{
   source: string;
   allResults: Array<{ title: string; text: string; url: string }>;
 } | null> {
-  const cleanQ = cleanSearchQuery(query)
-    .replace(/[؟?]/g, '')
-    .replace(/^(ما\s+حكم|هل\s+يجوز|ما\s+رأي\s+الشرع\s+في|ما\s+هو\s+حكم|حكم)\s*/i, '')
-    .trim();
-
+  // Intent-aware fiqh retrieval happens in the Python connector.
+  const cleanQ = cleanSearchQuery(query);
   if (!cleanQ || cleanQ.length < 2) return null;
 
   const cacheKey = cleanQ.toLowerCase();
@@ -417,7 +416,14 @@ export async function searchDorarFiqhLive(query: string): Promise<{
         }
         try {
           const data = JSON.parse(stdout);
-          if (data && data.found && Array.isArray(data.results) && data.results.length > 0) {
+          if (
+            data &&
+            data.found === true &&
+            data.answerable === true &&
+            Array.isArray(data.results) &&
+            data.results.length > 0 &&
+            data.results[0]?.answerable === true
+          ) {
             const top = data.results[0];
             const detailedRuling = data.top_detailed_ruling || top.detailed_ruling || '';
             resolve({
