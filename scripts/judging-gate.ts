@@ -231,6 +231,23 @@ test('known comparative fiqh disagreement remains review-only', () => {
   assert.equal(result.decision_level, 'C');
 });
 
+// F0. Fiqh intent-preservation regression tests
+test('fiqh search URL preserves the question intent', () => {
+  const url = new URL('https://dorar.net/feqhia/search?q=' + encodeURIComponent('ما حكم الختان؟'));
+  assert.equal(url.hostname, 'dorar.net');
+  assert.equal(url.pathname, '/feqhia/search');
+  assert.ok(decodeURIComponent(url.searchParams.get('q') || '').includes('حكم'));
+});
+
+test('fiqh retrieval policy distinguishes ruling from benefits sections', () => {
+  // This is the exact failure mode found in live testing: both articles mention
+  // "ختان", but only the ruling section answers "ما حكم الختان؟".
+  const rulingTitle = normalizeArabicStrict('المبحث الرابع: حكم الختان');
+  const benefitsTitle = normalizeArabicStrict('المبحث الثالث: من حكم مشروعية الختان وفوائده الصحية');
+  assert.ok(rulingTitle.includes(normalizeArabicStrict('حكم الختان')));
+  assert.equal(benefitsTitle.includes(normalizeArabicStrict('حكم الختان')), false);
+});
+
 // F. Hadith decision policy with approved-source fixtures
 const sahihFixture = {
   text: 'إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى',
