@@ -27,13 +27,14 @@
       "id": "quran-translations",
       "category": "quran_translations",
       "name_ar": "ترجمات معاني القرآن الكريم المعتمدة",
-      "name_en": "Approved Quran Translations (King Fahd Complex & Quranpedia)",
+      "name_en": "Approved Quran Translations (King Fahd Complex / Quranpedia)",
       "authority": "مجمع الملك فهد لطباعة المصحف الشريف / مشروع quranpedia",
       "scope": "الترجمات المعتمدة باللغات الإنجليزية (Saheeh International / Hilali-Khan) والفرنسية (Muhammad Hamidullah) وغيرها",
       "access_method": "قاعدة بيانات الترجمات المفهرسة حسب السورة والآية",
       "access_date": "2026-09-30",
       "license": "مجمع الملك فهد / الاستخدام الدعوي والمعرفي المعتمد",
-      "rules": "الترجمة اجتهاد بشري لبيان المعاني ولا تُعامل كنص قرآني مقدس، وتُنسب لمترجمها المعتمد."
+      "rules": "الترجمة اجتهاد بشري لبيان المعاني ولا تُعامل كنص قرآني مقدس، وتُنسب لمترجمها المعتمد.",
+      "official_url": "https://quranpedia.net/"
     },
     {
       "id": "quran-tafsir-salaf",
