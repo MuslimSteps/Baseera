@@ -113,7 +113,21 @@ app.get('/api/sources', (_req, res) => {
       quran_verses_indexed: quranData.verses.length,
       hadith_verification_mode: 'live_dorar_only',
       terms_indexed: termData.terms.length,
-      fiqh_topics_indexed: fiqhData.topics.length
+      fiqh_topics_indexed: fiqhData.topics.length,
+      active_verification_source_ids: [
+        'quran-uthmani',
+        'quran-translations',
+        'dorar-hadith',
+        'jamhara-terms',
+        'fiqh-madhahib-dorar'
+      ],
+      registry_only_source_ids: [
+        'quran-tafsir-salaf',
+        'dorar-aqeedah',
+        'shamela-sunnah'
+      ],
+      supplemental_source_ids: ['dawa-center'],
+      coverage_note: 'الترجمات المفهرسة حالياً بالإنجليزية فقط؛ التفسير والعقيدة والشاملة ليست مسارات تحقق آلية مستقلة في النسخة الحالية.'
     }
   });
 });
