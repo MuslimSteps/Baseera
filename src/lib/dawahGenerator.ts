@@ -139,7 +139,7 @@ function findRelevantVerses(topic: string, limit = 4): Array<{
 }
 
 async function findRelevantHadiths(topic: string, limit = 3): Promise<any[]> {
-  const queries = [...new Set([topic, ...generateSearchQueries(topic)].filter(Boolean))].slice(0, 8);
+  const queries = Array.from(new Set([topic].concat(generateSearchQueries(topic)).filter(Boolean))).slice(0, 8);
   const found: any[] = [];
   const seen = new Set<string>();
 
@@ -147,7 +147,7 @@ async function findRelevantHadiths(topic: string, limit = 3): Promise<any[]> {
     const results = await searchDorarApiLive(q);
     for (const h of results) {
       if (h.gradeCategory !== 'sahih' && h.gradeCategory !== 'hasan') continue;
-      const key = \`\${h.text}|\${h.book}|\${h.numberOrPage}\`;
+      const key = String(h.text) + '|' + String(h.book) + '|' + String(h.numberOrPage);
       if (seen.has(key)) continue;
       seen.add(key);
       found.push(h);
@@ -192,9 +192,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   const verseTranslations = new Map<number, string>();
   for (const v of relevantVerses) {
     if (language === 'ru') {
-      const ruText = await fetchKulievRussianTranslation(v.surah_number, v.ayah_number);
-      if (ruText) verseTranslations.set(v.ayah_number, ruText);
-    } else if (language === 'en') {
+      // No unlisted translation provider is queried. else if (language === 'en') {
       const enText = getEnglishQuranTranslation(v.surah_number, v.ayah_number);
       if (enText) verseTranslations.set(v.ayah_number, enText);
     }
