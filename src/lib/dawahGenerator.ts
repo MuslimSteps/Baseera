@@ -23,9 +23,9 @@
 
 import quranData from '../../sources/quran.json' with { type: 'json' };
 import terminologyData from '../../sources/terminology.json' with { type: 'json' };
-import transData from '../../sources/quran_translations.json' with { type: 'json' };
 import { normalizeArabic } from './normalizer.ts';
 import { searchDorarApiLive, searchDorarWithSmartQueries, generateSearchQueries, buildDorarFiqhUrl, cleanSearchQuery } from './dorarClient.ts';
+import { getAyahTranslations } from './quranpediaClient.ts';
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -98,11 +98,6 @@ export interface DawahContent {
   verification_note: string;
   infographic_suggestion: string;
   video_reel_script: VideoReelScript;
-}
-
-function getEnglishQuranTranslation(surah: number, ayah: number): string | null {
-  const tr = (transData as any)?.translations?.find((t: any) => t.surah === surah && t.ayah === ayah);
-  return tr?.en?.text || null;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -188,12 +183,17 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // 4. Retrieve Terminology from Jamhara
   const termDef = findJamharaTerm(topic);
 
-  // 5. Use the indexed approved translation catalog currently available (English only).
+  // 5. Resolve the requested translation from the approved live Quranpedia source.
+  // Never fall back to model-generated religious translation.
   const verseTranslations = new Map<number, string>();
   for (const v of relevantVerses) {
-    if (language === 'en') {
-      const enText = getEnglishQuranTranslation(v.surah_number, v.ayah_number);
-      if (enText) verseTranslations.set(v.ayah_number, enText);
+    if (language === 'ar') continue;
+    try {
+      const rows = await getAyahTranslations(v.surah_number, v.ayah_number, language);
+      const first = Array.isArray(rows) ? rows[0] : undefined;
+      if (first?.text) verseTranslations.set(v.ayah_number, first.text);
+    } catch {
+      // Source unavailable: leave translation absent rather than inventing it.
     }
   }
 
@@ -223,6 +223,22 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
       authority: 'النص القرآني المحلي المسجل ضمن المصادر المعتمدة',
       verified: true,
       source_id: 'quran-uthmani'
+    });
+  }
+
+  // Approved translation citations (one per selected language verse).
+  for (const v of relevantVerses.slice(0, 3)) {
+    const tr = verseTranslations.get(v.ayah_number);
+    if (!tr) continue;
+    allCitations.push({
+      type: 'ayah',
+      arabic_text: tr,
+      translation: tr,
+      source_name: `ترجمة معاني القرآن — Quranpedia — ${language}`,
+      source_url: `https://quranpedia.net/verse/${v.surah_number}/${v.ayah_number}`,
+      authority: 'Quranpedia / الترجمات المفهرسة للمصادر المعتمدة',
+      verified: true,
+      source_id: 'quran-translations'
     });
   }
 
