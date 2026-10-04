@@ -131,6 +131,7 @@ export const VerifierView: React.FC = () => {
   const [isProcessingOcr, setIsProcessingOcr] = useState(false);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const [ocrEngineUsed, setOcrEngineUsed] = useState<string | null>(null);
+  const [ocrConsensus, setOcrConsensus] = useState(false);
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [geminiApiKey, setGeminiApiKey] = useState<string>(() => localStorage.getItem('baseera_gemini_key') || '');
@@ -148,6 +149,11 @@ export const VerifierView: React.FC = () => {
       setInputText('');
       setMediaPreview(null);
       setOcrEngineUsed(null);
+      setOcrConsensus(false);
+    } else if (type === 'audio') {
+      setInputText('');
+      setMediaPreview(null);
+      setOcrConsensus(false);
     } else if (type === 'text' && !inputText) {
       setInputText(SAMPLE_PRESETS[0].text);
     }
@@ -191,7 +197,8 @@ export const VerifierView: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mediaBase64: base64Data,
-          apiKey: geminiApiKey.trim() || undefined
+          apiKey: geminiApiKey.trim() || undefined,
+          ocrConsensus
         })
       });
       const data = await res.json();
