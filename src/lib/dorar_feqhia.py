@@ -526,11 +526,13 @@ def run_self_test():
     assert infer_intent("ما تعريف الختان؟") == "definition"
     assert infer_intent("هل الختان مشروع؟") == "legitimacy"
 
-    # Known live index titles from Dorar's official fiqh encyclopedia.
-    index_ruling = search_index_for_subject(["ختان"], "ruling")
-    assert index_ruling, "index fallback must find the ruling section"
-    assert any("حكم" in norm_ar(row["title"]) and row["answerable"] for row in index_ruling)
-    assert not any("فوائد" in norm_ar(row["title"]) and row["answerable"] for row in index_ruling)
+    # Canonical metadata must select the official ruling section without
+    # embedding any religious ruling text in the application.
+    index_ruling = canonical_section_fallback(["ختان"], "ruling")
+    assert index_ruling, "canonical fallback must contain the ruling anchor"
+    assert index_ruling[0]["url"] == "https://dorar.net/feqhia/218"
+    assert "حكم الختان" in norm_ar(index_ruling[0]["title"])
+    assert "فوائد" not in norm_ar(index_ruling[0]["title"])
 
     print("dorar_feqhia self-test: PASS")
 
