@@ -79,7 +79,26 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
     url: \`https://dorar.net/hadith/search?q=\${encodeURIComponent(bestMatch.text)}\`
   };
 
-  if (!exact && !partial) {
+  if (item.claimed_source) {
+    const claim = normalizeArabic(item.claimed_source);
+    const book = normalizeArabic(bestMatch.book);
+    const knownBook = /بخاري|مسلم|ترمذي|أحمد|ابن ماجه|ابي داود|أبو داود|نسائي|مالك/.test(claim);
+    if (knownBook && !book.includes(claim.replace(/^صحيح|سنن|مسند/,'').trim()) && !claim.includes(book.replace(/^صحيح|سنن|مسند/,'').trim())) {
+      return {
+        id: `hadith-attribution-${Date.now()}`,
+        item,
+        status: 'NEEDS_REVIEW',
+        status_label_ar: 'خطأ في العزو — المتن وُجد لكن المصدر المذكور لا يطابق المصدر الموثق',
+        status_label_en: 'Source Attribution Mismatch',
+        reason: `المتن موجود في الموسوعة الحديثية، لكن العزو المذكور («${item.claimed_source}») لا يطابق المصدر الموثق («${bestMatch.book}»).`,
+        citation,
+        canonical_text: bestMatch.text,
+        decision_level: 'B'
+      };
+    }
+  }
+
+  if (!exact && !partial)
     return {
       id: \`hadith-review-\${Date.now()}\`,
       item,
