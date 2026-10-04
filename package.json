@@ -12,7 +12,8 @@
     "lint": "tsc --noEmit",
     "mcp": "tsx mcp-server.ts",
     "test": "tsx scripts/judging-gate.ts",
-    "test:judging": "npm run test"
+    "test:judging": "npm run test",
+    "test:live": "tsx scripts/live-source-smoke.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
