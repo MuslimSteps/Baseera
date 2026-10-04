@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 
 import sourceRegistry from '../sources/source-registry.json' with { type: 'json' };
 import quranData from '../sources/quran.json' with { type: 'json' };
@@ -263,7 +264,29 @@ test('frozen benchmark has the required size and zero false confirmations', () =
   assert.equal(result.consistency_score, 100);
 });
 
-// I. Data coverage transparency
+// I. Frozen benchmark integrity and repository hygiene
+test('frozen benchmark covers the required categories, statuses, languages, and frozen flag', async () => {
+  const { getAllFrozenBenchmarkCases } = await import('../src/lib/benchmarkData.ts');
+  const cases = getAllFrozenBenchmarkCases();
+  const categories = new Set(cases.map((x: any) => x.category));
+  const statuses = new Set(cases.map((x: any) => x.expected_status));
+  const languages = new Set(cases.map((x: any) => x.language));
+  for (const value of ['ayah', 'hadith', 'term', 'fiqh', 'cross_source']) assert.ok(categories.has(value), `missing benchmark category: ${value}`);
+  for (const value of ['MATCHED', 'NEEDS_REVIEW', 'NOT_FOUND_IN_CHECKED_SOURCES', 'REFER_TO_SPECIALIST']) assert.ok(statuses.has(value), `missing expected status: ${value}`);
+  for (const value of ['ar', 'en', 'fr']) assert.ok(languages.has(value), `missing benchmark language: ${value}`);
+  assert.ok(cases.length >= 150);
+  assert.ok(cases.every((x: any) => x.is_frozen === true));
+});
+
+test('legacy unverified hadith corpora are absent and benchmark runner is deterministic', () => {
+  assert.equal(existsSync(new URL('../sources/hadith.json', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../sources/bukhari_test.json', import.meta.url)), false);
+  const runner = readFileSync(new URL('../src/lib/benchmarkRunner.ts', import.meta.url), 'utf8');
+  assert.equal(runner.includes('Math.random'), false);
+  assert.equal(runner.includes('random'), false);
+});
+
+// J. Data coverage transparency
 test('translation corpus is explicitly bounded to the languages actually present', () => {
   const langs = new Set(
     (translationData as any).translations.flatMap((x: any) =>
@@ -285,7 +308,7 @@ test('fiqh corpus exposes only the implemented A/C/D levels', () => {
   assert.deepEqual([...levels].sort(), ['A', 'C', 'D']);
 });
 
-console.log(`\nPassed: ${28 - failures.length}/28`);
+console.log(`\nPassed: ${30 - failures.length}/30`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
