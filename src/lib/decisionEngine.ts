@@ -218,6 +218,16 @@ export function verifyExtractedItems(
 
   for (const item of items) {
     const result = verifySingleItemCrossSource(item);
+    // A verified sub-element (for example a Jamhara term inside a longer sentence)
+    // must never be presented as verification of the entire surrounding claim.
+    if (item.type === 'term' && normalizeArabic(item.text) !== normalizeArabic(originalInput)) {
+      if (result.status === 'MATCHED') {
+        result.status = 'NEEDS_REVIEW';
+        result.status_label_ar = 'المصطلح موثق، لكن الجملة المحيطة لم تُتحقق كاملةً';
+        result.status_label_en = 'Term verified; surrounding claim not fully verified';
+        result.reason = 'تم توثيق المصطلح من المصدر المعتمد، لكن ذلك لا يعني صحة جميع العبارات المحيطة به.';
+      }
+    }
     verifications.push(result);
   }
 
