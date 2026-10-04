@@ -86,7 +86,7 @@ export interface AnalysisReport {
 
 export interface BenchmarkCase {
   id: string;
-  category: 'ayah' | 'hadith' | 'term' | 'fiqh' | 'multilingual';
+  category: string;
   sub_category: string;
   title_ar: string;
   title_en: string;
