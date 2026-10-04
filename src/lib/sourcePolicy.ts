@@ -36,10 +36,10 @@ const SOURCE_ALLOWED_PATHS: Record<string, RegExp> = {
   'quran-translations': /^\/verse(?:\/|$)/,
   'quran-tafsir-salaf': /^\/tafseer(?:\/|$)/,
   'dorar-aqeedah': /^\/aqeeda(?:\/|$)/,
-  'dorar-hadith': /^\/(?:hadith|dorar_api\.json)(?:\/|$|\\?)/,
+  'dorar-hadith': /^\/(?:hadith|dorar_api\.json)(?:\/|$|\?)/,
   'shamela-sunnah': /^\//,
-  'jamhara-terms': /^\/(?:dictionary|search)(?:\/|$|\\?)/,
-  'fiqh-madhahib-dorar': /^\/feqhia(?:\/|$|\\?)/,
+  'jamhara-terms': /^\/(?:dictionary|search)(?:\/|$|\?)/,
+  'fiqh-madhahib-dorar': /^\/feqhia(?:\/|$|\?)/,
   'dawa-center': /^\//
 };
 
