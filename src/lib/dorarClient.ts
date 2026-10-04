@@ -5,6 +5,7 @@
 
 import https from 'https';
 import { normalizeArabic, normalizeArabicStrict } from './normalizer.ts';
+import { fetchRemoteSafely, readTextWithLimit } from './safeRemoteFetch.ts';
 
 export interface DorarHadithResult {
   text: string;
@@ -408,38 +409,26 @@ function getCanonicalFiqhAnchor(query: string): { title: string; url: string } |
 
 async function fetchDorarFiqhArticle(url: string): Promise<{ title: string; text: string } | null> {
   try {
-    const raw = await new Promise<string>((resolve) => {
-      const parsed = new URL(url);
-      const req = https.request({
-        hostname: parsed.hostname,
-        port: 443,
-        path: parsed.pathname + parsed.search,
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36 Baseera/1.0',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'ar,en;q=0.9'
-        },
-        timeout: 8000
-      }, (res) => {
-        let data = '';
-        res.setEncoding('utf8');
-        res.on('data', chunk => { data += chunk; });
-        res.on('end', () => resolve(data));
-      });
-      req.on('error', () => resolve(''));
-      req.on('timeout', () => {
-        req.destroy();
-        resolve('');
-      });
-      req.end();
+    const response = await fetchRemoteSafely(url, {
+      headers: {
+        'User-Agent': 'Baseera/1.0',
+        'Accept': 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ar,en;q=0.9'
+      }
     });
 
+    if (!response.ok) return null;
+    const raw = await readTextWithLimit(response, 1_500_000);
     if (!raw) return null;
 
     const h1Match = raw.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     const title = h1Match
-      ? h1Match[1].replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+      ? h1Match[1]
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/\s+/g, ' ')
+        .trim()
       : '';
 
     const pos = raw.indexOf('w-100 mt-4');
@@ -447,8 +436,13 @@ async function fetchDorarFiqhArticle(url: string): Promise<{ title: string; text
 
     let chunk = raw.slice(pos, pos + 9000);
     chunk = chunk.replace(/<span class="tip"[^>]*>[\s\S]*?<\/span>/gi, '');
-    let text = chunk.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
-    text = text.replace(/\s+/g, ' ').trim();
+    let text = chunk
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ')
+      .trim();
+
     for (const marker of ['المادة في سؤال وجواب', 'انظر أيضا', 'الرابط المختصر']) {
       const index = text.indexOf(marker);
       if (index > 100) text = text.slice(0, index).trim();
