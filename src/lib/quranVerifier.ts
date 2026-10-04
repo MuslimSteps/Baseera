@@ -43,9 +43,10 @@ function levenshtein(a: string, b: string): number {
 function orderedTokenSimilarity(input: string, canonical: string): number {
   const inputTokens = normalizeArabic(input).split(/\s+/).filter(Boolean);
   const canonicalTokens = normalizeArabic(canonical).split(/\s+/).filter(Boolean);
+
   if (inputTokens.length < 3 || canonicalTokens.length < 3) return 0;
 
-  const distanceToWindow = (a: string[], b: string[]) => {
+  const editSimilarity = (a: string[], b: string[]): number => {
     const m = a.length;
     const n = b.length;
     const prev = Array.from({ length: n + 1 }, (_, j) => j);
@@ -64,27 +65,32 @@ function orderedTokenSimilarity(input: string, canonical: string): number {
       }
       prevRow = row;
     }
-    return prevRow[n];
+
+    const maxLen = Math.max(m, n);
+    return maxLen ? 1 - prevRow[n] / maxLen : 0;
   };
 
-  let best = 0;
-
-  // The most common case is a quoted prefix of a longer ayah.
+  // Exact or altered excerpt from a longer ayah: compare the input against
+  // every same-length contiguous window in the canonical verse.
   if (canonicalTokens.length >= inputTokens.length) {
+    let best = 0;
     for (let start = 0; start <= canonicalTokens.length - inputTokens.length; start++) {
-      const window = canonicalTokens.slice(start, start + inputTokens.length);
-      const distance = distanceToWindow(inputTokens, window);
-      best = Math.max(best, 1 - distance / inputTokens.length);
+      best = Math.max(
+        best,
+        editSimilarity(inputTokens, canonicalTokens.slice(start, start + inputTokens.length))
+      );
     }
-  } else {
-    const distance = distanceToWindow(
-      canonicalTokens,
-      inputTokens.slice(0, canonicalTokens.length)
-    );
-    best = Math.max(best, 1 - distance / inputTokens.length);
+    return Number(Math.max(0, best).toFixed(3));
   }
 
-  return Number(Math.max(0, best).toFixed(3));
+  // If the canonical ayah is shorter than the input, DO NOT give a high score
+  // merely because a few words overlap. Only accept it as a partial quote when
+  // the complete canonical ayah occurs contiguously inside the input.
+  const inputNorm = inputTokens.join(' ');
+  const canonicalNorm = canonicalTokens.join(' ');
+  if (inputNorm.includes(canonicalNorm)) return 1;
+
+  return 0;
 }
 
 function quranCandidateScore(input: string, canonical: string): {
@@ -96,7 +102,7 @@ function quranCandidateScore(input: string, canonical: string): {
   const sequenceSimilarity = orderedTokenSimilarity(input, canonical);
   const exact = normalizeArabicStrict(input) === normalizeArabicStrict(canonical);
   return {
-    score: exact ? 1 : Math.max(diff.similarityScore, sequenceSimilarity),
+    score: exact ? 1 : sequenceSimilarity,
     diff,
     sequenceSimilarity
   };
@@ -383,7 +389,9 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
     const missingWords = wordDiffResult.diff.filter(d => d.type === 'missing');
     const lexicalAlteration = changedWords.length > 0;
 
-    if (highestScore >= 0.55 || wordDiffResult.hasDiscrepancy) {
+    // Do not surface a random nearby verse. A Quran candidate must have
+    // substantial ordered textual evidence before it can receive a reference.
+    if (highestScore >= 0.72) {
       const verdictAr = lexicalAlteration
         ? 'تحريف في اللفظ القرآني — النص المدخل محرّف عن الآية المعتمدة'
         : 'اقتباس جزئي من الآية — ليس النص القرآني كاملاً';
