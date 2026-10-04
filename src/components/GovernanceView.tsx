@@ -9,156 +9,171 @@ import {
   Users,
   ShieldCheck,
   Lock,
-  AlertOctagon,
-  FileCheck,
-  CheckCircle,
-  HelpCircle,
-  ArrowUpRight
+  CheckCircle
 } from 'lucide-react';
+
+interface Level {
+  id: string;
+  label: string;
+  tag: string;
+  accent: string;
+  card: string;
+  chip: string;
+  scope: string;
+  rule: string;
+}
+
+const LEVELS: Level[] = [
+  {
+    id: 'A',
+    label: 'المستوى أ',
+    tag: 'معلومة مستقرة',
+    accent: 'text-brand-soft',
+    card: 'bento-card--brand',
+    chip: 'badge-matched',
+    scope: 'أصول الدين، أركان الإسلام، النصوص القرآنية القطعية، وإجماع الأمة المتيقن.',
+    rule: 'إجابة موثقة ومباشرة مع إسناد الدليل الصريح من المصدر المعتمد.'
+  },
+  {
+    id: 'B',
+    label: 'المستوى ب',
+    tag: 'شرح واستدلال',
+    accent: 'text-info',
+    card: 'bento-card--ai',
+    chip: 'badge-refer',
+    scope: 'معاني المصطلحات، سياقات التفسير، والأحاديث النبوية ودرجات ثبوتها.',
+    rule: 'شرح من المادة المعتمدة مع إظهار المرجع وتجنب القطع فيما يحتمل الخلاف.'
+  },
+  {
+    id: 'C',
+    label: 'المستوى ج',
+    tag: 'خلاف سائغ',
+    accent: 'text-gold',
+    card: 'bento-card--gold',
+    chip: 'badge-gold',
+    scope: 'المسائل الفقهية الخلافية بين المذاهب الأربعة المعتمدة.',
+    rule: 'عرض الخلاف عرضاً حيادياً مقارناً دون ترجيح آلي، وإحالة النوازل الشخصية.'
+  },
+  {
+    id: 'D',
+    label: 'المستوى د',
+    tag: 'فتوى شخصية',
+    accent: 'text-danger',
+    card: '',
+    chip: 'badge-danger',
+    scope: 'الفتاوى الشخصية (طلاق، نزاعات أسرية، معاملات مالية خاصة، قضايا دقيقة).',
+    rule: 'الامتناع القاطع عن الفتوى والإحالة فوراً إلى دور الإفتاء والهيئات الرسمية.'
+  }
+];
 
 export const GovernanceView: React.FC = () => {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Editorial Header */}
-      <div className="border-b border-white/[0.08] pb-6">
-        <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
-          <span>الحوكمة والمراجعة والامتثال</span>
-          <span aria-hidden="true" className="text-slate-600">·</span>
-          <span>المسار الرابع: أدوات المعرفة والتحقق</span>
-          <span aria-hidden="true" className="text-slate-600">·</span>
-          <span className="text-emerald-400 font-medium">وثيقة الضوابط الرسمية</span>
-        </div>
-
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold font-tajawal text-white tracking-tight">
-              حوكمة المنظومة، بروتوكول المراجعة، وسياسة الخصوصية
-            </h1>
-            <p className="text-sm text-slate-300 mt-2 max-w-3xl leading-relaxed">
-              تلتزم «بصيرة» بأعلى معايير الانضباط العلمي والشرعي والأمني بما يحقق مستهدفات تحدي الذكاء الاصطناعي في خدمة المحتوى الإسلامي دون تهاون أو استبدال للمصادر.
-            </p>
+    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      {/* Bento Hero */}
+      <section className="bento reveal">
+        <div className="bento-card bento-card--gold bento-accent-top col-span-12 p-6 sm:p-8 lg:col-span-8">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="eyebrow">الحوكمة والامتثال</span>
+            <span aria-hidden="true" className="eyebrow-sep">·</span>
+            <span className="text-muted">المسار الرابع: أدوات المعرفة والتحقق</span>
+          </div>
+          <h1 className="text-balance font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+            حوكمة المنظومة و<span className="gradient-text">بروتوكول المراجعة</span>
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
+            تلتزم «بصيرة» بأعلى معايير الانضباط العلمي والشرعي والأمني دون تهاون أو استبدال للمصادر.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className="badge badge-gold">مراجعة بشرية مزدوجة</span>
+            <span className="badge badge-matched">Audit Log</span>
+            <span className="badge badge-ai">Ephemeral Processing</span>
           </div>
         </div>
-      </div>
 
-      {/* Levels A, B, C, D Architecture */}
-      <div className="rounded-2xl bg-[#0b101b] border border-white/[0.08] p-6 shadow-lg space-y-4">
-        <h3 className="text-lg font-bold font-tajawal text-white flex items-center gap-2">
-          <Scale className="w-5 h-5 text-emerald-400" />
-          <span>مصفوفة مستويات اتخاذ القرار الشرعي في بصيرة (Levels A - D)</span>
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-          {/* Level A */}
-          <div className="p-4 rounded-xl bg-black/40 border border-emerald-500/30 space-y-2">
-            <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-              <span className="font-bold text-emerald-400 text-sm">المستوى أ (Level A)</span>
-              <span className="text-[11px] text-emerald-300 font-medium">معلومة مستقرة</span>
-            </div>
-            <p className="text-slate-300 leading-relaxed">
-              <strong>النطاق:</strong> أصول الدين، أركان الإسلام، النصوص القرآنية القطعية، وإجماع الأمة المتيقن.
-            </p>
-            <p className="text-slate-400 leading-normal">
-              <strong>قاعدة القرار:</strong> إجابة موثقة ومباشرة مع إسناد الدليل الصريح من المصدر المعتمد.
-            </p>
+        <div className="bento-card col-span-12 flex flex-col justify-between gap-4 p-6 lg:col-span-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-ink">
+            <Scale className="h-4 w-4 text-gold" />
+            <span>مصفوفة مستويات القرار</span>
           </div>
-
-          {/* Level B */}
-          <div className="p-4 rounded-xl bg-black/40 border border-sky-500/30 space-y-2">
-            <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-              <span className="font-bold text-sky-400 text-sm">المستوى ب (Level B)</span>
-              <span className="text-[11px] text-sky-300 font-medium">شرح واستدلال</span>
-            </div>
-            <p className="text-slate-300 leading-relaxed">
-              <strong>النطاق:</strong> معاني المصطلحات، سياقات التفسير، والأحاديث النبوية ودرجات ثبوتها.
-            </p>
-            <p className="text-slate-400 leading-normal">
-              <strong>قاعدة القرار:</strong> شرح من المادة المعتمدة مع إظهار المرجع وتجنب القطع فيما يحتمل الخلاف.
-            </p>
-          </div>
-
-          {/* Level C */}
-          <div className="p-4 rounded-xl bg-black/40 border border-amber-500/30 space-y-2">
-            <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-              <span className="font-bold text-amber-400 text-sm">المستوى ج (Level C)</span>
-              <span className="text-[11px] text-amber-300 font-medium">مسائل خلافية</span>
-            </div>
-            <p className="text-slate-300 leading-relaxed">
-              <strong>النطاق:</strong> الفروع الفقهية السائغة بين أئمة المذاهب الأربعة (حنفية، مالكية، شافعية، حنابلة).
-            </p>
-            <p className="text-slate-400 leading-normal">
-              <strong>قاعدة القرار:</strong> عرض أقوال المذاهب بأدلتها بتجرد تام، مع المنع الصارم لأي ترجيح آلي بين الأئمة.
-            </p>
-          </div>
-
-          {/* Level D */}
-          <div className="p-4 rounded-xl bg-black/40 border border-indigo-500/30 space-y-2">
-            <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-              <span className="font-bold text-indigo-400 text-sm">المستوى د (Level D)</span>
-              <span className="text-[11px] text-indigo-300 font-medium">فتوى ونوازل</span>
-            </div>
-            <p className="text-slate-300 leading-relaxed">
-              <strong>النطاق:</strong> الفتاوى الشخصية (طلاق، نزاعات أسرية، معاملات مالية خاصة، قضايا دقيقة).
-            </p>
-            <p className="text-slate-400 leading-normal">
-              <strong>قاعدة القرار:</strong> الامتناع القاطع عن الفتوى والإحالة فوراً إلى دور الإفتاء والهيئات الرسمية.
-            </p>
+          <p className="text-xs leading-relaxed text-muted">
+            أربعة مستويات تحدّد كيف يتصرّف النظام: من الإجابة الموثقة إلى الامتناع والإحالة للمختص.
+          </p>
+          <div className="grid grid-cols-4 gap-2 border-t border-hairline pt-3 text-center">
+            {LEVELS.map((l) => (
+              <div key={l.id}>
+                <div className={`font-mono-numbers text-lg font-bold ${l.accent}`}>{l.id}</div>
+                <div className="text-[10px] text-faint">{l.tag}</div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Protocols Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Human-in-the-Loop Protocol */}
-        <div className="rounded-2xl bg-[#0b101b] border border-white/[0.08] p-6 shadow-lg space-y-4">
-          <h3 className="text-base font-bold font-tajawal text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-emerald-400" />
-            <span>بروتوكول المراجعة البشرية المزدوجة (Dual-Human Review)</span>
+      {/* Levels Bento */}
+      <section className="bento">
+        {LEVELS.map((lvl, i) => (
+          <div
+            key={lvl.id}
+            className={`bento-card ${lvl.card} col-span-12 space-y-2 p-5 md:col-span-6 lg:col-span-3 reveal reveal-${i + 1}`}
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-hairline pb-2">
+              <span className={`text-sm font-bold ${lvl.accent}`}>{lvl.label} (Level {lvl.id})</span>
+              <span className={`badge ${lvl.chip}`}>{lvl.tag}</span>
+            </div>
+            <p className="text-xs leading-relaxed text-muted">
+              <strong className="text-ink">النطاق:</strong> {lvl.scope}
+            </p>
+            <p className="text-xs leading-relaxed text-faint">
+              <strong className="text-muted">قاعدة القرار:</strong> {lvl.rule}
+            </p>
+          </div>
+        ))}
+      </section>
+
+      {/* Protocols Bento */}
+      <section className="bento">
+        <div className="bento-card col-span-12 space-y-4 p-6 lg:col-span-6 reveal">
+          <h3 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+            <Users className="h-5 w-5 text-gold" />
+            <span>بروتوكول المراجعة البشرية المزدوجة</span>
           </h3>
-
-          <ul className="space-y-2 text-xs text-slate-300">
-            <li className="flex items-start gap-2 bg-black/20 p-2.5 rounded-lg border border-white/[0.04]">
-              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <span><strong>المراجعة الشرعية:</strong> لا تُعتمد أي إضافة إلى سجل المصادر إلا بمراجعة محقق متخصص في علوم القرآن أو الحديث.</span>
+          <ul className="space-y-2 text-xs text-muted">
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-soft" />
+              <span><strong className="text-ink">المراجعة الشرعية:</strong> لا تُعتمد أي إضافة إلى سجل المصادر إلا بمراجعة محقق متخصص في علوم القرآن أو الحديث.</span>
             </li>
-
-            <li className="flex items-start gap-2 bg-black/20 p-2.5 rounded-lg border border-white/[0.04]">
-              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <span><strong>المراجعة التقنية المزدوجة:</strong> التحقق من سلامة نصوص التخريج وحظر إمكانية التعديل غير المصرح به على ملفات الحزمة.</span>
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-soft" />
+              <span><strong className="text-ink">المراجعة التقنية المزدوجة:</strong> التحقق من سلامة نصوص التخريج وحظر أي تعديل غير مصرح به على ملفات الحزمة.</span>
             </li>
-
-            <li className="flex items-start gap-2 bg-black/20 p-2.5 rounded-lg border border-white/[0.04]">
-              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <span><strong>سجل التدقيق غير القابل للتلاعب (Audit Log):</strong> تسجيل رقم الإصدار والتاريخ لكل عملية تدقيق مرجعي في المنظومة.</span>
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-soft" />
+              <span><strong className="text-ink">سجل التدقيق غير القابل للتلاعب:</strong> تسجيل رقم الإصدار والتاريخ لكل عملية تدقيق مرجعي في المنظومة.</span>
             </li>
           </ul>
         </div>
 
-        {/* Privacy Policy */}
-        <div className="rounded-2xl bg-[#0b101b] border border-white/[0.08] p-6 shadow-lg space-y-4">
-          <h3 className="text-base font-bold font-tajawal text-white flex items-center gap-2">
-            <Lock className="w-5 h-5 text-sky-400" />
+        <div className="bento-card col-span-12 space-y-4 p-6 lg:col-span-6 reveal reveal-1">
+          <h3 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+            <Lock className="h-5 w-5 text-info" />
             <span>سياسة الخصوصية وأخلاقيات البيانات</span>
           </h3>
-
-          <ul className="space-y-2 text-xs text-slate-300">
-            <li className="flex items-start gap-2 bg-black/20 p-2.5 rounded-lg border border-white/[0.04]">
-              <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-              <span><strong>حظر التنميط الديني والمذهبي:</strong> المنظومة تفحص النصوص المجردة ولا تسجل أو تحلل الميول المذهبية أو الدينية للمستخدمين.</span>
+          <ul className="space-y-2 text-xs text-muted">
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+              <span><strong className="text-ink">حظر التنميط الديني والمذهبي:</strong> المنظومة تفحص النصوص المجردة ولا تحلل الميول الدينية للمستخدمين.</span>
             </li>
-
-            <li className="flex items-start gap-2 bg-black/20 p-2.5 rounded-lg border border-white/[0.04]">
-              <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-              <span><strong>المعالجة اللحظية العابرة (Ephemeral Processing):</strong> لا يتم حفظ النصوص الخاصة أو الصور المرفوعة بعد اكتمال الفحص.</span>
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+              <span><strong className="text-ink">المعالجة اللحظية العابرة:</strong> لا يتم حفظ النصوص الخاصة أو الصور المرفوعة بعد اكتمال الفحص.</span>
             </li>
-
-            <li className="flex items-start gap-2 bg-black/20 p-2.5 rounded-lg border border-white/[0.04]">
-              <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-              <span><strong>عدم إعادة تدريب النماذج على محادثات المستخدمين:</strong> مدخلات القارئ لا تُستخدم في تدريب أي نماذج خارجية.</span>
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+              <span><strong className="text-ink">عدم إعادة تدريب النماذج:</strong> مدخلات القارئ لا تُستخدم في تدريب أي نماذج خارجية.</span>
             </li>
           </ul>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

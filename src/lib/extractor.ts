@@ -31,10 +31,18 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
     const quotedText = qMatch[1]?.trim();
     if (!quotedText || quotedText.length < 5) continue;
 
-    // Check if it's explicitly a hadith quote (e.g. قال رسول الله «...»)
+    // Check if it's explicitly a hadith quote (e.g. قال رسول الله «...» or حديث «...»)
     const precedingText = text.slice(Math.max(0, qMatch.index - 40), qMatch.index);
-    if (precedingText.includes('رسول الله') || precedingText.includes('قال النبي') || precedingText.includes('في الحديث')) {
+    if (precedingText.includes('رسول الله') || precedingText.includes('قال النبي') || precedingText.includes('حديث') || precedingText.includes('الحديث')) {
       continue; // Let the Hadith extractor handle this
+    }
+
+    const hasQuranMarker = /(?:قال\s+(?:الله\s+)?تعالى|قوله\s+تعالى|في\s+القرآن|كقوله\s+سبحانه|سورة)/i.test(precedingText) || qMatch[0].includes('تعالى') || qMatch[0].includes('القرآن');
+    const hasQuranBracket = !!qMatch[2]; // e.g. [البقرة: ...]
+
+    if (!hasQuranMarker && !hasQuranBracket) {
+      // A standalone quote without any Quranic attribution is NOT an Ayah
+      continue;
     }
 
     const claimedSurah = qMatch[2]?.trim();
@@ -67,28 +75,86 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
     const matchEnd = matchStart + fullMatch.length;
     if (isOverlapping(matchStart, matchEnd)) continue;
 
-    // Try to extract claimed surah and ayah from the marker phrase
-    const markerPart = fullMatch.slice(0, fullMatch.length - bodyText.length);
+    const markerPart = fullMatch.slice(0, Math.max(0, fullMatch.length - bodyText.length));
     const surahMatch = markerPart.match(/سورة\s+([\u0621-\u064A]+)/);
     const ayahMatch = markerPart.match(/آية\s+(\d+)/);
+
+    // Look ahead for bracketed citation like [التغابن: 15] or [التغان: 5 1]
+    const afterMatch = text.slice(matchEnd, matchEnd + 50);
+    const bracketMatch = afterMatch.match(/^\s*\[(?:سورة\s+)?([^\s:\]]+)(?:\s*[:\s]\s*([\d\s]+))?\]/);
+    let claimedSurah = surahMatch?.[1];
+    let claimedAyah = ayahMatch ? parseInt(ayahMatch[1], 10) : undefined;
+    if (bracketMatch) {
+      claimedSurah = bracketMatch[1]?.trim();
+      if (bracketMatch[2]) {
+        const rawDigits = bracketMatch[2].replace(/\s+/g, '');
+        claimedAyah = parseInt(rawDigits, 10);
+      }
+    }
 
     coveredRanges.push({ start: matchStart, end: matchEnd });
 
     items.push({
       type: 'ayah',
-      text: bodyText,
+      text: bodyText.replace(/^[«"“]+|[»"”]+$/g, '').trim(),
       context: fullMatch,
       language: /[a-zA-Z]/.test(bodyText) ? 'en' : 'ar',
       location_in_input: `chars ${matchStart}-${matchEnd}`,
-      claimed_surah: surahMatch?.[1],
-      claimed_ayah: ayahMatch ? parseInt(ayahMatch[1], 10) : undefined,
+      claimed_surah: claimedSurah,
+      claimed_ayah: claimedAyah,
       confidence: 0.93
     });
   }
 
+  // 1c. Double-Parentheses Narrations ((...)) — common in Arabic posts for Hadith/Athar
+  const doubleParenRegex = /\(\(\s*([\s\S]+?)\s*\)\)/g;
+  let dpMatch;
+  while ((dpMatch = doubleParenRegex.exec(text)) !== null) {
+    const fullMatch = dpMatch[0];
+    const narrationText = dpMatch[1]?.trim();
+    if (!narrationText || narrationText.length < 15) continue;
+
+    const start = dpMatch.index;
+    const end = start + fullMatch.length;
+    coveredRanges.push({ start, end });
+
+    items.push({
+      type: 'hadith',
+      text: narrationText,
+      context: fullMatch,
+      language: 'ar',
+      location_in_input: `chars ${start}-${end}`,
+      confidence: 0.95
+    });
+  }
+
+  // 1d. Unquoted Companion Athar / Dialogue Narrations (e.g. دخل حذيفة على عمر / صدقك فيما قال يا عمر)
+  const atharDialogueRegex = /(?:دخل [^:\n]+ على [^:\n]+|صدقك فيما قال يا عمر|يحب الفتنة ويكره الحق|يصلي بغير وضوء|روي أن [^:\n]+|جاء في الأثر أن)[\s\S]{20,}/gim;
+  let atharMatch;
+  while ((atharMatch = atharDialogueRegex.exec(text)) !== null) {
+    const fullMatch = atharMatch[0]?.trim();
+    const start = atharMatch.index;
+    const end = start + (fullMatch?.length || 0);
+
+    // Skip if already covered by double parentheses ((...))
+    if (isOverlapping(start, end)) continue;
+
+    if (fullMatch && fullMatch.length >= 20) {
+      coveredRanges.push({ start, end });
+      items.push({
+        type: 'hadith',
+        text: fullMatch,
+        context: fullMatch,
+        language: 'ar',
+        location_in_input: `chars ${start}-${end}`,
+        confidence: 0.92
+      });
+    }
+  }
+
   // 2. Hadith with quotation:
-  // e.g. قال رسول الله ﷺ: «...» رواه البخاري
-  const hadithQuotedRegex = /(?:قال رسول الله|قال النبي|سمعت رسول الله|يقول رسول الله|عن النبي|في الحديث|ورد في الحديث|روي أن النبي|في صحيح البخاري|في صحيح مسلم|عن عمر|عن أنس|عن أبي هريرة)[^«"“\n]*[:\s]*[«"“]([^»"”]{5,})[»"”](?:\s*(?:رواه|في)?\s*(البخاري|مسلم|الترمذي|أحمد|ابن ماجه)?)?/gi;
+  // e.g. قال رسول الله ﷺ: «...» or حديث ضعيف: (...) or قال النبي: "..."
+  const hadithQuotedRegex = /(?:حديث(?:\s+(?:صحيح|حسن|ضعيف|موضوع|باطل|مكذوب))?|الحديث|قال رسول الله|قال النبي|سمعت رسول الله|يقول رسول الله|عن النبي|في الحديث|ورد في الحديث|روي أن النبي|في صحيح البخاري|في صحيح مسلم|عن عمر|عن أنس|عن أبي هريرة)[^«"“\(\n]*[:\s]*[«"“\(]([^»"”\)]{5,})[»"”\)](?:\s*(?:رواه|في)?\s*(البخاري|مسلم|الترمذي|أحمد|ابن ماجه)?)?/gi;
   let hMatch;
   while ((hMatch = hadithQuotedRegex.exec(text)) !== null) {
     const fullMatch = hMatch[0];
@@ -146,7 +212,15 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
   }
 
   // 4. Fiqh Question patterns
-  if (text.includes('هل يجوز') || text.includes('ما حكم') || text.includes('طلقت') || text.includes('زوجتي') || text.includes('ينقض الوضوء') || text.includes('قنوت الفجر') || text.includes('الميراث') || text.includes('تركة')) {
+  const isFiqhQuestionText =
+    /(?:^|\s)(?:ما\s*حكم|حكم|أحكام|هل\s*يجوز|هل\s*يصح|هل\s*يحل|هل\s*يحرم|ما\s*رأي\s*الشرع|طلقت|زوجتي|ينقض\s*الوضوء|قنوت\s*الفجر|الميراث|تركة)(?:\s|$)/i.test(text) ||
+    text.startsWith('حكم ') ||
+    text.includes('ما حكم') ||
+    text.includes('هل يجوز') ||
+    text.includes('هل يصح') ||
+    text.includes('حكم ');
+
+  if (isFiqhQuestionText) {
     // Only add if not already extracting an ayah or hadith solely
     items.push({
       type: 'fiqh_question',
@@ -154,15 +228,15 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
       context: text,
       language: 'ar',
       location_in_input: 'full question',
-      confidence: 0.9
+      confidence: 0.92
     });
   }
 
   // 5. Fallback: If no items detected at all, treat the entire string as candidate claim
   if (items.length === 0 && text.length > 3) {
     let guessedType: ItemType = 'claim';
-    if (text.includes('الله') || text.includes('سورة') || text.includes('آية')) guessedType = 'ayah';
-    else if (text.includes('رسول') || text.includes('النبي') || text.includes('حديث')) guessedType = 'hadith';
+    if (text.includes('سورة') || text.includes('آية') || text.includes('تعالى') || text.includes('المصحف')) guessedType = 'ayah';
+    else if (text.includes('رسول') || text.includes('النبي') || text.includes('حديث') || text.includes('صلى الله عليه وسلم')) guessedType = 'hadith';
 
     items.push({
       type: guessedType,
@@ -184,6 +258,13 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
       uniqueItems.push(it);
     }
   }
+
+  // Prioritize primary narrative/hadith before internal quotes/verses
+  uniqueItems.sort((a, b) => {
+    if (a.type === 'hadith' && b.type === 'ayah') return -1;
+    if (a.type === 'ayah' && b.type === 'hadith') return 1;
+    return 0;
+  });
 
   return uniqueItems;
 }

@@ -2,16 +2,18 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>بصيرة — التحقق والسياق</title>
+  <title>بصيرة — التحقق السريع</title>
   <style>
+    * { box-sizing: border-box; }
     body {
-      width: 340px;
+      width: 360px;
       margin: 0;
       padding: 14px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background: #090d16;
       color: #f1f5f9;
       font-size: 13px;
+      line-height: 1.5;
     }
     .header {
       display: flex;
@@ -21,99 +23,196 @@
       padding-bottom: 8px;
       margin-bottom: 12px;
     }
-    .logo {
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-badge {
+      width: 24px;
+      height: 24px;
+      background: #059669;
+      color: white;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .logo-title {
       font-weight: 700;
-      color: #10b981;
-      font-size: 16px;
+      color: #ffffff;
+      font-size: 14px;
     }
     .badge {
       font-size: 10px;
-      padding: 2px 6px;
+      padding: 2px 8px;
       border-radius: 9999px;
       background: #1e293b;
-      color: #94a3b8;
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.2);
     }
-    .term-box {
+    .selected-box {
       background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 10px;
-      margin-bottom: 10px;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+    }
+    .input-box {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
     }
     .label {
       font-size: 11px;
       color: #94a3b8;
+      margin-bottom: 6px;
+    }
+    .selected-text {
+      font-weight: 600;
+      font-size: 13px;
+      color: #38bdf8;
+      word-break: break-word;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    .verdict-card {
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid transparent;
+    }
+    .verdict-matched {
+      background: rgba(6, 78, 59, 0.5);
+      border-color: rgba(5, 150, 105, 0.6);
+      color: #a7f3d0;
+    }
+    .verdict-review {
+      background: rgba(120, 53, 15, 0.5);
+      border-color: rgba(217, 119, 6, 0.6);
+      color: #fde68a;
+    }
+    .verdict-notfound {
+      background: rgba(30, 41, 59, 0.7);
+      border-color: #334155;
+      color: #cbd5e1;
+    }
+    .verdict-title {
+      font-weight: 700;
+      font-size: 14px;
       margin-bottom: 4px;
     }
-    .term-title {
-      font-weight: 600;
-      font-size: 14px;
-      color: #38bdf8;
-    }
-    .status-badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-weight: 600;
+    .verdict-source {
       font-size: 11px;
-      margin-bottom: 8px;
+      line-height: 1.4;
+      opacity: 0.95;
     }
-    .status-matched { background: #064e3b; color: #6ee7b7; border: 1px solid #059669; }
-    .status-review { background: #78350f; color: #fde68a; border: 1px solid #d97706; }
-    .status-notfound { background: #374151; color: #d1d5db; border: 1px solid #6b7280; }
-    .status-referral { background: #4c1d95; color: #ddd6fe; border: 1px solid #7c3aed; }
-    .warning {
-      background: #451a03;
-      border-right: 3px solid #f59e0b;
-      padding: 8px;
-      margin-top: 8px;
-      font-size: 11px;
-      color: #fef3c7;
-      border-radius: 4px;
+    .canonical-box {
+      background: rgba(0, 0, 0, 0.35);
+      border-right: 3px solid #10b981;
+      border-radius: 0 8px 8px 0;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      max-height: 150px;
+      overflow-y: auto;
     }
-    .source-box {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px dashed #334155;
-      font-size: 11px;
-      color: #94a3b8;
-    }
-    .btn {
+    .btn-verify {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
       width: 100%;
       background: #059669;
-      color: white;
-      border: none;
-      padding: 7px;
-      border-radius: 6px;
+      color: #ffffff;
+      padding: 8px;
+      border-radius: 8px;
       font-weight: 600;
       cursor: pointer;
-      margin-top: 6px;
+      font-size: 12px;
+      text-decoration: none;
+      margin-bottom: 8px;
+      transition: background 0.15s;
     }
-    .btn:hover { background: #10b981; }
+    .btn-verify:hover { background: #10b981; }
+    .toggle-details {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 11px;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+      padding: 4px;
+    }
+    .toggle-details:hover { color: #cbd5e1; }
+    .details-box {
+      display: none;
+      margin-top: 8px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      border: 1px solid #1e293b;
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    .loader {
+      text-align: center;
+      padding: 24px 10px;
+      color: #94a3b8;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="logo">بصيرة — Baseera</div>
-    <span class="badge">طبقة التحقق والسياق</span>
+    <div class="logo-wrap">
+      <div class="logo-badge">ب</div>
+      <div class="logo-title">بصيرة — التحقق السريع</div>
+    </div>
+    <span class="badge">فحص فوري</span>
   </div>
 
-  <div id="loading" style="display:none; text-align:center; padding: 12px; color: #94a3b8;">
-    جاري استرجاع السند من المصادر المعتمدة...
+  <div id="loading" class="loader" style="display:none;">
+    جارٍ التحقق من المراجع المعتمدة (الدرر السنية والمصحف)...
   </div>
 
   <div id="content">
-    <div class="term-box">
-      <div class="label">النص أو المصطلح المحدد:</div>
-      <div class="term-title" id="selected-text">Sharia</div>
+    <!-- Active Selection Box -->
+    <div class="selected-box" id="selection-box" style="display:none;">
+      <div class="label">النص المحدد من الصفحة:</div>
+      <div class="selected-text" id="selected-text"></div>
     </div>
 
-    <div id="status-container"></div>
-    <div id="meaning-container"></div>
-    <div id="warning-container"></div>
-    <div id="source-container"></div>
+    <!-- Manual input box when no text is selected -->
+    <div class="input-box" id="manual-input-box">
+      <div class="label">اكتب أو الصق أي نص أو مسألة للفحص الفوري:</div>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="manual-input" placeholder="مثال: حكم النكاح من الدبر..." style="flex:1; background:#0b1120; border:1px solid #334155; color:#fff; padding:7px 10px; border-radius:8px; font-size:12px; outline:none; direction:rtl;" />
+        <button id="manual-btn" style="background:#059669; color:#fff; border:none; padding:7px 12px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer;">فحص</button>
+      </div>
+    </div>
 
-    <button class="btn" id="check-btn">إعادة التحقق من التحديد</button>
+    <!-- Direct Verdict Container -->
+    <div id="verdict-container"></div>
+
+    <!-- Canonical Text Container -->
+    <div id="canonical-container"></div>
+
+    <!-- One-click Verify Link Button -->
+    <div id="action-container"></div>
+
+    <!-- Collapsible Details -->
+    <button class="toggle-details" id="toggle-details-btn" style="display:none;">
+      ▼ عرض تفاصيل التخريج والسياق
+    </button>
+    <div class="details-box" id="details-container"></div>
   </div>
 
   <script src="popup.js"></script>

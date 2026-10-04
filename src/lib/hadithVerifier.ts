@@ -33,24 +33,61 @@ export function verifyHadith(item: ExtractedItem): VerificationResult {
         wordDiffResult = diff;
       }
     } else {
-      // Keyword matching
-      const hasKeywords = h.keywords?.some(k => {
-        const normK = normalizeArabic(k);
-        return normInput.includes(normK) || normK.includes(normInput);
-      });
-      const diff = computeWordDiff(item.text, h.text_clean);
-      const effectiveScore = hasKeywords ? Math.max(diff.similarityScore, 0.8) : diff.similarityScore;
+      // Check distinctive multi-word keywords (phrases of at least 8 chars)
+      let matchedDistinctiveKws = 0;
+      if (h.keywords && h.keywords.length > 0) {
+        for (const kw of h.keywords) {
+          const normKw = normalizeArabic(kw);
+          if (normKw.length >= 8 && normKw.includes(' ') && normInput.includes(normKw)) {
+            matchedDistinctiveKws++;
+          }
+        }
+      }
 
-      if (effectiveScore > highestScore && effectiveScore > 0.45) {
-        highestScore = effectiveScore;
-        bestMatch = h;
-        wordDiffResult = diff;
+      // Check 3-word ngrams from canonical text (words with length > 2)
+      const canonWords = normCanonical.split(/\s+/).filter(w => w.length > 2);
+      let ngramsMatched = 0;
+      if (canonWords.length >= 4) {
+        for (let i = 0; i <= canonWords.length - 3; i++) {
+          const trigram = canonWords.slice(i, i + 3).join(' ');
+          if (normInput.includes(trigram)) {
+            ngramsMatched++;
+          }
+        }
+      }
+
+      const isDistinctiveMatch = matchedDistinctiveKws >= 2 || (ngramsMatched >= 3 && canonWords.length >= 6);
+
+      if (isDistinctiveMatch) {
+        const diff = computeWordDiff(item.text, h.text_clean);
+        const score = Math.max(0.85, diff.similarityScore);
+        if (score > highestScore) {
+          highestScore = score;
+          bestMatch = h;
+          wordDiffResult = diff;
+        }
+      } else {
+        // Fast word overlap pre-filter before expensive Levenshtein matrix
+        const inputWords = normInput.split(/\s+/).filter(w => w.length > 2);
+        let shared = 0;
+        for (const iw of inputWords) {
+          if (normCanonical.includes(iw)) shared++;
+        }
+        if (shared >= 2 || (inputWords.length <= 2 && shared >= 1)) {
+          const diff = computeWordDiff(item.text, h.text_clean);
+          if (diff.similarityScore > highestScore && diff.similarityScore >= 0.65) {
+            highestScore = diff.similarityScore;
+            bestMatch = h;
+            wordDiffResult = diff;
+          }
+        }
       }
     }
   }
 
   // If found in checked hadith database
   if (bestMatch && highestScore >= 0.5) {
+    const verifiedDorarUrl = `https://dorar.net/hadith/search?q=${encodeURIComponent(bestMatch.text_clean || item.text)}`;
     const citation = {
       source_id: 'dorar-hadith',
       source_name: 'الموسوعة الحديثية — الدرر السنية',
@@ -58,7 +95,7 @@ export function verifyHadith(item: ExtractedItem): VerificationResult {
       book: bestMatch.source_book,
       number_or_page: bestMatch.number_or_page,
       grade: bestMatch.grade,
-      url: bestMatch.dorar_url
+      url: verifiedDorarUrl
     };
 
     // Check if the user claimed a source that disagrees with verified source
@@ -77,7 +114,7 @@ export function verifyHadith(item: ExtractedItem): VerificationResult {
         id: `hadith-${bestMatch.id}`,
         item,
         status: 'NEEDS_REVIEW',
-        status_label_ar: 'يحتاج مراجعة (نسبة إلى مصدر خاطئ)',
+        status_label_ar: `⚠️ خطأ في العزو إلى ${item.claimed_source} (المصدر: ${bestMatch.source_book})`,
         status_label_en: 'Needs Review (Mismatched Source Attribution)',
         reason: `متن الحديث موجود، ولكنه منسوب إلى مصدر خاطئ (${item.claimed_source}). المصدر المعتمد في الموسوعة الحديثية هو: ${bestMatch.source_book}، بحكم: ${bestMatch.grade}.`,
         citation,
@@ -89,13 +126,16 @@ export function verifyHadith(item: ExtractedItem): VerificationResult {
 
     // Check grade: if weak or fabricated
     if (bestMatch.grade_category === 'weak' || bestMatch.grade_category === 'fabricated') {
+      const isFabricated = bestMatch.grade_category === 'fabricated' || /موضوع|مكذوب|باطل|لا أصل/.test(bestMatch.grade);
       return {
         id: `hadith-${bestMatch.id}`,
         item,
         status: 'NEEDS_REVIEW',
-        status_label_ar: `يحتاج مراجعة (${bestMatch.grade})`,
-        status_label_en: `Needs Review (${bestMatch.grade_category})`,
-        reason: `الحديث وارد في كتب التخريج ولكنه ${bestMatch.grade} بحسب تحقيق المحدثين المعتمد في منصة الدرر السنية. لا يجوز الجزم بنسبته للنبي ﷺ دون بيان درجته.`,
+        status_label_ar: isFabricated
+          ? `⛔ حديث موضوع مكذوب (${bestMatch.grade}) — لا أصل له`
+          : `⚠️ حديث ضعيف (${bestMatch.grade}) — لا تصح نسبته للنبي ﷺ`,
+        status_label_en: isFabricated ? 'Fabricated Hadith' : 'Weak Hadith',
+        reason: `هذا الحديث ${bestMatch.grade} بحسب تخريج أئمة الحديث المعتمد في منصة الدرر السنية (${bestMatch.source_book}: ${bestMatch.number_or_page}). الراوي: ${bestMatch.narrator || 'غير محدد'}، المحدث: ${bestMatch.muhaddith}. لا يجوز نسبته للنبي ﷺ إلا مع بيان ضعفه.`,
         citation,
         canonical_text: bestMatch.text_full,
         diff: wordDiffResult?.diff,
@@ -109,7 +149,7 @@ export function verifyHadith(item: ExtractedItem): VerificationResult {
         id: `hadith-${bestMatch.id}`,
         item,
         status: 'NEEDS_REVIEW',
-        status_label_ar: 'يحتاج مراجعة (اختلاف في متن الحديث)',
+        status_label_ar: '⚠️ تفاوت واختلاف في لفظ الحديث عن النص المعتمد',
         status_label_en: 'Needs Review (Textual Variation)',
         reason: `الحديث أصله ثابت في ${bestMatch.source_book}، ولكن يوجد اختلاف وتفاوت في الألفاظ المنقولة مقارنة بالنص المعتمد.`,
         citation,
@@ -120,13 +160,14 @@ export function verifyHadith(item: ExtractedItem): VerificationResult {
     }
 
     // Otherwise: Matched Sahih / Hasan
+    const isHasan = bestMatch.grade_category === 'hasan' || /حسن/.test(bestMatch.grade);
     return {
       id: `hadith-${bestMatch.id}`,
       item,
       status: 'MATCHED',
-      status_label_ar: 'مطابق (ثابت في المرجع المعتمد)',
+      status_label_ar: isHasan ? '✅ حديث حسن ثابت' : '✅ حديث صحيح وثابت',
       status_label_en: 'Matched (Verified in Approved Corpus)',
-      reason: `مطابق للرواية الثابتة في ${bestMatch.source_book}. الراوي: ${bestMatch.narrator}، المحدث: ${bestMatch.muhaddith}، خلاصة حكم المحدث: ${bestMatch.grade}.`,
+      reason: `ثبت هذا الحديث بالدليل الصحيح في ${bestMatch.source_book} (${bestMatch.number_or_page}). الراوي: ${bestMatch.narrator}، المحدث: ${bestMatch.muhaddith}، خلاصة حكم المحدث: ${bestMatch.grade}.`,
       citation,
       canonical_text: bestMatch.text_full,
       diff: wordDiffResult?.diff,

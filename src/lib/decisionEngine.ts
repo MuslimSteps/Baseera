@@ -31,40 +31,39 @@ import { normalizeArabic } from './normalizer.ts';
  */
 
 export function verifySingleItemCrossSource(item: ExtractedItem): VerificationResult {
-  // Check across all 4 official corpora
-  const quranRes = verifyQuranAyah(item);
-  const hadithRes = verifyHadith(item);
-  const termRes = verifyIslamicTerm(item);
-  const fiqhRes = verifyFiqhQuestion(item);
-
-  const isQuranFound = quranRes.status === 'MATCHED' || quranRes.status === 'NEEDS_REVIEW';
-  const isHadithFound = hadithRes.status === 'MATCHED' || hadithRes.status === 'NEEDS_REVIEW';
-  const isTermFound = termRes.status === 'MATCHED' || termRes.status === 'NEEDS_REVIEW';
-
   // 1. If claimed/tagged as Ayah
   if (item.type === 'ayah') {
-    if (isQuranFound) {
+    const quranRes = verifyQuranAyah(item);
+    if (quranRes.status === 'MATCHED' || quranRes.status === 'NEEDS_REVIEW') {
       return quranRes;
     }
 
-    // Cross-check: Did it actually exist in Sunnah / Hadith?
-    if (isHadithFound) {
-      return {
-        id: `cross-ayah-to-hadith-${Date.now()}`,
-        item: { ...item, type: 'hadith' },
-        status: 'NEEDS_REVIEW',
-        status_label_ar: 'يحتاج مراجعة (خطأ في العزو: حديث وليس آية)',
-        status_label_en: 'Needs Review (Misattributed: Hadith, not Quran)',
-        reason: `تنبيه عزو جوهري: النص المذكور نُسب إلى القرآن الكريم، ولكن بعد الفحص في المصحف الشريف بالرسم العثماني لم يُعثر عليه كآية، بينما ثبت في السنة النبوية الشريفة: ${hadithRes.reason}`,
-        citation: hadithRes.citation,
-        canonical_text: hadithRes.canonical_text,
-        diff: hadithRes.diff,
-        decision_level: 'B'
-      };
+    // Cross-check: Did it actually exist in Sunnah / Hadith definitively?
+    const hadithRes = verifyHadith(item);
+    if (hadithRes.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') {
+      const explicitlyClaimedAsQuran = item.claimed_surah || /(?:قال\s+(?:الله\s+)?تعالى|سورة|آية|المصحف|في\s+القرآن)/i.test(item.context || item.text);
+      if (explicitlyClaimedAsQuran) {
+        return {
+          id: `cross-ayah-to-hadith-${Date.now()}`,
+          item: { ...item, type: 'hadith' },
+          status: 'NEEDS_REVIEW',
+          status_label_ar: 'يحتاج مراجعة (خطأ في العزو: حديث وليس آية)',
+          status_label_en: 'Needs Review (Misattributed: Hadith, not Quran)',
+          reason: `تنبيه عزو جوهري: النص المذكور نُسب إلى القرآن الكريم، ولكن بعد الفحص في المصحف الشريف بالرسم العثماني لم يُعثر عليه كآية، بينما ورد في السنة النبوية الشريفة: ${hadithRes.reason}`,
+          citation: hadithRes.citation,
+          canonical_text: hadithRes.canonical_text,
+          diff: hadithRes.diff,
+          decision_level: 'B'
+        };
+      } else {
+        // Not claimed as Quran — return genuine Hadith result directly
+        return hadithRes;
+      }
     }
 
     // Cross-check: Is it an Islamic term in Jamhara?
-    if (isTermFound) {
+    const termRes = verifyIslamicTerm(item);
+    if (termRes.status === 'MATCHED') {
       return {
         ...termRes,
         status: 'NEEDS_REVIEW',
@@ -84,7 +83,9 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
       citation: {
         source_id: 'source-registry-all',
         source_name: 'المصادر المعتمدة في الحزمة العلمية',
-        authority: 'مصحف المدينة • الدرر السنية • موسوعة الجمهرة • المذاهب الأربعة'
+        authority: 'مصحف المدينة • الدرر السنية • موسوعة الجمهرة • المذاهب الأربعة',
+        book: 'سجل المصادر المعتمدة (مصحف المدينة والموسوعة الحديثية)',
+        url: 'https://dorar.net/hadith/search'
       },
       abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
     };
@@ -92,12 +93,14 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
 
   // 2. If claimed/tagged as Hadith
   if (item.type === 'hadith') {
-    if (isHadithFound) {
+    const hadithRes = verifyHadith(item);
+    if (hadithRes.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') {
       return hadithRes;
     }
 
     // Cross-check: Did it actually exist in Quran?
-    if (isQuranFound) {
+    const quranRes = verifyQuranAyah(item);
+    if (quranRes.status === 'MATCHED' || quranRes.status === 'NEEDS_REVIEW') {
       return {
         id: `cross-hadith-to-ayah-${Date.now()}`,
         item: { ...item, type: 'ayah' },
@@ -115,7 +118,8 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
     }
 
     // Cross-check: Is it in Jamhara?
-    if (isTermFound) {
+    const termRes = verifyIslamicTerm(item);
+    if (termRes.status === 'MATCHED') {
       return {
         ...termRes,
         status: 'NEEDS_REVIEW',
@@ -134,7 +138,9 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
       citation: {
         source_id: 'source-registry-all',
         source_name: 'المصادر المعتمدة في الحزمة العلمية',
-        authority: 'مصحف المدينة • الدرر السنية • موسوعة الجمهرة • المذاهب الأربعة'
+        authority: 'مصحف المدينة • الدرر السنية • موسوعة الجمهرة • المذاهب الأربعة',
+        book: 'الموسوعة الحديثية المعتمدة (الدرر السنية والمصادر المسندة)',
+        url: `https://dorar.net/hadith/search?q=${encodeURIComponent(item.text.slice(0, 50))}`
       },
       abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
     };
@@ -142,11 +148,14 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
 
   // 3. If Term
   if (item.type === 'term') {
-    if (isTermFound) {
+    const termRes = verifyIslamicTerm(item);
+    if (termRes.status === 'MATCHED') {
       return termRes;
     }
-    if (isQuranFound) return quranRes;
-    if (isHadithFound) return hadithRes;
+    const quranRes = verifyQuranAyah(item);
+    if (quranRes.status === 'MATCHED') return quranRes;
+    const hadithRes = verifyHadith(item);
+    if (hadithRes.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') return hadithRes;
 
     return {
       id: `not-found-${Date.now()}`,
@@ -166,18 +175,20 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
 
   // 4. If Fiqh Question
   if (item.type === 'fiqh_question') {
-    return fiqhRes;
+    return verifyFiqhQuestion(item);
   }
 
   // 5. Default / General text / Unclassified claim:
-  // Exhaustive search across all corpora
-  if (isQuranFound) return quranRes;
-  if (isHadithFound) return hadithRes;
-  if (isTermFound) return termRes;
+  const termRes = verifyIslamicTerm(item);
+  if (termRes.status === 'MATCHED') return termRes;
+  const hadithRes = verifyHadith(item);
+  if (hadithRes.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') return hadithRes;
+  const quranRes = verifyQuranAyah(item);
+  if (quranRes.status === 'MATCHED' || quranRes.status === 'NEEDS_REVIEW') return quranRes;
+  const fiqhRes = verifyFiqhQuestion(item);
   if (fiqhRes.status === 'MATCHED' || fiqhRes.status === 'REFER_TO_SPECIALIST' || fiqhRes.status === 'NEEDS_REVIEW') return fiqhRes;
 
-  // If nowhere found
-  return {
+  const notFoundRes: VerificationResult = {
     id: `not-found-${Date.now()}`,
     item,
     status: 'NOT_FOUND_IN_CHECKED_SOURCES',
@@ -187,10 +198,15 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
     citation: {
       source_id: 'source-registry-all',
       source_name: 'المصادر المعتمدة في الحزمة العلمية',
-      authority: 'مصحف المدينة • الدرر السنية • موسوعة الجمهرة • المذاهب الأربعة'
+      authority: 'مصحف المدينة • الدرر السنية • موسوعة الجمهرة • المذاهب الأربعة',
+      book: 'سجل المصادر المعتمدة للمسار الرابع',
+      url: `https://dorar.net/hadith/search?q=${encodeURIComponent(item.text.slice(0, 50))}`
     },
     abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
   };
+
+  (notFoundRes as any)._needs_live_search = true;
+  return notFoundRes;
 }
 
 export function verifyExtractedItems(

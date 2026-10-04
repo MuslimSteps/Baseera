@@ -8,6 +8,48 @@ import translationData from '../../sources/quran_translations.json' with { type:
 import { normalizeArabic, computeWordDiff } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
 
+/** Strip diacritics + Uthmani script marks for clean display */
+function cleanSurahDisplayName(raw: string): string {
+  return raw
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06ED\u0640]/g, '')
+    .replace(/^سُورَةُ\s*/u, '')
+    .replace(/^سورة\s*/u, '')
+    .trim();
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const d = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) d[i][0] = i;
+  for (let j = 0; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+    }
+  }
+  return d[m][n];
+}
+
+function findSurahFuzzy(rawName?: string) {
+  if (!rawName) return null;
+  const norm = normalizeArabic(rawName).replace(/^سوره?\s+/, '').replace(/^ال/, '').trim();
+  if (!norm) return null;
+
+  let best = null;
+  let minDiff = 999;
+  for (const surah of quranData.surahs) {
+    const sNorm = normalizeArabic(surah.name_ar).replace(/^سوره?\s+/, '').replace(/^ال/, '').trim();
+    if (sNorm === norm) return surah;
+    const dist = levenshtein(norm, sNorm);
+    if (dist <= 2 && dist < minDiff) {
+      minDiff = dist;
+      best = surah;
+    }
+  }
+  return best;
+}
+
 export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
   const normInput = normalizeArabic(item.text);
   const inputWords = normInput.split(/\s+/).filter(Boolean);
@@ -16,21 +58,37 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
   let highestScore = 0;
   let wordDiffResult: ReturnType<typeof computeWordDiff> | null = null;
 
-  // 1. Check if user explicitly provided claimed surah or ayah number
+  // 1. Check if user explicitly provided claimed surah or ayah number (with fuzzy OCR support)
   if (item.claimed_surah || item.claimed_ayah) {
+    const fuzzySurah = findSurahFuzzy(item.claimed_surah);
+    let resolvedAyah = item.claimed_ayah;
+
+    if (fuzzySurah && resolvedAyah) {
+      if (resolvedAyah > fuzzySurah.ayah_count) {
+        // Handle reversed or space-split OCR digits (e.g. 51 instead of 15)
+        const strDigits = resolvedAyah.toString();
+        const reversed = parseInt(strDigits.split('').reverse().join(''), 10);
+        if (reversed <= fuzzySurah.ayah_count) {
+          resolvedAyah = reversed;
+        }
+      }
+    }
+
     const candidate = quranData.verses.find(v => {
-      const matchSurah = item.claimed_surah
-        ? normalizeArabic(v.surah_name_ar).includes(normalizeArabic(item.claimed_surah)) ||
-          v.surah_name_en.toLowerCase().includes(item.claimed_surah.toLowerCase())
-        : true;
-      const matchAyah = item.claimed_ayah ? v.ayah_number === item.claimed_ayah : true;
+      const matchSurah = fuzzySurah
+        ? v.surah_number === fuzzySurah.number
+        : (item.claimed_surah
+            ? normalizeArabic(v.surah_name_ar).includes(normalizeArabic(item.claimed_surah)) ||
+              v.surah_name_en.toLowerCase().includes(item.claimed_surah.toLowerCase())
+            : true);
+      const matchAyah = resolvedAyah ? v.ayah_number === resolvedAyah : true;
       return matchSurah && matchAyah;
     });
 
     if (candidate) {
       const diff = computeWordDiff(item.text, candidate.text_clean);
       bestMatch = candidate;
-      highestScore = diff.similarityScore;
+      highestScore = Math.max(diff.similarityScore, 0.7);
       wordDiffResult = diff;
     }
   }
@@ -54,11 +112,18 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
           wordDiffResult = diff;
         }
       } else {
-        const diff = computeWordDiff(item.text, v.text_clean);
-        if (diff.similarityScore > highestScore && diff.similarityScore > 0.45) {
-          highestScore = diff.similarityScore;
-          bestMatch = v;
-          wordDiffResult = diff;
+        // Fast word overlap pre-filter before expensive Levenshtein
+        let shared = 0;
+        for (const iw of inputWords) {
+          if (normCanonical.includes(iw)) shared++;
+        }
+        if (shared >= 2 || (inputWords.length <= 2 && shared >= 1)) {
+          const diff = computeWordDiff(item.text, v.text_clean);
+          if (diff.similarityScore > highestScore && diff.similarityScore > 0.45) {
+            highestScore = diff.similarityScore;
+            bestMatch = v;
+            wordDiffResult = diff;
+          }
         }
       }
     }
@@ -113,16 +178,16 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
           status: 'NEEDS_REVIEW',
           status_label_ar: 'يحتاج مراجعة (خطأ في رقم الآية)',
           status_label_en: 'Needs Review (Incorrect Verse Number)',
-          reason: `النص مطابق لسورة ${bestMatch.surah_name_ar}، ولكن الرقم المذكور (${item.claimed_ayah}) غير صحيح، والرقم الصحيح هو: الآية ${bestMatch.ayah_number}.`,
+          reason: `النص مطابق لسورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)}، ولكن الرقم المذكور (${item.claimed_ayah}) غير صحيح، والرقم الصحيح هو: الآية ${bestMatch.ayah_number}.`,
           citation: {
             source_id: 'quran-uthmani',
             source_name: 'المصحف الشريف بالرسم العثماني المعتمد',
             authority: 'مجمع الملك فهد لطباعة المصحف الشريف',
-            book: `سورة ${bestMatch.surah_name_ar}`,
+            book: `سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)}`,
             number_or_page: `الآية: ${bestMatch.ayah_number}`
           },
           canonical_text: bestMatch.text_uthmani,
-          canonical_surah: bestMatch.surah_name_ar,
+          canonical_surah: cleanSurahDisplayName(bestMatch.surah_name_ar),
           canonical_ayah_number: bestMatch.ayah_number,
           verified_translation: matchedTranslation?.en?.text,
           decision_level: 'A'
@@ -135,16 +200,16 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
         status: 'MATCHED',
         status_label_ar: 'مطابق',
         status_label_en: 'Matched',
-        reason: `تطابق تام مع النص القرآني المعتمد في سورة ${bestMatch.surah_name_ar} الآية ${bestMatch.ayah_number}.`,
+        reason: `تطابق تام مع النص القرآني المعتمد في سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)} الآية ${bestMatch.ayah_number}.`,
         citation: {
           source_id: 'quran-uthmani',
           source_name: 'المصحف الشريف بالرسم العثماني المعتمد',
           authority: 'مجمع الملك فهد لطباعة المصحف الشريف',
-          book: `سورة ${bestMatch.surah_name_ar} (${bestMatch.surah_name_en})`,
+          book: `سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)} (${bestMatch.surah_name_en})`,
           number_or_page: `الآية ${bestMatch.ayah_number}`
         },
         canonical_text: bestMatch.text_uthmani,
-        canonical_surah: bestMatch.surah_name_ar,
+        canonical_surah: cleanSurahDisplayName(bestMatch.surah_name_ar),
         canonical_ayah_number: bestMatch.ayah_number,
         verified_translation: matchedTranslation?.en?.text,
         diff: wordDiffResult.diff,
@@ -158,18 +223,18 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
         id: `quran-${bestMatch.surah_number}-${bestMatch.ayah_number}`,
         item,
         status: 'NEEDS_REVIEW',
-        status_label_ar: 'يحتاج مراجعة (اختلاف في النص)',
-        status_label_en: 'Needs Review (Word Discrepancy)',
-        reason: `يوجد اختلاف بين النص المنقول والنص القرآني المعتمد لسورة ${bestMatch.surah_name_ar} الآية ${bestMatch.ayah_number}. لا يُعتبر النص المحرف أو المبدل مطابقاً.`,
+        status_label_ar: 'يحتاج مراجعة (فوارق في الرسم — أخطاء الماسح الضوئي أو تغيير في اللفظ)',
+        status_label_en: 'Needs Review (Text Discrepancy / OCR Noise)',
+        reason: `يوجد اختلاف بين النص المنقول والنص القرآني المعتمد لسورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)} الآية ${bestMatch.ayah_number}. قد تكون الفوارق ناتجة عن أخطاء الماسح الضوئي (OCR) أو تغيير حقيقي في لفظ الآية.`,
         citation: {
           source_id: 'quran-uthmani',
           source_name: 'المصحف الشريف بالرسم العثماني المعتمد',
           authority: 'مجمع الملك فهد لطباعة المصحف الشريف',
-          book: `سورة ${bestMatch.surah_name_ar}`,
+          book: `سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)}`,
           number_or_page: `الآية ${bestMatch.ayah_number}`
         },
         canonical_text: bestMatch.text_uthmani,
-        canonical_surah: bestMatch.surah_name_ar,
+        canonical_surah: cleanSurahDisplayName(bestMatch.surah_name_ar),
         canonical_ayah_number: bestMatch.ayah_number,
         verified_translation: matchedTranslation?.en?.text,
         diff: wordDiffResult.diff,
