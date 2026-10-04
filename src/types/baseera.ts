@@ -65,6 +65,12 @@ export interface VerificationResult {
   school_positions?: SchoolPosition[];
   abstention_note?: string;
   decision_level?: 'A' | 'B' | 'C' | 'D';
+  ai_match?: {
+    provider: 'gemini';
+    candidate_id: string;
+    relation: 'exact' | 'altered' | 'partial' | 'related';
+    confidence: number;
+  };
 }
 
 export interface AnalysisReport {
