@@ -289,7 +289,7 @@ def search_index_for_subject(subject_tokens, intent):
     by_url = {}
     for href, anchor_html in rows:
         title = html_lib.unescape(re.sub(r"<[^>]+>", " ", anchor_html))
-        title = re.sub(r"\\s+", " ", title).strip()
+        title = re.sub(r"\s+", " ", title).strip()
         url = href if href.startswith("http") else "https://dorar.net" + href
         if not title:
             continue
