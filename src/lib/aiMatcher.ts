@@ -9,7 +9,6 @@
  * The deterministic source verifier remains the final authority.
  */
 
-import { GoogleGenAI } from '@google/genai';
 
 export type AICandidate = {
   id: string;
@@ -24,15 +23,11 @@ export type AIMatchResult = {
   confidence: number;
 };
 
-function getClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') return null;
-  try {
-    return new GoogleGenAI({ apiKey });
-  } catch {
-    return null;
-  }
+function getGroqKey(): string | null {
+  const key = process.env.GROQ_API_KEY?.trim();
+  return key && key.length > 10 ? key : null;
 }
+
 
 export async function rankCandidatesWithAI(
   kind: 'quran' | 'hadith' | 'fiqh',
@@ -40,8 +35,8 @@ export async function rankCandidatesWithAI(
   candidates: AICandidate[],
   timeoutMs = 3500
 ): Promise<AIMatchResult | null> {
-  const client = getClient();
-  if (!client || !inputText.trim() || candidates.length === 0) return null;
+  const apiKey = getGroqKey();
+  if (!apiKey || !inputText.trim() || candidates.length === 0) return null;
 
   const compactCandidates = candidates.slice(0, 16).map(c => ({
     id: c.id,
@@ -84,17 +79,31 @@ ${JSON.stringify(compactCandidates, null, 2)}
 
   try {
     const response = await Promise.race([
-      client.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json' }
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        signal: AbortSignal.timeout(timeoutMs),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'qwen/qwen3.8-27b',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0,
+          max_completion_tokens: 1024,
+          reasoning_effort: 'none',
+          response_format: { type: 'json_object' }
+        })
+      }).then(async r => {
+        if (!r.ok) throw new Error(`Groq API ${r.status}: ${(await r.text()).slice(0, 300)}`);
+        return (await r.json()).choices?.[0]?.message?.content || '';
       }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('AI semantic match timeout')), timeoutMs)
       )
     ]);
 
-    const raw = response.text?.trim();
+    const raw = String(response).trim();
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<AIMatchResult>;
@@ -121,7 +130,7 @@ ${JSON.stringify(compactCandidates, null, 2)}
     if (!candidateId) return { candidate_id: null, relation: 'none', confidence };
     return { candidate_id: candidateId, relation, confidence };
   } catch (err) {
-    console.warn('AI semantic matching failed:', err);
+    console.warn('Groq semantic matching failed:, err);
     return null;
   }
 }
