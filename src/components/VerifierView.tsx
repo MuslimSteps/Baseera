@@ -349,7 +349,7 @@ export const VerifierView: React.FC = () => {
             <span>القاعدة الذهبية</span>
           </div>
           <p className="text-xs leading-relaxed text-muted">
-            الحكم لا يُصدره النموذج، بل يُسترجع من المصادر المعتمدة حصراً: المصحف العثماني، الدرر السنية، وموسوعة الجمهرة.
+            النموذج لا يصدر الحكم. كل مسار تحقق يستخدم مصدره المعتمد؛ القرآن، السنة، المصطلحات، والفقه لها مسارات منفصلة، والمسائل الحساسة تُحال إلى المختص.
           </p>
           <div className="grid grid-cols-3 gap-2 border-t border-hairline pt-3 text-center">
             <div>
@@ -357,8 +357,8 @@ export const VerifierView: React.FC = () => {
               <div className="text-[10px] text-faint">طبقات تحقق</div>
             </div>
             <div>
-              <div className="font-mono-numbers text-lg font-bold text-brand-soft">6</div>
-              <div className="text-[10px] text-faint">مصادر معتمدة</div>
+              <div className="font-mono-numbers text-lg font-bold text-brand-soft">8</div>
+              <div className="text-[10px] text-faint">مراجع معتمدة</div>
             </div>
             <div>
               <div className="font-mono-numbers text-lg font-bold text-ai-soft">150</div>
