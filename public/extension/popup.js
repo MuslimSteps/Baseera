@@ -2,9 +2,16 @@
  * Baseera Chrome Extension Popup Script — Fast & Dynamic Verification
  */
 
-const API_BASE = (typeof window !== 'undefined' && (window.location.protocol === 'chrome-extension:' || !window.location.origin || window.location.origin.includes('chrome-extension')))
-  ? 'http://localhost:3000'
-  : (window.location.origin || 'http://localhost:3000');
+const API_BASE = 'http://localhost:3000';
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 async function verifySelection(text, context) {
   if (!text || !text.trim()) return;
@@ -52,12 +59,12 @@ async function verifySelection(text, context) {
       // Direct Verdict Box
       verdictContainer.innerHTML = `
         <div class="verdict-card ${cardClass}">
-          <div class="verdict-title">${displayHeading}</div>
+          <div class="verdict-title">${escapeHtml(displayHeading)}</div>
           ${rep.citation ? `
             <div class="verdict-source">
-              <strong>المصدر:</strong> ${rep.citation.source_name}
-              ${rep.citation.book ? ` · ${rep.citation.book}` : ''}
-              ${rep.citation.grade ? ` · الدرجة: ${rep.citation.grade}` : ''}
+              <strong>المصدر:</strong> ${escapeHtml(rep.citation.source_name)}
+              ${rep.citation.book ? ` · ${escapeHtml(rep.citation.book)}` : ''}
+              ${rep.citation.grade ? ` · الدرجة: ${escapeHtml(rep.citation.grade)}` : ''}
             </div>
           ` : ''}
         </div>
@@ -69,7 +76,7 @@ async function verifySelection(text, context) {
         canonicalContainer.innerHTML = `
           <div class="canonical-box">
             <div style="font-size:10px; color:#34d399; font-weight:bold; margin-bottom:4px;">الحكم / النص المعتمد في المرجع:</div>
-            <div style="font-size:12px; line-height:1.6;">${mainText}</div>
+            <div style="font-size:12px; line-height:1.6;">${escapeHtml(mainText)}</div>
           </div>
         `;
       }
@@ -77,7 +84,7 @@ async function verifySelection(text, context) {
       // One-Click Action Link
       if (rep.citation && rep.citation.url) {
         actionContainer.innerHTML = `
-          <a href="${rep.citation.url}" target="_blank" class="btn-verify">
+          <a href="${encodeURI(rep.citation.url)}" target="_blank" class="btn-verify">
             <span>فتح السند في الدرر السنية</span>
             <span>↗</span>
           </a>
@@ -87,10 +94,10 @@ async function verifySelection(text, context) {
       // Expandable Details
       let detailsHtml = '';
       if (rep.reason && rep.canonical_text) {
-        detailsHtml += `<p style="margin:0 0 6px 0;"><strong>التفصيل:</strong> ${rep.reason}</p>`;
+        detailsHtml += `<p style="margin:0 0 6px 0;"><strong>التفصيل:</strong> ${escapeHtml(rep.reason)}</p>`;
       }
       if (rep.reduction_warning) {
-        detailsHtml += `<p style="margin:0; color:#fbbf24;"><strong>تنبيه سياقي:</strong> ${rep.reduction_warning}</p>`;
+        detailsHtml += `<p style="margin:0; color:#fbbf24;"><strong>تنبيه سياقي:</strong> ${escapeHtml(rep.reduction_warning)}</p>`;
       }
       if (detailsHtml) {
         detailsContainer.innerHTML = detailsHtml;
