@@ -189,7 +189,7 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({ result, inde
           <div className="pt-2 border-t border-hairline">
             <div className="text-[11px] font-semibold text-emerald-400 mb-1 flex items-center gap-1">
               <BookOpen className="w-3.5 h-3.5" />
-              <span>{item.type === 'fiqh_question' ? 'الحكم الشرعي المعتمد والدليل من السنة:' : 'النص الصحيح المعتمد في المرجع:'}</span>
+              <span>{item.type === 'fiqh_question' ? 'النص الفقهي المرجعي من المصدر المعتمد:' : 'النص الصحيح المعتمد في المرجع:'}</span>
             </div>
             <div className="p-3 rounded-lg bg-black/40 border border-hairline font-amiri text-lg text-emerald-100 leading-relaxed select-text">
               «{canonical_text}»
