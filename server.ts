@@ -117,11 +117,8 @@ async function applyAISemanticMatching(items: ExtractedItem[]): Promise<void> {
     const selected = candidates.find(c => c.id === ai.candidate_id);
     if (!selected) continue;
 
-    // AI may propose missing location metadata, but it cannot overwrite a
-    // location explicitly supplied by the user.
-    if (!item.claimed_surah) item.claimed_surah = selected.surah_name_ar;
-    if (!item.claimed_ayah) item.claimed_ayah = selected.ayah_number;
-
+    // Keep the AI result as a ranking hint only. Never convert an AI
+    // suggestion into user-supplied surah/ayah attribution.
     (item as any).ai_match_hint = {
       candidate_id: ai.candidate_id,
       relation: ai.relation,
