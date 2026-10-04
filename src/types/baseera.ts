@@ -48,6 +48,7 @@ export interface SchoolPosition {
 
 export interface VerificationResult {
   id: string;
+  finding_type?: 'altered_quran_text' | 'partial_quran_quote' | 'wrong_quran_attribution' | 'generic_review';
   item: ExtractedItem;
   status: VerificationStatus;
   status_label_ar: string;
