@@ -12,7 +12,7 @@
 import fiqhData from '../../sources/fiqh.json' with { type: 'json' };
 import { normalizeArabic } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
-import { generateSearchQueries, cleanSearchQuery, buildDorarFiqhUrl } from './dorarClient.ts';
+import { cleanSearchQuery, buildDorarFiqhUrl } from './dorarQueryUtils.ts';
 const SENSITIVE_FIQH_PATTERNS: RegExp[] = [
   /سب\s+(?:الله|الدين|الرسول|النبي)/i,
   /شتم\s+(?:الله|الدين|الرسول|النبي)/i,
