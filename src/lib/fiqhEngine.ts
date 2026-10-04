@@ -148,7 +148,7 @@ export function verifyFiqhQuestion(item: ExtractedItem): VerificationResult {
       citation: {
         ...baseCitation,
         book: matched.topic,
-        url: (matched as any)?.url || feqhiaSearchUrl
+        url: feqhiaSearchUrl
       },
       canonical_text: (matched as any).summary,
       school_positions: (matched as any).positions,
