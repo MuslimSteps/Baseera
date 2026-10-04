@@ -4,6 +4,7 @@
  */
 
 import https from 'https';
+import { normalizeArabic } from './normalizer.ts';
 
 export interface DorarHadithResult {
   text: string;
