@@ -254,7 +254,7 @@ app.post('/api/ocr', async (req, res) => {
 // 2. Ingestion & Verification API (Text, URL, Image OCR, Audio STT)
 app.post('/api/verify', async (req, res) => {
   try {
-    const { text, inputType = 'text', mediaBase64, mediaMimeType, url, apiKey } = req.body;
+    const { text, inputType = 'text', mediaBase64, mediaMimeType, url } = req.body;
     let extractedText = (text || '').trim();
 
     // Handle URL ingestion if text was not pre-fetched
