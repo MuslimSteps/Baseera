@@ -317,427 +317,301 @@ export const VerifierView: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      {/* Bento Hero Row */}
-      <section className="bento reveal">
-        <div className="bento-card bento-card--gold bento-accent-top col-span-12 p-6 sm:p-8 lg:col-span-8">
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="eyebrow">المسار الرابع</span>
-            <span aria-hidden="true" className="eyebrow-sep">·</span>
-            <span className="text-muted">تحدي الذكاء الاصطناعي في خدمة المحتوى الإسلامي</span>
-          </div>
-          <h1 className="text-balance font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
-            محطة <span className="gradient-text">التحقق</span> من النصوص الشرعية والسياق المعتمد
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-            «النموذج اللغوي يستخرج ويقترح، والمصدر المعتمد في الحزمة العلمية هو الذي يحكم ويثبت».
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className="badge badge-gold">تحقق متقاطع</span>
-            <span className="badge badge-matched">التحقق المرجعي</span>
-            <span className="badge badge-ai">AI Extraction</span>
-            <button onClick={() => setShowSettings(!showSettings)} className="chip ml-auto">
-              <Settings2 className="h-3.5 w-3.5" />
-              <span>مفتاح Gemini API (اختياري)</span>
-            </button>
-          </div>
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+
+      {/* ── Compact Title ─────────────────────────────────── */}
+      <header className="text-center mb-8 reveal">
+        <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">
+          تحقق من <span className="gradient-text">المحتوى الشرعي</span>
+        </h1>
+        <p className="mt-2 text-sm text-muted max-w-lg mx-auto">
+          الصق نصاً أو حديثاً أو آية — بصيرة تتحقق من المصادر المعتمدة فوراً
+        </p>
+      </header>
+
+      {/* ── Main Input Card ───────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4 reveal reveal-1">
+
+        {/* Input Type Tabs — minimal inline pills */}
+        <div className="flex items-center gap-1.5">
+          {[
+            { id: 'text', label: 'نص', icon: FileText },
+            { id: 'url', label: 'رابط', icon: Globe },
+            { id: 'image', label: 'صورة', icon: Image },
+            { id: 'audio', label: 'صوت', icon: Mic },
+          ].map(tab => {
+            const Icon = tab.icon;
+            const active = inputType === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id as any)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  active
+                    ? 'bg-[#1E3A5F] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+
+          {/* Settings — pushed to end */}
+          <button onClick={() => setShowSettings(!showSettings)} className="mr-auto text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="إعدادات API">
+            <Settings2 className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="bento-card col-span-12 flex flex-col justify-between gap-4 p-6 lg:col-span-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-ink">
-            <ShieldCheck className="h-4 w-4 text-gold" />
-            <span>القاعدة الذهبية</span>
+        {/* Collapsible API Key */}
+        {showSettings && (
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-800">مفتاح Gemini API (اختياري):</span>
+              <span className="text-slate-400">يُحفظ محلياً</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={geminiApiKey}
+                onChange={(e) => {
+                  setGeminiApiKey(e.target.value);
+                  localStorage.setItem('baseera_gemini_key', e.target.value);
+                }}
+                placeholder="AIzaSy..."
+                className="flex-1 px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono focus:outline-none focus:border-[#1E3A5F] focus:ring-2 focus:ring-[#1E3A5F]/10"
+              />
+              <button onClick={() => setShowSettings(false)} className="btn btn-primary shrink-0">
+                حفظ
+              </button>
+            </div>
           </div>
-          <p className="text-xs leading-relaxed text-muted">
-            النموذج لا يصدر الحكم. كل مسار تحقق يستخدم مصدره المعتمد؛ القرآن، السنة، المصطلحات، والفقه لها مسارات منفصلة، والمسائل الحساسة تُحال إلى المختص.
-          </p>
-          <div className="grid grid-cols-3 gap-2 border-t border-hairline pt-3 text-center">
-            <div>
-              <div className="font-mono-numbers text-lg font-bold text-gold">3</div>
-              <div className="text-[10px] text-faint">طبقات تحقق</div>
-            </div>
-            <div>
-              <div className="font-mono-numbers text-lg font-bold text-brand-soft">9</div>
-              <div className="text-[10px] text-faint">مراجع معتمدة</div>
-            </div>
-            <div>
-              <div className="font-mono-numbers text-lg font-bold text-ai-soft">150</div>
-              <div className="text-[10px] text-faint">حالة قياس</div>
-            </div>
-          </div>
-        </div>
-      </section>
+        )}
 
-      {/* Collapsible API Key Config */}
-      {showSettings && (
-        <div className="bento-card reveal space-y-2 p-4 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-ink">إعداد مفتاح Google Gemini API:</span>
-            <span className="text-[11px] text-muted">يُحفظ محلياً في متصفحك</span>
-          </div>
+        {/* URL Input */}
+        {inputType === 'url' && (
           <div className="flex gap-2">
             <input
-              type="password"
-              value={geminiApiKey}
-              onChange={(e) => {
-                setGeminiApiKey(e.target.value);
-                localStorage.setItem('baseera_gemini_key', e.target.value);
-              }}
-              placeholder="AIzaSy..."
-              className="input-field flex-1 font-mono"
+              type="url"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              placeholder="https://dorar.net/article/..."
+              className="flex-1 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:border-[#1E3A5F] font-mono"
             />
-            <button onClick={() => setShowSettings(false)} className="btn btn-primary shrink-0">
-              حفظ
-            </button>
-          </div>
-          <p className="text-[11px] text-muted">
-            ملاحظة: المنظومة تعمل بالكامل بدون مفتاح خارجي (تستخدم Tesseract.js للـ OCR وقواعد البيانات المعتمدة محلياً ومباشرة من الدرر السنية).
-          </p>
-        </div>
-      )}
-
-      {/* Workstation Bento */}
-      <section className="bento">
-        {/* Input tile */}
-        <div className="col-span-12 lg:col-span-7">
-          <div className="bento-card h-full space-y-4 p-5 sm:p-6 reveal">
-            {/* Input Type Segmented Control */}
-            <div className="flex items-center justify-between pb-3 border-b border-hairline">
-              <span className="text-xs font-semibold text-ink/85">قناة الإدخال:</span>
-              <div className="flex items-center gap-1 p-0.5 bg-black/40 rounded-lg border border-hairline text-xs">
-                {[
-                  { id: 'text', label: 'نص', icon: FileText },
-                  { id: 'url', label: 'رابط', icon: Globe },
-                  { id: 'image', label: 'صورة', icon: Image },
-                  { id: 'audio', label: 'صوت', icon: Mic },
-                ].map(tab => {
-                  const Icon = tab.icon;
-                  const active = inputType === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => handleTabChange(tab.id as any)}
-                      className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 font-medium ${
-                        active
-                          ? 'bg-gold-strong text-white shadow-sm font-semibold'
-                          : 'text-muted hover:text-ink'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* URL Input with Dedicated Fetch Button */}
-            {inputType === 'url' && (
-              <div className="space-y-2 p-3 bg-black/30 rounded-xl border border-hairline">
-                <label className="text-xs text-ink/85 font-medium block">رابط الصفحة أو المقال:</label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    placeholder="https://dorar.net/article/..."
-                    className="flex-1 px-3 py-2 rounded-lg bg-black/50 border border-hairline-strong text-xs text-ink placeholder:text-faint focus:outline-none focus:border-gold font-mono"
-                  />
-                  <button
-                    onClick={handleFetchUrl}
-                    disabled={isFetchingUrl}
-                    className="px-3 py-2 bg-gold-strong hover:bg-gold-strong text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0"
-                  >
-                    {isFetchingUrl ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>جلب...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Globe className="w-3.5 h-3.5" />
-                        <span>جلب محتوى الرابط</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                <p className="text-[11px] text-muted">
-                  اضغط «جلب محتوى الرابط» لاستخراج المقال الحقيقي وعرضه في الصندوق أدناه قبل الفحص.
-                </p>
-              </div>
-            )}
-
-            {/* Image / Audio Upload Section with Auto-OCR Feedback */}
-            {(inputType === 'image' || inputType === 'audio') && (
-              <div className="space-y-3">
-                <div className="p-4 rounded-xl border border-dashed border-hairline-strong bg-black/30 text-center space-y-2">
-                  <Upload className="w-6 h-6 text-muted mx-auto" />
-                  <div className="text-xs text-ink/85">
-                    <span>قم برفع {inputType === 'image' ? 'صورة أو مخطوطة (OCR)' : 'مقطع صوتي (STT)'}</span>
-                  </div>
-                  <input
-                    type="file"
-                    accept={inputType === 'image' ? 'image/*' : 'audio/*'}
-                    onChange={handleFileUpload}
-                    className="text-xs text-muted file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-surface-3 file:text-ink hover:file:bg-surface-2 cursor-pointer"
-                  />
-                </div>
-
-                {/* OCR Progress or Image Preview */}
-                {mediaPreview && inputType === 'image' && (
-                  <div className="p-3 bg-black/40 rounded-xl border border-hairline flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2.5">
-                      <img src={mediaPreview} alt="معاينة" className="w-10 h-10 object-cover rounded-md border border-hairline-strong" />
-                      <div>
-                        <span className="text-ink block font-medium">الصورة المرفوعة</span>
-                        {isProcessingOcr ? (
-                          <span className="text-amber-400 flex items-center gap-1 text-[11px]">
-                            <RefreshCw className="w-3 h-3 animate-spin" />
-                            جارٍ استخراج النص عبر OCR...
-                          </span>
-                        ) : ocrEngineUsed ? (
-                          <span className="text-emerald-400 text-[11px]">
-                            تم استخراج النص بنجاح ({ocrEngineUsed === 'gemini' ? 'Gemini AI Vision' : 'Tesseract OCR'}) ✓
-                          </span>
-                        ) : (
-                          <span className="text-muted text-[11px]">جاهزة للمعالجة</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {!isProcessingOcr && (
-                      <button
-                        onClick={() => processImageOcr(mediaPreview)}
-                        className="px-2.5 py-1 bg-white/[0.05] hover:bg-white/[0.1] text-ink/85 rounded text-[11px] transition-colors"
-                      >
-                        إعادة استخراج
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Error Message Alert */}
-            {errorMsg && (
-              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs flex items-start gap-2">
-                <span className="text-rose-400 font-bold shrink-0">⚠️</span>
-                <span className="leading-relaxed">{errorMsg}</span>
-              </div>
-            )}
-
-            {/* Text Input Area */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs text-muted">
-                <label className="font-medium">
-                  {inputType === 'url' ? 'محتوى المقالة المستخرج من الرابط:' : inputType === 'image' ? 'النص المستخرج من الصورة (OCR):' : inputType === 'audio' ? 'النص المستخرج من الصوت (STT):' : 'المحتوى المراد فحصه وتوثيقه:'}
-                </label>
-                <span className="font-mono-numbers text-[11px] text-faint">
-                  {inputText.length} حرف
-                </span>
-              </div>
-              <textarea
-                rows={5}
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder={
-                  inputType === 'url'
-                    ? 'اضغط «جلب محتوى الرابط» بالأعلى أو الصق النص هنا...'
-                    : inputType === 'image'
-                    ? 'سيرد هنا النص المستخرج من الصورة آلياً...'
-                    : 'أدخل النص أو الحديث أو المقولة أو السؤال الفقهي هنا...'
-                }
-                className="w-full p-3 rounded-lg bg-black/40 border border-hairline-strong text-sm text-ink placeholder:text-faint focus:outline-none focus:border-gold font-amiri leading-relaxed resize-y"
-              />
-            </div>
-
-            {/* Primary Action Button */}
             <button
-              onClick={handleVerify}
-              disabled={isProcessing || isProcessingOcr || isProcessingAudio || isFetchingUrl || !inputText.trim()}
-              className="w-full py-2.5 px-4 rounded-xl bg-gold-strong hover:bg-[#c96a12] disabled:bg-slate-800 disabled:text-faint text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-md shadow-black/40 active:scale-[0.99] cursor-pointer"
+              onClick={handleFetchUrl}
+              disabled={isFetchingUrl}
+              className="px-4 py-2.5 bg-[#1E3A5F] hover:bg-[#2D5280] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
             >
-              {isProcessing ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  <span>جاري الفحص المتقاطع عبر المصادر المعتمدة...</span>
-                </>
-              ) : isProcessingAudio ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  <span>جارٍ تحويل الصوت إلى نص...</span>
-                </>
+              {isFetchingUrl ? (
+                <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>جلب...</span></>
               ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4 text-white" />
-                  <span>فحص وتوثيق المحتوى</span>
-                </>
+                <><Globe className="w-3.5 h-3.5" /><span>جلب المحتوى</span></>
               )}
             </button>
           </div>
-        </div>
+        )}
 
-        {/* Presets tile */}
-        <div className="col-span-12 lg:col-span-5">
-          <div className="bento-card h-full space-y-3 p-5 sm:p-6 reveal reveal-1">
-            <div className="flex items-center justify-between pb-2 border-b border-hairline">
-              <span className="text-xs font-semibold text-ink/85 flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-gold" />
-                حالات اختبار معيارية جاهزة للتجربة:
-              </span>
-              <span className="text-[11px] text-faint">اختر للتجربة بنقرة واحدة</span>
+        {/* Image / Audio Upload */}
+        {(inputType === 'image' || inputType === 'audio') && (
+          <div className="space-y-3">
+            <div className="p-6 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 text-center space-y-2 hover:border-slate-300 transition-colors">
+              <Upload className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="text-sm text-slate-500">
+                {inputType === 'image' ? 'ارفع صورة تحتوي على نص' : 'ارفع مقطعاً صوتياً'}
+              </p>
+              <input
+                type="file"
+                accept={inputType === 'image' ? 'image/*' : 'audio/*'}
+                onChange={handleFileUpload}
+                className="text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-[#1E3A5F] file:text-white hover:file:bg-[#2D5280] cursor-pointer"
+              />
             </div>
 
-            <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1 scrollbar-thin">
-              {SAMPLE_PRESETS.map((preset, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setInputType('text');
-                    setInputText(preset.text);
-                  }}
-                  className="w-full text-right p-2.5 rounded-lg bg-black/20 hover:bg-white/[0.04] border border-hairline hover:border-gold/30 transition-all text-xs text-ink/85 flex items-start justify-between gap-2 group cursor-pointer"
-                >
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-medium text-ink group-hover:text-gold-soft transition-colors">
-                      {preset.label}
-                    </span>
-                    <span className="text-[11px] text-faint line-clamp-1 font-amiri">
-                      {preset.text}
-                    </span>
+            {/* OCR Preview */}
+            {mediaPreview && inputType === 'image' && (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <img src={mediaPreview} alt="معاينة" className="w-10 h-10 object-cover rounded-lg border border-slate-200" />
+                  <div>
+                    <span className="text-slate-800 block font-medium">الصورة المرفوعة</span>
+                    {isProcessingOcr ? (
+                      <span className="text-amber-600 flex items-center gap-1 text-[11px]">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        جارٍ استخراج النص...
+                      </span>
+                    ) : ocrEngineUsed ? (
+                      <span className="text-emerald-600 text-[11px]">
+                        تم الاستخراج بنجاح ({ocrEngineUsed === 'gemini' ? 'Gemini Vision' : 'Tesseract'})
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-[11px]">جاهزة للمعالجة</span>
+                    )}
                   </div>
-                  <span className="text-[10px] text-faint shrink-0 font-sans mt-0.5">
-                    {preset.category}
-                  </span>
-                </button>
-              ))}
-            </div>
+                </div>
+                {!isProcessingOcr && (
+                  <button
+                    onClick={() => processImageOcr(mediaPreview)}
+                    className="px-3 py-1 bg-white hover:bg-slate-100 text-slate-600 rounded-lg text-[11px] border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    إعادة
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error */}
+        {errorMsg && (
+          <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="leading-relaxed">{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Text Area — THE HERO */}
+        <div>
+          <textarea
+            rows={5}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder={
+              inputType === 'url'
+                ? 'سيظهر هنا محتوى الرابط بعد الجلب...'
+                : inputType === 'image'
+                ? 'سيظهر هنا النص المستخرج من الصورة...'
+                : inputType === 'audio'
+                ? 'سيظهر هنا النص المستخرج من الصوت...'
+                : 'الصق هنا الحديث أو الآية أو النص المراد التحقق منه...'
+            }
+            className="w-full min-h-[140px] p-4 rounded-xl bg-slate-50 border border-slate-200 text-base text-ink placeholder:text-slate-400 focus:outline-none focus:border-[#1E3A5F] focus:ring-2 focus:ring-[#1E3A5F]/10 font-naskh leading-loose resize-y"
+          />
+          <div className="flex items-center justify-between mt-1.5 px-1">
+            <span className="text-[11px] text-slate-400">
+              {inputType === 'url' ? 'محتوى الرابط' : inputType === 'image' ? 'نص الصورة' : inputType === 'audio' ? 'نص الصوت' : 'المحتوى المراد فحصه'}
+            </span>
+            <span className="font-mono text-[11px] text-slate-400">
+              {inputText.length} حرف
+            </span>
           </div>
         </div>
 
-        {/* Results tile */}
-        <div className="col-span-12 space-y-5">
-          {errorMsg && (
-            <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {/* Active Report Header */}
-          {report ? (
-            <div className="space-y-5">
-              {/* Overall Decision Banner */}
-              <div className="bento-card border border-hairline p-5 shadow-lg">
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-hairline">
-                  <div>
-                    <span className="text-xs text-faint block mb-0.5 font-mono-numbers">
-                      تقرير الفحص المرجعي #{report.id.slice(-6)}
-                    </span>
-                    <h3 className="text-base font-bold font-display text-ink">
-                      ملخص نتيجة التحقق الشامل
-                    </h3>
-                  </div>
-
-                  {/* Mode Switcher (Simple vs Detailed) */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-black/40 rounded-xl p-1 border border-hairline text-xs">
-                      <button
-                        onClick={() => setViewMode('simple')}
-                        className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                          viewMode === 'simple'
-                            ? 'bg-gold-strong text-white shadow-sm'
-                            : 'text-muted hover:text-ink'
-                        }`}
-                      >
-                        ⚡ العرض الميسر (للعامّة)
-                      </button>
-                      <button
-                        onClick={() => setViewMode('detailed')}
-                        className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                          viewMode === 'detailed'
-                            ? 'bg-gold-strong text-white shadow-sm'
-                            : 'text-muted hover:text-ink'
-                        }`}
-                      >
-                        🔬 التحقيق العلمي (للمحكّمين)
-                      </button>
-                    </div>
-
-                    <div className="text-left font-mono-numbers text-xs hidden sm:block">
-                      <span className="text-emerald-400 font-semibold">{report.verifier_stats.matched_count} مطابق</span>
-                      <span className="text-faint mx-1">·</span>
-                      <span className="text-amber-400 font-semibold">{report.verifier_stats.needs_review_count} للمراجعة</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 text-xs leading-relaxed text-ink/85">
-                  <p>{report.summary_ar}</p>
-                </div>
-              </div>
-
-              {/* Per-Item Cards */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-xs text-muted px-1">
-                  <span>العناصر المستخرجة والمفحوصة ({report.verifications.length}):</span>
-                  <span>مطابقة مع قواعد الحزمة العلمية</span>
-                </div>
-
-                {report.verifications.map((itemResult, idx) => (
-                  <VerificationCard key={itemResult.id || idx} result={itemResult} index={idx} viewMode={viewMode} />
-                ))}
-              </div>
-            </div>
+        {/* Verify Button — BIG and prominent */}
+        <button
+          onClick={handleVerify}
+          disabled={isProcessing || isProcessingOcr || isProcessingAudio || isFetchingUrl || !inputText.trim()}
+          className="w-full py-3.5 rounded-xl bg-[#1E3A5F] hover:bg-[#2D5280] disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-bold transition-all flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg active:scale-[0.99] cursor-pointer"
+        >
+          {isProcessing ? (
+            <><RefreshCw className="w-4.5 h-4.5 animate-spin" /><span>جارٍ الفحص عبر المصادر المعتمدة...</span></>
+          ) : isProcessingAudio ? (
+            <><RefreshCw className="w-4.5 h-4.5 animate-spin" /><span>جارٍ تحويل الصوت...</span></>
           ) : (
-            /* Empty State / Educational Showcase */
-            <div className="bento-card border border-hairline p-8 shadow-lg text-center space-y-6">
-              <div className="w-14 h-14 rounded-2xl bg-gold/10 border border-gold/30 text-gold flex items-center justify-center mx-auto shadow-inner">
-                <ShieldCheck className="w-7 h-7" />
-              </div>
-
-              <div className="max-w-md mx-auto space-y-2">
-                <h3 className="text-lg font-bold font-display text-ink">
-                  محطة التحقق في انتظار المدخلات
-                </h3>
-                <p className="text-xs text-muted leading-relaxed">
-                  اختر أحد الأمثلة الجاهزة على اليسار، أو الصق أي نص أو حديث أو مقالة لبدء الفحص المتقاطع عبر المصحف بالرسم العثماني وكتب السنة وموسوعة الجمهرة.
-                </p>
-              </div>
-
-              {/* Quick Feature Pillars */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-right pt-4 border-t border-hairline">
-                <div className="p-3 rounded-lg bg-black/20 border border-hairline">
-                  <strong className="text-xs font-semibold text-gold block mb-1">
-                    كشف الفوارق اللفظية
-                  </strong>
-                  <span className="text-[11px] text-muted leading-normal block">
-                    مقارنة حرفية بالرسم العثماني لكشف أي كلمة محرفة أو مبدلة.
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-lg bg-black/20 border border-hairline">
-                  <strong className="text-xs font-semibold text-gold block mb-1">
-                    كشف خلط العزو
-                  </strong>
-                  <span className="text-[11px] text-muted leading-normal block">
-                    فحص مزدوج يكشف الأحاديث المنسوبة كآيات والآيات المنسوبة كأحاديث.
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-lg bg-black/20 border border-hairline">
-                  <strong className="text-xs font-semibold text-gold block mb-1">
-                    ضبط مصطلحات الجمهرة
-                  </strong>
-                  <span className="text-[11px] text-muted leading-normal block">
-                    رصد اختزال المفاهيم الكبرى كالشريعة والتوحيد والجهاد والعبادة.
-                  </span>
-                </div>
-              </div>
-            </div>
+            <><ShieldCheck className="w-4.5 h-4.5" /><span>تحقّق الآن</span></>
           )}
+        </button>
+      </div>
+
+      {/* ── Quick Presets — horizontal scroll chips ────── */}
+      <div className="mt-5 reveal reveal-2">
+        <p className="text-xs text-slate-500 mb-2.5 flex items-center gap-1.5 px-1">
+          <Sparkles className="w-3.5 h-3.5" />
+          جرّب مثالاً جاهزاً:
+        </p>
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {SAMPLE_PRESETS.map((preset, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setInputType('text');
+                setInputText(preset.text);
+              }}
+              className="shrink-0 px-3.5 py-2 rounded-full bg-white border border-slate-200 hover:border-[#1E3A5F] hover:text-[#1E3A5F] text-xs text-slate-600 font-medium transition-all cursor-pointer whitespace-nowrap"
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
-      </section>
+      </div>
+
+      {/* ── Results ──────────────────────────────────────── */}
+      <div className="mt-8 space-y-5">
+        {report ? (
+          <div className="space-y-5 reveal">
+            {/* Report Header */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    تقرير #{report.id.slice(-6)}
+                  </span>
+                  <h3 className="text-base font-bold font-display text-ink">
+                    نتيجة التحقق
+                  </h3>
+                </div>
+
+                {/* View mode toggle */}
+                <div className="flex items-center gap-3">
+                  <div className="flex bg-slate-100 rounded-full p-0.5 text-xs">
+                    <button
+                      onClick={() => setViewMode('simple')}
+                      className={`px-3 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
+                        viewMode === 'simple'
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      مبسّط
+                    </button>
+                    <button
+                      onClick={() => setViewMode('detailed')}
+                      className={`px-3 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
+                        viewMode === 'detailed'
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      تفصيلي
+                    </button>
+                  </div>
+
+                  <div className="text-xs font-medium hidden sm:flex items-center gap-2">
+                    <span className="text-emerald-600">{report.verifier_stats.matched_count} مطابق</span>
+                    <span className="text-slate-300">·</span>
+                    <span className="text-amber-600">{report.verifier_stats.needs_review_count} مراجعة</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                {report.summary_ar}
+              </p>
+            </div>
+
+            {/* Verification Cards */}
+            <div className="space-y-3">
+              {report.verifications.map((itemResult, idx) => (
+                <VerificationCard key={itemResult.id || idx} result={itemResult} index={idx} viewMode={viewMode} />
+              ))}
+            </div>
+          </div>
+        ) : !isProcessing && (
+          /* Empty State — minimal */
+          <div className="text-center py-16 reveal reveal-3">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-700 mb-1">
+              في انتظار النص
+            </h3>
+            <p className="text-sm text-slate-400 max-w-sm mx-auto">
+              الصق نصاً أعلاه أو اختر مثالاً جاهزاً لبدء التحقق من المصادر المعتمدة
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
