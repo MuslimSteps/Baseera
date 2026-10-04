@@ -43,7 +43,9 @@ function cleanHtml(raw: string): string {
 
 function searchUrl(kind: DorarEncyclopediaKind, query: string): string {
   if (kind === 'aqeedah') {
-    return `https://dorar.net/aqeeda/search?skeys=${encodeURIComponent(query.trim())}`;
+    // Dorar's current public encyclopedia index is stable; the search UI is
+    // client-driven and is not a reliable server-side evidence endpoint.
+    return 'https://dorar.net/aqeeda?l=1';
   }
 
   const norm = normalizeArabic(query);
