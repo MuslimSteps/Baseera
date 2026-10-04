@@ -25,6 +25,7 @@ import { AnalysisReport } from '../types/baseera.ts';
 import { VerificationCard } from './VerificationCard.tsx';
 import { extractItemsRuleBased } from '../lib/extractor.ts';
 import { verifyExtractedItems } from '../lib/decisionEngine.ts';
+import { apiFetch } from '../lib/apiClient.ts';
 
 // Pre-defined realistic test cases for one-click verification demo
 const SAMPLE_PRESETS = [
@@ -128,6 +129,7 @@ export const VerifierView: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFetchingUrl, setIsFetchingUrl] = useState(false);
   const [isProcessingOcr, setIsProcessingOcr] = useState(false);
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const [ocrEngineUsed, setOcrEngineUsed] = useState<string | null>(null);
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -160,7 +162,7 @@ export const VerifierView: React.FC = () => {
     setIsFetchingUrl(true);
     setErrorMsg(null);
     try {
-      const res = await fetch('/api/fetch-url', {
+      const res = await apiFetch('/api/fetch-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: urlInput.trim() })
@@ -184,7 +186,7 @@ export const VerifierView: React.FC = () => {
     setErrorMsg(null);
     setOcrEngineUsed(null);
     try {
-      const res = await fetch('/api/ocr', {
+      const res = await apiFetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -216,9 +218,31 @@ export const VerifierView: React.FC = () => {
       setMediaPreview(b64);
       if (inputType === 'image') {
         processImageOcr(b64);
+      } else if (inputType === 'audio') {
+        processAudio(b64, file.type || 'audio/mpeg');
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const processAudio = async (base64Data: string, mimeType: string) => {
+    setIsProcessingAudio(true);
+    setErrorMsg(null);
+    try {
+      const res = await apiFetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaBase64: base64Data, mediaMimeType: mimeType, apiKey: geminiApiKey.trim() || undefined })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.text) throw new Error(data.error || 'تعذر تحويل الصوت إلى نص.');
+      setInputText(data.text);
+      setMediaPreview(base64Data);
+    } catch (e: any) {
+      setErrorMsg(e.message || 'فشل تحويل المقطع الصوتي إلى نص.');
+    } finally {
+      setIsProcessingAudio(false);
+    }
   };
 
   const handleVerify = async () => {
@@ -248,7 +272,7 @@ export const VerifierView: React.FC = () => {
       let fetchedReport: AnalysisReport | null = null;
 
       try {
-        const res = await fetch('/api/verify', {
+        const res = await apiFetch('/api/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -301,7 +325,7 @@ export const VerifierView: React.FC = () => {
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <span className="badge badge-gold">تحقق متقاطع</span>
-            <span className="badge badge-matched">FCR = 0.0%</span>
+            <span className="badge badge-matched">التحقق المرجعي</span>
             <span className="badge badge-ai">AI Extraction</span>
             <button onClick={() => setShowSettings(!showSettings)} className="chip ml-auto">
               <Settings2 className="h-3.5 w-3.5" />
@@ -497,7 +521,7 @@ export const VerifierView: React.FC = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs text-muted">
                 <label className="font-medium">
-                  {inputType === 'url' ? 'محتوى المقالة المستخرج من الرابط:' : inputType === 'image' ? 'النص المستخرج من الصورة (OCR):' : 'المحتوى المراد فحصه وتوثيقه:'}
+                  {inputType === 'url' ? 'محتوى المقالة المستخرج من الرابط:' : inputType === 'image' ? 'النص المستخرج من الصورة (OCR):' : inputType === 'audio' ? 'النص المستخرج من الصوت (STT):' : 'المحتوى المراد فحصه وتوثيقه:'}
                 </label>
                 <span className="font-mono-numbers text-[11px] text-faint">
                   {inputText.length} حرف
@@ -521,13 +545,18 @@ export const VerifierView: React.FC = () => {
             {/* Primary Action Button */}
             <button
               onClick={handleVerify}
-              disabled={isProcessing || isProcessingOcr || isFetchingUrl || !inputText.trim()}
+              disabled={isProcessing || isProcessingOcr || isProcessingAudio || isFetchingUrl || !inputText.trim()}
               className="w-full py-2.5 px-4 rounded-xl bg-gold-strong hover:bg-[#c96a12] disabled:bg-slate-800 disabled:text-faint text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-md shadow-black/40 active:scale-[0.99] cursor-pointer"
             >
               {isProcessing ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin text-white" />
                   <span>جاري الفحص المتقاطع عبر المصادر المعتمدة...</span>
+                </>
+              ) : isProcessingAudio ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                  <span>جارٍ تحويل الصوت إلى نص...</span>
                 </>
               ) : (
                 <>
