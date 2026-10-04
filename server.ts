@@ -364,7 +364,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
             url: fiqhResult.url || fiqhSearchUrl
           };
         }
-      }      } else {
+      } else {
         // Step 2: Feqhia has no direct article -> check Dorar Hadith API for supporting evidence
         const wordsForSearch = contentWords.length > 0
           ? contentWords.slice(0, 3).join(' ')
