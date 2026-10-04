@@ -266,6 +266,61 @@ def search_once(query):
         for art in articles[:15]
     ]
 
+def search_index_for_subject(subject_tokens, intent):
+    """
+    Deterministic fallback using Dorar's own fiqh encyclopedia index.
+    This avoids treating the site's search-result ordering/markup as authoritative.
+    The index explicitly exposes separate sections such as:
+      - تعريف الختان
+      - مشروعية الختان
+      - حكم الختان
+      - وقت الختان
+    """
+    req = urllib.request.Request("https://dorar.net/feqhia", headers=HEADERS)
+    with urllib.request.urlopen(req, timeout=12) as response:
+        source_html = response.read().decode("utf-8", errors="ignore")
+
+    rows = re.findall(
+        r'href=["\']((?:https://dorar\.net)?/feqhia/\\d+[^"\']*)["\'][^>]*>([\\s\\S]*?)</a>',
+        source_html,
+        flags=re.I,
+    )
+
+    by_url = {}
+    for href, anchor_html in rows:
+        title = html_lib.unescape(re.sub(r"<[^>]+>", " ", anchor_html))
+        title = re.sub(r"\\s+", " ", title).strip()
+        url = href if href.startswith("http") else "https://dorar.net" + href
+        if not title:
+            continue
+
+        score, answerable, title_hits, text_hits = score_candidate(
+            title, title, intent, subject_tokens
+        )
+
+        # For the index there is no body text; require actual subject + intent.
+        if title_hits == 0:
+            continue
+        if intent != "unknown" and title_intent_fit(title, intent, subject_tokens) < 60:
+            continue
+
+        candidate = {
+            "title": title,
+            "text": title,
+            "url": url,
+            "score": score + 100,  # explicit index hit outranks broad search noise
+            "answerable": answerable,
+            "title_subject_hits": title_hits,
+            "text_subject_hits": text_hits,
+            "intent": intent,
+        }
+        previous = by_url.get(url)
+        if previous is None or candidate["score"] > previous["score"]:
+            by_url[url] = candidate
+
+    return sorted(by_url.values(), key=lambda item: item["score"], reverse=True)
+
+
 def search_dorar_feqhia(raw_query):
     query = clean_raw_query(raw_query)
     if len(query) < 2:
@@ -330,6 +385,19 @@ def search_dorar_feqhia(raw_query):
         )
 
         answer_candidates = [c for c in candidates if c["answerable"]]
+
+        # Critical fallback: use Dorar's own comparative-fiqh index when the
+        # search endpoint returned no answer-bearing article. This is still the
+        # approved source itself, and is deterministic by section title.
+        if not answer_candidates and subject_tokens:
+            try:
+                index_candidates = search_index_for_subject(subject_tokens, intent)
+                if index_candidates:
+                    candidates = index_candidates + candidates
+                    answer_candidates = index_candidates
+            except Exception:
+                pass
+
         if not answer_candidates:
             return {
                 "success": True,
@@ -343,6 +411,7 @@ def search_dorar_feqhia(raw_query):
                 "results": candidates[:10],
             }
 
+        # The first candidate here has passed both subject and intent gates.
         top = answer_candidates[0]
         detailed = fetch_article_details(top["url"])
         if detailed:
@@ -418,6 +487,12 @@ def run_self_test():
     assert infer_intent("متى يختتن الطفل؟") == "timing"
     assert infer_intent("ما تعريف الختان؟") == "definition"
     assert infer_intent("هل الختان مشروع؟") == "legitimacy"
+
+    # Known live index titles from Dorar's official fiqh encyclopedia.
+    index_ruling = search_index_for_subject(["ختان"], "ruling")
+    assert index_ruling, "index fallback must find the ruling section"
+    assert any("حكم" in norm_ar(row["title"]) and row["answerable"] for row in index_ruling)
+    assert not any("فوائد" in norm_ar(row["title"]) and row["answerable"] for row in index_ruling)
 
     print("dorar_feqhia self-test: PASS")
 
