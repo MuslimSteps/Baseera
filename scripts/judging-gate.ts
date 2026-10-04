@@ -301,7 +301,11 @@ test('cross-source processing never promotes an extracted term to full-document 
 // H. Frozen benchmark health
 test('frozen benchmark has the required size and zero false confirmations', () => {
   const result = runBaseeraBenchmark();
-  assert.ok(result.total_cases >= 150, `expected >=150 cases, got ${result.total_cases}`);
+  assert.ok(result.total_cases === 150, `expected 150 cases, got ${result.total_cases}`);
+  const falseCases = result.details.filter((x: any) => x.is_false_confirmation);
+  if (falseCases.length) {
+    console.error('FALSE_CONFIRMATION_CASES=' + JSON.stringify(falseCases));
+  }
   assert.equal(result.false_confirmation_rate, 0);
   assert.equal(result.consistency_score, 100);
 });
