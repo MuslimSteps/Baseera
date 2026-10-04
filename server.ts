@@ -1249,12 +1249,56 @@ app.post('/api/dawah/generate', async (req, res) => {
     // Step 1: Generate structured Dawah Content from verified sources
     const content = await generateDawahContent(requestData);
 
-    // Step 2: Internal Baseera Verification Check on the generated Arabic draft
+    // Step 2: Verify the generated draft through the same live resolution layer
+    // used by the main verifier. Generation never bypasses source policy.
     const fullArabicDraft = content.sections.map(s => `${s.section_label_ar}\n${s.content_ar}`).join('\n\n');
     const extractedItems = extractItemsRuleBased(fullArabicDraft);
     const verificationReport = verifyExtractedItems(extractedItems, fullArabicDraft, 'text');
 
-    // Step 3: Format plain text and generate high-res SVG Infographic card
+    for (const verification of verificationReport.verifications) {
+      await resolveVerificationWithLiveSearch(verification, fullArabicDraft);
+    }
+    enforceApprovedCitations(verificationReport);
+
+    let draftMatched = 0;
+    let draftReview = 0;
+    let draftNotFound = 0;
+    let draftReferral = 0;
+    for (const verification of verificationReport.verifications) {
+      if (verification.status === 'MATCHED') draftMatched++;
+      else if (verification.status === 'NEEDS_REVIEW') draftReview++;
+      else if (verification.status === 'NOT_FOUND_IN_CHECKED_SOURCES') draftNotFound++;
+      else if (verification.status === 'REFER_TO_SPECIALIST') draftReferral++;
+    }
+
+    verificationReport.verifier_stats = {
+      matched_count: draftMatched,
+      needs_review_count: draftReview,
+      not_found_count: draftNotFound,
+      referral_count: draftReferral
+    };
+
+    if (draftReferral > 0) {
+      verificationReport.overall_status = 'REFER_TO_SPECIALIST';
+    } else if (draftReview > 0) {
+      verificationReport.overall_status = 'NEEDS_REVIEW';
+    } else if (draftNotFound > 0 && draftMatched === 0) {
+      verificationReport.overall_status = 'NOT_FOUND_IN_CHECKED_SOURCES';
+    } else {
+      verificationReport.overall_status = draftMatched > 0 ? 'MATCHED' : 'NOT_FOUND_IN_CHECKED_SOURCES';
+    }
+
+    // Step 3: Fail closed if any generated citation violates source policy.
+    if (content.all_citations.some(citation => !isApprovedCitation({
+      source_id: citation.source_id,
+      url: citation.source_url
+    }))) {
+      return res.status(500).json({
+        error: 'توقفت المنظومة: توجد إحالة في المحتوى الدعوي لا تطابق سياسة المصادر المعتمدة.'
+      });
+    }
+
+    // Step 4: Format plain text and generate high-res SVG infographic card
     const formattedText = formatContentAsText(content);
     const infographicSvg = generateInfographicSvg(content);
 
