@@ -110,7 +110,6 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
       canonical_text: bestMatch.text,
       decision_level: 'B'
     };
-  }
 
   if (bestMatch.isDisputed || bestMatch.gradeCategory === 'disputed') {
     return {
