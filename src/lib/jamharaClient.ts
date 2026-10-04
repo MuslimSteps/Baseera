@@ -39,9 +39,9 @@ function searchUrl(query: string): string {
   return `https://islamic-content.com/search?query=${encodeURIComponent(query.trim())}`;
 }
 
-function matchingDictionaryLink(html: string, query: string): { href: string; title: string } | null {
+function matchingDictionaryLink(html: string, query: string): { href: string; title: string } | undefined {
   const normalizedQuery = normalizeArabic(query).trim();
-  if (!normalizedQuery) return null;
+  if (!normalizedQuery) return undefined;
 
   const links = [...html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
     .map(m => ({ href: m[1], title: cleanHtml(m[2]) }))
