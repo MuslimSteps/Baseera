@@ -33,14 +33,14 @@ export function isApprovedSourceUrl(rawUrl?: string): boolean {
 }
 
 const SOURCE_ALLOWED_PATHS: Record<string, RegExp> = {
-  'quran-translations': /^\\/verse(?:\\/|$)/,
-  'quran-tafsir-salaf': /^\\/tafseer(?:\\/|$)/,
-  'dorar-aqeedah': /^\\/aqeeda(?:\\/|$)/,
-  'dorar-hadith': /^\\/(?:hadith|dorar_api\\.json)(?:\\/|$|\\?)/,
-  'shamela-sunnah': /^\\//,
-  'jamhara-terms': /^\\/(?:dictionary|search)(?:\\/|$|\\?)/,
-  'fiqh-madhahib-dorar': /^\\/feqhia(?:\\/|$|\\?)/,
-  'dawa-center': /^\\//
+  'quran-translations': /^\/verse(?:\/|$)/,
+  'quran-tafsir-salaf': /^\/tafseer(?:\/|$)/,
+  'dorar-aqeedah': /^\/aqeeda(?:\/|$)/,
+  'dorar-hadith': /^\/(?:hadith|dorar_api\.json)(?:\/|$|\\?)/,
+  'shamela-sunnah': /^\//,
+  'jamhara-terms': /^\/(?:dictionary|search)(?:\/|$|\\?)/,
+  'fiqh-madhahib-dorar': /^\/feqhia(?:\/|$|\\?)/,
+  'dawa-center': /^\//
 };
 
 function pathAllowedForSource(sourceId: string, rawUrl?: string): boolean {
