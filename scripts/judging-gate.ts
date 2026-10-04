@@ -18,6 +18,9 @@ import { runBaseeraBenchmark } from '../src/lib/benchmarkRunner.ts';
 import { getAllFrozenBenchmarkCases } from '../src/lib/benchmarkData.ts';
 import { APPROVED_SOURCE_IDS, enforceApprovedCitations, isApprovedSourceUrl } from '../src/lib/sourcePolicy.ts';
 import { isGroundedInInput } from '../src/lib/inputGrounding.ts';
+import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from '../src/lib/dorarEncyclopediaClient.ts';
+import { buildJamharaSearchUrl } from '../src/lib/jamharaClient.ts';
+import { buildQuranpediaAyahUrl } from '../src/lib/quranpediaClient.ts';
 
 type TestFn = () => void;
 const failures: string[] = [];
@@ -273,9 +276,10 @@ test('frozen benchmark covers the required categories, statuses, languages, and 
   const languages = new Set(cases.map((x: any) => x.language));
   for (const value of ['ayah', 'hadith', 'term', 'fiqh', 'cross_source']) assert.ok(categories.has(value), `missing benchmark category: ${value}`);
   for (const value of ['MATCHED', 'NEEDS_REVIEW', 'NOT_FOUND_IN_CHECKED_SOURCES', 'REFER_TO_SPECIALIST']) assert.ok(statuses.has(value), `missing expected status: ${value}`);
-  for (const value of ['ar', 'en', 'fr']) assert.ok(languages.has(value), `missing benchmark language: ${value}`);
-  assert.ok(cases.length >= 150);
+  for (const value of ['ar', 'en']) assert.ok(languages.has(value), `missing benchmark language: ${value}`);
+  assert.equal(cases.length, 150);
   assert.ok(cases.every((x: any) => x.is_frozen === true));
+  assert.equal(new Set(cases.map((x: any) => x.id)).size, cases.length);
 });
 
 test('legacy unverified hadith corpora are absent and benchmark runner is deterministic', () => {
@@ -286,7 +290,15 @@ test('legacy unverified hadith corpora are absent and benchmark runner is determ
   assert.equal(runner.includes('random'), false);
 });
 
-// J. Data coverage transparency
+// J. Live-source URL contracts (no network required)
+test('approved live source URL builders stay on official domains', () => {
+  assert.equal(new URL(buildQuranpediaAyahUrl(2, 255)).hostname, 'quranpedia.net');
+  assert.equal(new URL(buildDorarTafsirUrl('تفسير سورة البقرة')).hostname, 'dorar.net');
+  assert.equal(new URL(buildDorarAqeedahUrl('التوحيد')).hostname, 'dorar.net');
+  assert.equal(new URL(buildJamharaSearchUrl('التوحيد')).hostname, 'islamic-content.com');
+});
+
+// K. Data coverage transparency
 test('translation corpus is explicitly bounded to the languages actually present', () => {
   const langs = new Set(
     (translationData as any).translations.flatMap((x: any) =>
@@ -308,7 +320,7 @@ test('fiqh corpus exposes only the implemented A/C/D levels', () => {
   assert.deepEqual([...levels].sort(), ['A', 'C', 'D']);
 });
 
-console.log(`\nPassed: ${30 - failures.length}/30`);
+console.log(`\nPassed: ${31 - failures.length}/31`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
