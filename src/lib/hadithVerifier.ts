@@ -83,7 +83,7 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
   if (item.claimed_source) {
     const claim = normalizeArabic(item.claimed_source);
     const book = normalizeArabic(bestMatch.book);
-    const knownBook = /بخاري|مسلم|ترمذي|أحمد|ابن ماجه|أبي داود|ابي داود|نسائي|موطأ|مالك|الدارمي|النسائي|ابن حبان|الحاكم/.test(claim);
+    const knownBook = /بخاري|مسلم|ترمذي|أحمد|ابن ماجه|أبي داود|ابي داود|نسائي|موطأ|موطا|مالك|الدارمي|النسائي|ابن حبان|الحاكم/.test(claim);
     if (knownBook && !book.includes(claim.replace(/^صحيح|سنن|مسند/,'').trim()) && !claim.includes(book.replace(/^صحيح|سنن|مسند/,'').trim())) {
       return {
         id: `hadith-attribution-${Date.now()}`,
