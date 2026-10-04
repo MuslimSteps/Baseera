@@ -24,7 +24,7 @@ const OFFICIAL_URLS: Record<string, string> = {
   'quran-tafsir-salaf': 'https://dorar.net/tafseer',
   'dorar-hadith': 'https://dorar.net/hadith',
   'shamela-hadith-sunnah': 'https://shamela.ws/',
-  'jamhara-terminology': 'https://jamhara.org/',
+  'jamhara-terminology': 'https://islamic-content.com/dictionary',
   'fiqh-four-madhhabs': 'https://shamela.ws/'
 };
 
