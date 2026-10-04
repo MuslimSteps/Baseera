@@ -86,7 +86,7 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
         source_name: 'المصادر المعتمدة في الحزمة العلمية',
         authority: 'مصحف المدينة • الدرر السنية • موسوعة الجمهرة • المذاهب الأربعة',
         book: 'سجل المصادر المعتمدة (مصحف المدينة والموسوعة الحديثية)',
-        url: 'https://dorar.net/hadith/search'
+        url: undefined
       },
       abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
     };
