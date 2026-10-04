@@ -15,6 +15,7 @@ export interface DorarHadithResult {
   gradeCategory: 'sahih' | 'hasan' | 'weak' | 'fabricated' | 'unknown' | 'disputed';
   isDisputed?: boolean;
   disputeDetails?: string;
+  matchQuality?: 'exact' | 'partial' | 'close';
 }
 
 const dorarMemoryCache = new Map<string, DorarHadithResult[]>();
@@ -522,88 +523,72 @@ export async function searchDorarWithSmartQueries(text: string): Promise<{
   allResults: DorarHadithResult[];
 }> {
   const queries = generateSearchQueries(text);
-  if (queries.length === 0) {
-    return { topResult: null, queryUsed: '', allResults: [] };
+  const normalizedInput = normalizeArabic(cleanSearchQuery(text)).trim();
+  const inputWords = normalizedInput.split(/\s+/).filter(w => w.length > 2);
+
+  if (!normalizedInput || inputWords.length < 3 || queries.length === 0) {
+    return { topResult: null, queryUsed: queries[0] || '', allResults: [] };
   }
 
-  // Tokenize user input for relevance scoring (strip leading 'ال')
-  const cleanTokens = text
-    .replace(/[^\u0621-\u064A\s]/g, ' ')
-    .split(/\s+/)
-    .map(w => w.replace(/^ال/, ''))
-    .filter(w => w.length > 2 && !['حكم', 'شرع', 'ماذا', 'يجوز', 'يصح'].includes(w));
+  const normalizeForMatch = (value: string) =>
+    normalizeArabic(value || '').replace(/\s+/g, ' ').trim();
 
   interface ScoredCandidate {
     result: DorarHadithResult;
     queryUsed: string;
     score: number;
+    quality: 'exact' | 'partial' | 'close';
   }
 
   const candidates: ScoredCandidate[] = [];
-  const rawResultsPool: DorarHadithResult[] = [];
 
-  for (const q of queries) {
+  for (const q of queries.slice(0, 8)) {
     const results = await searchDorarApiLive(q);
     for (const r of results) {
-      rawResultsPool.push(r);
-      let score = 0;
-      const normH = r.text
-        .replace(/[\u064B-\u065F\u0670]/g, '')
-        .replace(/[إأآا]/g, 'ا')
-        .replace(/ى/g, 'ي')
-        .replace(/ة/g, 'ه');
+      const normalizedHadith = normalizeForMatch(r.text);
+      if (!normalizedHadith) continue;
 
-      for (const token of cleanTokens) {
-        if (!token || token.length < 3) continue;
-        const normToken = token.replace(/[إأآا]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
-        if (normH.includes(normToken)) score += 3;
+      const exact =
+        normalizedHadith === normalizedInput ||
+        normalizedHadith.includes(normalizedInput);
+
+      const partial =
+        !exact &&
+        normalizedInput.length >= 24 &&
+        normalizedHadith.includes(normalizedInput.slice(0, Math.min(normalizedInput.length, 80)));
+
+      let shared = 0;
+      for (const w of inputWords) {
+        if (normalizedHadith.includes(w)) shared++;
       }
 
-      // CRITICAL GUARD: Never consider a hadith a candidate if ZERO content tokens matched!
-      if (score === 0) continue;
+      const overlap = inputWords.length ? shared / inputWords.length : 0;
+      const close = !exact && !partial && overlap >= 0.75;
 
-      // Base score according to textual match
-      candidates.push({ result: r, queryUsed: q, score });
+      if (!exact && !partial && !close) continue;
+
+      const quality = exact ? 'exact' : partial ? 'partial' : 'close';
+      const score = exact ? 1000 + overlap * 100 : partial ? 600 + overlap * 100 : 200 + overlap * 100;
+      candidates.push({
+        result: { ...r, matchQuality: quality },
+        queryUsed: q,
+        score,
+        quality
+      });
     }
 
-    if (candidates.length >= 10) break;
+    if (candidates.some(c => c.quality === 'exact')) break;
   }
 
   if (candidates.length === 0) {
     return { topResult: null, queryUsed: queries[0] || text, allResults: [] };
   }
 
-  // Sort candidates by score descending
   candidates.sort((a, b) => b.score - a.score);
-
   const bestCandidate = candidates[0];
-  const disputeAnalysis = analyzeDisputeStatus(bestCandidate.result.text, rawResultsPool);
-
-  const finalResult: DorarHadithResult = { ...bestCandidate.result };
-
-  if (disputeAnalysis.isDisputed) {
-    finalResult.isDisputed = true;
-    finalResult.gradeCategory = 'disputed';
-    finalResult.grade = 'مختلف فيه: صححه قوم وضعفه واستنكره آخرون';
-    finalResult.disputeDetails = disputeAnalysis.disputeDetails;
-  } else if (disputeAnalysis.predominantlyWeak) {
-    // If the vast majority of scholars in Dorar weakened it (like "الجنة تحت أقدام الأمهات"):
-    // Find the best weak entry from an authoritative scholar (like Albani)
-    const weakMatch = candidates.find(c =>
-      (c.result.gradeCategory === 'weak' || c.result.gradeCategory === 'fabricated') &&
-      c.result.text.slice(0, 15) === bestCandidate.result.text.slice(0, 15)
-    );
-    if (weakMatch) {
-      finalResult.grade = weakMatch.result.grade;
-      finalResult.gradeCategory = weakMatch.result.gradeCategory;
-      finalResult.muhaddith = weakMatch.result.muhaddith;
-      finalResult.book = weakMatch.result.book;
-      finalResult.numberOrPage = weakMatch.result.numberOrPage;
-    }
-  }
 
   return {
-    topResult: finalResult,
+    topResult: bestCandidate.result,
     queryUsed: bestCandidate.queryUsed,
     allResults: candidates.map(c => c.result)
   };
