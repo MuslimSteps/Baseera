@@ -32,6 +32,29 @@ export function isApprovedSourceUrl(rawUrl?: string): boolean {
   }
 }
 
+const SOURCE_ALLOWED_PATHS: Record<string, RegExp> = {
+  'quran-translations': /^\\/verse(?:\\/|$)/,
+  'quran-tafsir-salaf': /^\\/tafseer(?:\\/|$)/,
+  'dorar-aqeedah': /^\\/aqeeda(?:\\/|$)/,
+  'dorar-hadith': /^\\/(?:hadith|dorar_api\\.json)(?:\\/|$|\\?)/,
+  'shamela-sunnah': /^\\//,
+  'jamhara-terms': /^\\/(?:dictionary|search)(?:\\/|$|\\?)/,
+  'fiqh-madhahib-dorar': /^\\/feqhia(?:\\/|$|\\?)/,
+  'dawa-center': /^\\//
+};
+
+function pathAllowedForSource(sourceId: string, rawUrl?: string): boolean {
+  if (!rawUrl) return true;
+  const pattern = SOURCE_ALLOWED_PATHS[sourceId];
+  if (!pattern) return true;
+  try {
+    const url = new URL(rawUrl);
+    return pattern.test(url.pathname + (url.search ? url.search : ''));
+  } catch {
+    return false;
+  }
+}
+
 const SOURCE_ALLOWED_HOSTS: Record<string, string[]> = {
   'quran-uthmani': ['qurancomplex.gov.sa'],
   'quran-translations': ['quranpedia.net', 'qurancomplex.gov.sa'],
@@ -64,7 +87,8 @@ export function enforceApprovedCitations(report: any): void {
     const approvedId = APPROVED_SOURCE_IDS.has(citation.source_id);
     const approvedUrl = isApprovedSourceUrl(citation.url);
     const sourceUrlAligned = hostAllowedForSource(citation.source_id, citation.url);
-    if (!approvedId || !approvedUrl || !sourceUrlAligned) {
+    const sourcePathAligned = pathAllowedForSource(citation.source_id, citation.url);
+    if (!approvedId || !approvedUrl || !sourceUrlAligned || !sourcePathAligned) {
       blocked = true;
       verification.status = 'NEEDS_REVIEW';
       verification.status_label_ar = 'يحتاج مراجعة — المرجع خارج سجل المصادر المعتمد';
