@@ -173,6 +173,11 @@ test('reductionist terminology is flagged', () => {
   assert.equal(reduction.status, 'NEEDS_REVIEW');
 });
 
+test('explicit term verification does not fall through to Quran/Hadith sources', () => {
+  const result = verifySingleItemCrossSource(item('term', 'التوحيد'));
+  assert.equal(result.citation.source_id, 'jamhara-terms');
+});
+
 // E. Fiqh safety
 test('sensitive fiqh question is referral-only', () => {
   const result = verifyFiqhQuestion(item('fiqh_question', 'ما حكم سب الدين؟'));
@@ -320,7 +325,7 @@ test('fiqh corpus exposes only the implemented A/C/D levels', () => {
   assert.deepEqual([...levels].sort(), ['A', 'C', 'D']);
 });
 
-console.log(`\nPassed: ${31 - failures.length}/31`);
+console.log(`\nPassed: ${32 - failures.length}/32`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
