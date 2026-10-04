@@ -280,6 +280,8 @@ export const VerifierView: React.FC = () => {
 
       let fetchedReport: AnalysisReport | null = null;
 
+      let backendUnavailable = false;
+
       try {
         const res = await apiFetch('/api/verify', {
           method: 'POST',
@@ -287,26 +289,53 @@ export const VerifierView: React.FC = () => {
           body: JSON.stringify(payload)
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.report) {
-            fetchedReport = data.report;
-          }
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
         }
-      } catch (networkErr) {
-        console.warn('Backend unavailable, running in-browser engine:', networkErr);
+
+        if (!res.ok) {
+          throw new Error(data?.error || `فشل خادم التحقق (HTTP ${res.status}).`);
+        }
+
+        if (data?.report) {
+          fetchedReport = data.report;
+        } else {
+          throw new Error('لم يُرجع خادم التحقق تقريرًا صالحًا.');
+        }
+      } catch (networkErr: any) {
+        backendUnavailable = true;
+        console.error('Backend verification unavailable:', networkErr);
       }
 
-      // If backend is not available (e.g. static hosting on GitHub Pages):
-      if (!fetchedReport) {
-        const items = extractItemsRuleBased(inputText);
-        fetchedReport = verifyExtractedItems(items, inputText, inputType);
+      // Never silently downgrade a live-source verification to the local
+      // offline engine. Fiqh/Tafsir/Aqeedah paths require their approved
+      // backend connectors; an offline "not found" is not evidence.
+      if (backendUnavailable && !fetchedReport) {
+        const localItems = extractItemsRuleBased(inputText);
+        const requiresLiveBackend = localItems.some(
+          item => item.type === 'fiqh_question' ||
+            item.type === 'tafsir_question' ||
+            item.type === 'aqeedah_question'
+        );
+
+        if (requiresLiveBackend) {
+          throw new Error(
+            'تعذر الاتصال بخادم التحقق الحي. لم يتم إصدار «لم يُعثر عليه» لأن المصدر المعتمد يحتاج إلى البحث المباشر. شغّل خادم Baseera على المنفذ 3000 ثم أعد الفحص.'
+          );
+        }
+
+        // Offline fallback remains allowed for purely local verification paths
+        // such as exact Quran/terminology checks.
+        fetchedReport = verifyExtractedItems(localItems, inputText, inputType);
       }
 
       if (fetchedReport) {
         setReport(fetchedReport);
       } else {
-        throw new Error('لم يتم استلام تقرير تحقق صالح.');
+        throw new Error('لم يتم استلام تقرير تحقق صالح من خادم التحقق.');
       }
     } catch (err: any) {
       console.error(err);
