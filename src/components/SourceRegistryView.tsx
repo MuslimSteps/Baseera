@@ -143,9 +143,22 @@ export const SourceRegistryView: React.FC = () => {
                   : 'bento-card border-hairline hover:bg-white/[0.02] text-ink/85'
               }`}
             >
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1.5 gap-2">
                 <span className="font-bold text-sm text-white font-display">{source.name_ar}</span>
                 <span className="text-[10px] text-faint font-mono">{source.category}</span>
+              </div>
+              <div className="mb-2 text-[10px] text-emerald-300">
+                {source.implementation_status === 'active_live_dorar_tafsir' ||
+                 source.implementation_status === 'active_live_dorar_aqeedah' ||
+                 source.implementation_status === 'active_live_dorar_hadith' ||
+                 source.implementation_status === 'active_local_verifier' ||
+                 source.implementation_status === 'active_local_plus_live_fallback' ||
+                 source.implementation_status === 'active_local_policy_plus_live_dorar' ||
+                 source.implementation_status === 'active_live_quranpedia_plus_local_english_snapshot'
+                  ? '● مسار تحقق فعّال'
+                  : source.implementation_status === 'approved_secondary_reference_dorar_runtime_verifier'
+                  ? '● مرجع ثانوي معتمد'
+                  : '● مصدر مساعد'}
               </div>
               <p className="text-muted line-clamp-2 leading-relaxed">{source.authority}</p>
             </button>
