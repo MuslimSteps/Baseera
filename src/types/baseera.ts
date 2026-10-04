@@ -66,7 +66,7 @@ export interface VerificationResult {
   abstention_note?: string;
   decision_level?: 'A' | 'B' | 'C' | 'D';
   ai_match?: {
-    provider: 'gemini';
+    provider: 'groq';
     candidate_id: string;
     relation: 'exact' | 'altered' | 'partial' | 'related';
     confidence: number;
