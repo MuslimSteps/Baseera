@@ -42,6 +42,22 @@ export function normalizeArabic(text: string): string {
     .toLowerCase();
 }
 
+
+/**
+ * Strict normalization for source-text verification.
+ * It removes reading marks and punctuation but preserves the actual Arabic
+ * letters, so substitutions such as ة→ه cannot become an exact match.
+ */
+export function normalizeArabicStrict(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(TASHKEEL_REGEX, '')
+    .replace(QURANIC_SIGNS, '')
+    .replace(TATWEEL_REGEX, '')
+    .replace(/[.,/#!$%^&*;:{}=\-_\`~()«»"'\[\]؟،؛]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 /**
  * Tokenizes normalized text into words.
  */
