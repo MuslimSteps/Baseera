@@ -357,7 +357,7 @@ export const VerifierView: React.FC = () => {
               <div className="text-[10px] text-faint">طبقات تحقق</div>
             </div>
             <div>
-              <div className="font-mono-numbers text-lg font-bold text-brand-soft">8</div>
+              <div className="font-mono-numbers text-lg font-bold text-brand-soft">9</div>
               <div className="text-[10px] text-faint">مراجع معتمدة</div>
             </div>
             <div>
