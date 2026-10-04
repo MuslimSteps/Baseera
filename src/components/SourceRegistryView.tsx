@@ -23,9 +23,10 @@ const OFFICIAL_URLS: Record<string, string> = {
   'quran-translations': 'https://quranpedia.net/',
   'quran-tafsir-salaf': 'https://dorar.net/tafseer',
   'dorar-hadith': 'https://dorar.net/hadith',
-  'shamela-hadith-sunnah': 'https://shamela.ws/',
-  'jamhara-terminology': 'https://islamic-content.com/dictionary',
-  'fiqh-four-madhhabs': 'https://shamela.ws/'
+  'shamela-sunnah': 'https://shamela.ws/',
+  'jamhara-terms': 'https://islamic-content.com/dictionary',
+  'fiqh-madhahib-dorar': 'https://dorar.net/feqhia',
+  'dawa-center': 'https://dawa.center/'
 };
 
 export const SourceRegistryView: React.FC = () => {
@@ -51,7 +52,7 @@ export const SourceRegistryView: React.FC = () => {
               المصادر المعتمدة — لا نستخدم أي مصدر بديل
             </h1>
             <p className="text-sm text-muted mt-3 max-w-3xl leading-relaxed">
-              وفقاً لدليل المشارك للحزمة العلمية: كل نتيجة ومطابقة تصدرها «بصيرة» موثقة بسندها في أحد هذه المراجع المعتمدة حصراً، مع حظر قاطع للاستعانة بصفحات الويب المفتوحة أو ويكيبيديا.
+              هذه هي قائمة المصادر المعتمدة في نطاق المشروع. ليست كل المصادر مسارات تحقق مباشرة داخل التطبيق؛ بعضُها مستخدم فعلياً، وبعضُها مخصص للتفسير أو الإحالة وفق مستوى المسألة.
             </p>
           </div>
 
