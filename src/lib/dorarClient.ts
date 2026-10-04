@@ -356,7 +356,8 @@ export async function searchDorarApiLive(query: string): Promise<DorarHadithResu
  * Used when live Fiqh API is unavailable (Cloudflare blocks) — links user directly
  */
 export function buildDorarFiqhUrl(query: string): string {
-  const clean = cleanSearchQuery(query);
+  // Fiqh URLs must preserve question intent (especially "حكم").
+  const clean = query.replace(/[«»"“؟?.,!]/g, '').trim().slice(0, 180);
   return `https://dorar.net/feqhia/search?q=${encodeURIComponent(clean || query)}`;
 }
 
