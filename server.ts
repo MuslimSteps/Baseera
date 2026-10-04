@@ -18,7 +18,7 @@ import fiqhData from './sources/fiqh.json' with { type: 'json' };
 import { extractItemsRuleBased } from './src/lib/extractor.ts';
 import { verifyExtractedItems } from './src/lib/decisionEngine.ts';
 import { isSensitiveFiqhQuestion } from './src/lib/fiqhEngine.ts';
-import { enforceApprovedCitations } from './src/lib/sourcePolicy.ts';
+import { enforceApprovedCitations, isApprovedCitation } from './src/lib/sourcePolicy.ts';
 import { isGroundedInInput } from './src/lib/inputGrounding.ts';
 import { getAvailableTranslationLanguages, getAyahTranslations } from './src/lib/quranpediaClient.ts';
 import { buildDorarAqeedahUrl, buildDorarTafsirUrl, searchDorarAqeedahLive, searchDorarTafsirLive } from './src/lib/dorarEncyclopediaClient.ts';
