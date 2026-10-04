@@ -182,8 +182,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // 2. Retrieve Local Authenticated Hadiths
   const localHadiths = await findRelevantHadiths(topic, 3);
 
-  // 3. Retrieve Live Hadith from Dorar if available
-  let liveHadith: any = localHadiths[0] || null;
+  // 3. Retrieved hadiths come only from the approved Dorar source.
 
   // 4. Retrieve Terminology from Jamhara
   const termDef = findJamharaTerm(topic);
@@ -191,8 +190,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // 5. Fetch Official King Fahd Translations (Kuliev for RU, Saheeh for EN)
   const verseTranslations = new Map<number, string>();
   for (const v of relevantVerses) {
-    if (language === 'ru') {
-      // No unlisted translation provider is queried. else if (language === 'en') {
+    if (language === 'en') {
       const enText = getEnglishQuranTranslation(v.surah_number, v.ayah_number);
       if (enText) verseTranslations.set(v.ayah_number, enText);
     }
@@ -218,9 +216,9 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
       type: 'ayah',
       arabic_text: v.text_uthmani || v.text_clean,
       translation: tr,
-      source_name: `القرآن الكريم — سورة ${v.surah_name_ar}، آية ${v.ayah_number} (مصحف المدينة النبوية)`,
+      source_name: `القرآن الكريم — سورة ${v.surah_name_ar}، آية ${v.ayah_number} (المصدر القرآني المعتمد)`,
       source_url: 'https://qurancomplex.gov.sa/',
-      authority: 'النص القرآني المحلي المعتمد وفق سجل المصادر',
+      authority: 'النص القرآني المحلي المسجل ضمن المصادر المعتمدة',
       verified: true
     });
   }
@@ -354,7 +352,6 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
   let applicationTranslated: string | undefined;
   if (language === 'ru') {
-    const ruT = termDef ? JAMHARA_RUSSIAN_TERMS[termDef.term_ar] : null;
     applicationTranslated = `Практическое применение в жизни мусульманина:\n\nЗнание в Исламе требует искреннего воплощения в делах. Плоды темы «${topic}» реализуются через следующие практические шаги:\n\n1. Искренность (ихлас) ради Единого Аллаха и строгое следование Сунне Пророка ﷺ.\n2. Ежедневный самоконтроль и соблюдение этики в семье, на работе и в обществе.\n3. Стойкость на прямом пути и призыв к добру с мудростью и добрым увещеванием.\n\n`;
   } else if (language === 'en') {
     applicationTranslated = `Practical Application in the Believer's Life:\n\nIslamic knowledge is intended for righteous action. To realize the fruits of "${topic}", we must commit to:\n\n1. Pure sincerity (Ikhlas) for Allah alone and adherence to the Sunnah.\n2. Daily self-reckoning and ethical conduct with family and community.\n3. Steadfastness and gentle dawah with wisdom and good manners.\n\n${termDef ? `📌 Terminology Precision (Jamhara Encyclopedia):\n"${termDef.term_en || termDef.term_ar}": ${termDef.jamhara_definition || termDef.approved_translations?.[0]}` : ''}`;
