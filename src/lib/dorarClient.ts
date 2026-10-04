@@ -25,13 +25,12 @@ const dorarMemoryCache = new Map<string, DorarHadithResult[]>();
  * Normalizes text to Arabic search query
  */
 export function cleanSearchQuery(query: string): string {
-  // Preserve the complete fiqh question. Removing "حكم" destroys intent.
   return query
     .replace(/[«»"“؟?.,!]/g, '')
-    .replace(/^\s+|\s+$/g, '')
+    .replace(/^(?:ما\s+(?:هو\s+)?حكم(?:\s+الشرع(?:\s+في)?)?|هل\s+(?:يجوز|يصح)|ما\s+القول\s+في|حكم|هل|ما|ماذا|كيف|ما\s+رأي\s+الشرع\s+في)\s*/gi, '')
     .replace(/^(?:في\s+القرآن(?:\s+الكريم)?|قال\s+رسول\s+الله|قال\s+النبي|في\s+الحديث|عن\s+النبي|ورد\s+في\s+الحديث|روي\s+أن|سمعت\s+رسول\s+الله)[:\s]*/gi, '')
     .trim()
-    .slice(0, 180);
+    .slice(0, 120);
 }
 
 /**
@@ -395,8 +394,12 @@ export async function searchDorarFiqhLive(query: string): Promise<{
   source: string;
   allResults: Array<{ title: string; text: string; url: string }>;
 } | null> {
-  // Intent-aware fiqh retrieval happens in the Python connector.
-  const cleanQ = cleanSearchQuery(query);
+  // Keep the complete fiqh question. The Python connector performs
+  // intent extraction and subject matching itself.
+  const cleanQ = query
+    .replace(/[«»"“؟?.,!]/g, '')
+    .trim()
+    .slice(0, 180);
   if (!cleanQ || cleanQ.length < 2) return null;
 
   const cacheKey = cleanQ.toLowerCase();
