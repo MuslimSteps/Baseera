@@ -1,0 +1,77 @@
+name: Baseera Runtime Validation
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - CI_PROOF.txt
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Execute validation suite
+        shell: bash
+        run: |
+          set +e
+          : > /tmp/baseera-validation.log
+          echo "npm_install=running" | tee -a /tmp/baseera-validation.log
+          npm install --legacy-peer-deps >> /tmp/baseera-validation.log 2>&1
+          INSTALL_RC=$?
+          echo "npm_install_rc=$INSTALL_RC" | tee -a /tmp/baseera-validation.log
+
+          echo "lint=running" | tee -a /tmp/baseera-validation.log
+          npm run lint >> /tmp/baseera-validation.log 2>&1
+          LINT_RC=$?
+          echo "lint_rc=$LINT_RC" | tee -a /tmp/baseera-validation.log
+
+          echo "test=running" | tee -a /tmp/baseera-validation.log
+          npm run test >> /tmp/baseera-validation.log 2>&1
+          TEST_RC=$?
+          echo "test_rc=$TEST_RC" | tee -a /tmp/baseera-validation.log
+
+          echo "build=running" | tee -a /tmp/baseera-validation.log
+          npm run build >> /tmp/baseera-validation.log 2>&1
+          BUILD_RC=$?
+          echo "build_rc=$BUILD_RC" | tee -a /tmp/baseera-validation.log
+
+          cat > /tmp/CI_PROOF.txt <<EOF
+          Baseera Runtime Validation
+          commit=$GITHUB_SHA
+          npm_install_rc=$INSTALL_RC
+          lint_rc=$LINT_RC
+          test_rc=$TEST_RC
+          build_rc=$BUILD_RC
+          conclusion=$([ $INSTALL_RC -eq 0 ] && [ $LINT_RC -eq 0 ] && [ $TEST_RC -eq 0 ] && [ $BUILD_RC -eq 0 ] && echo PASS || echo FAIL)
+
+          Last validation output:
+          EOF
+          tail -n 120 /tmp/baseera-validation.log >> /tmp/CI_PROOF.txt
+
+          cp /tmp/CI_PROOF.txt CI_PROOF.txt
+
+          if [ $INSTALL_RC -ne 0 ] || [ $LINT_RC -ne 0 ] || [ $TEST_RC -ne 0 ] || [ $BUILD_RC -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Commit validation proof
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "baseera-ci"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CI_PROOF.txt
+          git diff --cached --quiet || git commit -m "ci: record runtime validation result"
+          git push origin HEAD:master
