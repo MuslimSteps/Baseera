@@ -43,8 +43,21 @@ export function verifyIslamicTerm(item: ExtractedItem): VerificationResult {
     let reductionNote = '';
 
     const combinedText = `${rawLower} ${contextLower}`;
+    const genericReductionistCue =
+      combinedText.includes('تم اختزاله') ||
+      combinedText.includes('اختزال') ||
+      combinedText.includes('التقاليد المجردة') ||
+      combinedText.includes('لا تمس الواقع المادي') ||
+      combinedText.includes('يعني فقط') ||
+      combinedText.includes('يعني مجرد') ||
+      combinedText.includes('only means') ||
+      combinedText.includes('just means') ||
+      combinedText.includes('merely means');
 
-    if (matched.id === 'term-tawhid') {
+    if (genericReductionistCue) {
+      isReductionist = true;
+      reductionNote = 'تنبيه اختزال: صياغة المدخل تحصر المصطلح الإسلامي في معنى جزئي أو مجرد؛ تُعرض مادة الجمهرة للمراجعة ولا تُعتمد هذه الصياغة بوصفها تعريفاً شاملاً.';
+    } else if (matched.id === 'term-tawhid') {
       if ((combinedText.includes('only oneness') || combinedText.includes('just monotheism') || combinedText.includes('mere oneness') || combinedText.includes('without worship') || combinedText.includes('deism')) &&
           (!combinedText.includes('worship') || combinedText.includes('without worship'))) {
         isReductionist = true;
