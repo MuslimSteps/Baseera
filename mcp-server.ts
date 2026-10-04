@@ -190,8 +190,9 @@ async function handleToolCall(name: string, args: Record<string, any>) {
         t.term_ar.includes(termInput) || 
         t.term_en.toLowerCase().includes(termInput)
       );
+      const term = matched as (typeof matched & { reductionist_cues?: string[]; warning_ar?: string; approved_translation?: string; definition_ar?: string }) | undefined;
 
-      if (!matched) {
+      if (!term) {
         return {
           content: [
             {
@@ -203,10 +204,10 @@ async function handleToolCall(name: string, args: Record<string, any>) {
       }
 
       let warning = '';
-      if (context && matched.reductionist_cues) {
+      if (context && term.reductionist_cues) {
         for (const cue of matched.reductionist_cues) {
           if (context.includes(cue.toLowerCase())) {
-            warning = `⚠️ تنبيه: تم رصد مؤشر اختزال للمصطلح (${cue}).\n${matched.warning_ar}`;
+            warning = `⚠️ تنبيه: تم رصد مؤشر اختزال للمصطلح (${cue}).\n${term.warning_ar || term.reduction_warning}`;
             break;
           }
         }
@@ -216,9 +217,9 @@ async function handleToolCall(name: string, args: Record<string, any>) {
         content: [
           {
             type: 'text',
-            text: `المصطلح: ${matched.term_ar} (${matched.term_en})\n` +
-                  `المقابل المعتمد: ${matched.approved_translation}\n` +
-                  `التعريف المعتمد: ${matched.definition_ar}\n` +
+            text: `المصطلح: ${term.term_ar} (${term.term_en})\n` +
+                  `المقابل المعتمد: ${term.approved_translation || term.approved_translations?.join(' | ') || 'غير محدد'}\n` +
+                  `التعريف المعتمد: ${term.definition_ar || term.jamhara_definition}\n` +
                   `المصدر: موسوعة الجمهرة لمفردات المحتوى الإسلامي\n` +
                   (warning ? `\n${warning}` : '\n✅ الاستخدام سليم وضمن المعنى الشرعي المعتمد.')
           }
