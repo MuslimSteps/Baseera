@@ -267,7 +267,8 @@ export const VerifierView: React.FC = () => {
         text: inputText,
         url: inputType === 'url' ? urlInput : undefined,
         mediaBase64: (inputType === 'image' || inputType === 'audio') ? mediaPreview : undefined,
-        apiKey: geminiApiKey.trim() || undefined
+        apiKey: geminiApiKey.trim() || undefined,
+        ocrConsensus: inputType === 'image' ? ocrConsensus : false
       };
 
       let fetchedReport: AnalysisReport | null = null;
