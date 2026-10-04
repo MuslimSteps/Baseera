@@ -286,6 +286,45 @@ app.post('/api/ocr', async (req, res) => {
   }
 });
 
+async function applyAISemanticMatching(items: ExtractedItem[]): Promise<void> {
+  // AI is a candidate selector/ranker only. Every selected candidate is
+  // subsequently re-validated against the canonical source by the deterministic verifier.
+  for (const item of items) {
+    if (item.type !== 'ayah') continue;
+
+    const candidates = getQuranCandidatesForAI(item, 12);
+    if (candidates.length === 0) continue;
+
+    const ai = await rankCandidatesWithAI(
+      'quran',
+      item.text,
+      candidates.map(c => ({
+        id: c.id,
+        source: c.source,
+        title: c.title,
+        text: c.text
+      }))
+    );
+
+    if (!ai || !ai.candidate_id || ai.confidence < 0.55 || ai.relation === 'none') continue;
+
+    const selected = candidates.find(c => c.id === ai.candidate_id);
+    if (!selected) continue;
+
+    // AI may propose missing location metadata, but it cannot overwrite a
+    // location explicitly supplied by the user.
+    if (!item.claimed_surah) item.claimed_surah = selected.surah_name_ar;
+    if (!item.claimed_ayah) item.claimed_ayah = selected.ayah_number;
+
+    (item as any).ai_match_hint = {
+      candidate_id: ai.candidate_id,
+      relation: ai.relation,
+      confidence: ai.confidence,
+      source_text: selected.text
+    };
+  }
+}
+
 /**
  * Master Verification Resolver with Live Dorar Encyclopedia Search
  * Unified across both Web Application (/api/verify) and Browser Extension (/api/extension-lookup)
