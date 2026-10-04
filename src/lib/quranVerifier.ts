@@ -134,16 +134,21 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
   if (!bestMatch && (item.language === 'en' || item.language === 'fr' || /[a-zA-Z]/.test(item.text))) {
     const lower = item.text.toLowerCase();
     for (const tr of translationData.translations) {
-      if (tr.en && (tr.en.text.toLowerCase().includes(lower) || lower.includes(tr.en.text.toLowerCase().slice(0, 30)))) {
+      if (tr.en) {
+        const canon = tr.en.text.toLowerCase().replace(/\s+/g, ' ').trim();
+        const input = lower.replace(/\s+/g, ' ').trim();
+        const exactTranslation = canon === input;
+        const partialTranslation = canon.includes(input) && input.split(/\s+/).length >= 8;
+        if (!exactTranslation && !partialTranslation) continue;
         const matchedVerse = quranData.verses.find(v => v.surah_number === tr.surah && v.ayah_number === tr.ayah);
         if (matchedVerse) {
           return {
             id: `quran-${matchedVerse.surah_number}-${matchedVerse.ayah_number}`,
             item,
-            status: 'MATCHED',
-            status_label_ar: 'مطابق للترجمة المعتمدة',
-            status_label_en: 'Matched with Approved Translation',
-            reason: `تمت مطابقة الترجمة مع ترجمة مجمع الملك فهد لطباعة المصحف الشريف (صحيح إنترناشونال) لسورة ${matchedVerse.surah_name_ar} الآية ${matchedVerse.ayah_number}.`,
+            status: exactTranslation ? 'MATCHED' : 'NEEDS_REVIEW',
+            status_label_ar: exactTranslation ? 'مطابقة تامة للترجمة المفهرسة' : 'مطابقة جزئية للترجمة — تحتاج مراجعة',
+            status_label_en: exactTranslation ? 'Matched with Approved Translation' : 'Partial Match — Review Required',
+            reason: exactTranslation ? `النص يطابق الترجمة المفهرسة للآية في سجل الترجمات المعتمد.` : `عُثر على الترجمة ضمن المصدر المعتمد، لكن النص المدخل مقتطف جزئي منها؛ لذلك لا يُعد تطابقاً كاملاً.` ,
             citation: {
               source_id: 'quran-translations',
               source_name: 'ترجمات معاني القرآن الكريم المعتمدة',
@@ -156,7 +161,7 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
             canonical_surah: matchedVerse.surah_name_ar,
             canonical_ayah_number: matchedVerse.ayah_number,
             verified_translation: tr.en.text,
-            decision_level: 'A'
+            decision_level: exactTranslation ? 'A' : 'B'
           };
         }
       }
