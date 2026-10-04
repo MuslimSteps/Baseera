@@ -335,7 +335,7 @@ test('frozen benchmark covers the required categories, statuses, languages, and 
   const categories = new Set(cases.map((x: any) => x.category));
   const statuses = new Set(cases.map((x: any) => x.expected_status));
   const languages = new Set(cases.map((x: any) => x.language));
-  for (const value of ['ayah', 'hadith', 'term', 'fiqh', 'cross_source']) assert.ok(categories.has(value), `missing benchmark category: ${value}`);
+  for (const value of ['ayah', 'hadith', 'terminology', 'fiqh', 'cross_source']) assert.ok(categories.has(value), `missing benchmark category: ${value}`);
   for (const value of ['MATCHED', 'NEEDS_REVIEW', 'NOT_FOUND_IN_CHECKED_SOURCES', 'REFER_TO_SPECIALIST']) assert.ok(statuses.has(value), `missing expected status: ${value}`);
   for (const value of ['ar', 'en']) assert.ok(languages.has(value), `missing benchmark language: ${value}`);
   assert.equal(cases.length, 150);
