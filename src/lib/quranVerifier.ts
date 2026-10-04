@@ -402,6 +402,7 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
         id: `quran-${bestMatch.surah_number}-${bestMatch.ayah_number}`,
         item,
         status: 'NEEDS_REVIEW',
+        finding_type: lexicalAlteration ? 'altered_quran_text' : 'partial_quran_quote',
         status_label_ar: verdictAr,
         status_label_en: verdictEn,
         reason,
