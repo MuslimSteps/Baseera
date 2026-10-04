@@ -78,17 +78,20 @@ function hostAllowedForSource(sourceId: string, rawUrl?: string): boolean {
   }
 }
 
+export function isApprovedCitation(citation: { source_id?: string; url?: string }): boolean {
+  if (!citation?.source_id || !APPROVED_SOURCE_IDS.has(citation.source_id)) return false;
+  return isApprovedSourceUrl(citation.url) &&
+    hostAllowedForSource(citation.source_id, citation.url) &&
+    pathAllowedForSource(citation.source_id, citation.url);
+}
+
 export function enforceApprovedCitations(report: any): void {
   let blocked = false;
   for (const verification of report.verifications || []) {
     const citation = verification.citation;
     if (!citation) continue;
 
-    const approvedId = APPROVED_SOURCE_IDS.has(citation.source_id);
-    const approvedUrl = isApprovedSourceUrl(citation.url);
-    const sourceUrlAligned = hostAllowedForSource(citation.source_id, citation.url);
-    const sourcePathAligned = pathAllowedForSource(citation.source_id, citation.url);
-    if (!approvedId || !approvedUrl || !sourceUrlAligned || !sourcePathAligned) {
+    if (!isApprovedCitation(citation)) {
       blocked = true;
       verification.status = 'NEEDS_REVIEW';
       verification.status_label_ar = 'يحتاج مراجعة — المرجع خارج سجل المصادر المعتمد';
