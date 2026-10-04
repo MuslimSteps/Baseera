@@ -204,6 +204,25 @@ async function handleToolCall(name: string, args: Record<string, any>) {
         confidence: 1
       });
 
+      if (result.status === 'NOT_FOUND_IN_CHECKED_SOURCES') {
+        const live = await searchJamharaLive(term);
+        if (live?.found) {
+          return {
+            content: [{
+              type: 'text',
+              text:
+                `حالة المصدر: وُجدت مادة في موسوعة الجمهرة.\nالعنوان: ${live.title}\nالنص المصدرّي: ${live.text}\nالرابط: ${live.url}\nالمصدر: ${live.source}`
+            }]
+          };
+        }
+        return {
+          content: [{
+            type: 'text',
+            text: `لم يُعثر على المصطلح في سجل بصيرة المحلي ولا في البحث المباشر بالجمهرة. راجع: ${buildJamharaSearchUrl(term)}`
+          }]
+        };
+      }
+
       return {
         content: [{
           type: 'text',
