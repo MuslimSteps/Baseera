@@ -48,6 +48,17 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({ result, inde
 
   // Status visual attributes
   const getStatusTheme = () => {
+    if (result.finding_type === 'altered_quran_text') {
+      return {
+        icon: <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />,
+        textColor: 'text-rose-400',
+        borderColor: 'border-rose-500/40',
+        bgColor: 'bg-rose-950/25',
+        badgeText: status_label_ar,
+        leftBorder: 'border-r-4 border-r-rose-500'
+      };
+    }
+
     switch (status) {
       case 'MATCHED':
         return {
