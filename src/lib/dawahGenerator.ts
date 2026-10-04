@@ -313,9 +313,9 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
     let quranTranslated: string | undefined;
     if (language === 'ru') {
-      quranTranslated = `Коранический источник по теме:\n\nВсевышний Аллах ниспослал Своё Писание верным руководством и светом, разъяснив величие и достоинство темы «${topic}».\n\nВсевышний Аллах говорит:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾\n[Сура «${mainVerse.surah_name_ar}», аят ${mainVerse.ayah_number}]\n\n📖 Перевод смыслов (указанный переводчик):\n«${mainVerseTr || 'Изучите подлинный перевод смыслов данного аята в утверждённом издании комплекса Короля Фахда.'}»\n\n${secondVerse && secondVerseTr ? `Также Аллах подтверждает это в другом аяте:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Сура «${secondVerse.surah_name_ar}», аят ${secondVerse.ayah_number}]\n«${secondVerseTr}»\n\n` : ''}Эти благословенные аяты ясно указывают на первостепенное значение соблюдения этой нормы.`;
+      quranTranslated = `Коранический источник по теме:\n\nВсевышний Аллах ниспослал Своё Писание верным руководством и светом, разъяснив величие и достоинство темы «${topic}».\n\nВсевышний Аллах говорит:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾\n[Сура «${mainVerse.surah_name_ar}», аят ${mainVerse.ayah_number}]\n\n📖 Перевод смыслов (указанный переводчик):\n«${mainVerseTr || 'Для этого аята не была получена запрошенная утверждённая переводная версия из источника.'}»\n\n${secondVerse && secondVerseTr ? `Также Аллах подтверждает это в другом аяте:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Сура «${secondVerse.surah_name_ar}», аят ${secondVerse.ayah_number}]\n«${secondVerseTr}»\n\n` : ''}Связь этих аятов с выбранной темой представлена как рабочая редакционная связь и требует проверки перед публикацией.`;
     } else if (language === 'en') {
-      quranTranslated = `Quranic Foundation:\n\nAllah ﷻ says in the Noble Quran:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [Surah ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]\n\n📖 Translation of Meanings (local approved translation catalog, when available):\n"${mainVerseTr || 'Verified authentic translation per King Fahd Complex'}"\n\n${secondVerse && secondVerseTr ? `Allah also affirms:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Surah ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]\n"${secondVerseTr}"\n\n` : ''}These verses firmly establish "${topic}" as a divine priority for every believer.`;
+      quranTranslated = `Quranic Foundation:\n\nAllah ﷻ says in the Noble Quran:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [Surah ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]\n\n📖 Translation of Meanings (local approved translation catalog, when available):\n"${mainVerseTr || 'No approved translation was retrieved from the selected source.'}"\n\n${secondVerse && secondVerseTr ? `Allah also affirms:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Surah ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]\n"${secondVerseTr}"\n\n` : ''}These verses are presented as source material related to the topic; the editorial linkage should be reviewed before publication.`;
     }
 
     sections.push({
@@ -334,9 +334,9 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
     let hadithTranslated: string | undefined;
     if (language === 'ru') {
-      hadithTranslated = `Руководство из благородной Пророческой Сунны:\n\nПосланник Аллаха ﷺ разъяснил суть темы «${topic}» своими словами и личным примером.\n\nПророк Мухаммад ﷺ сказал:\n«${mainHadith.text_full || mainHadith.text_clean}»\n\n📚 Источник: ${mainHadith.source_book || 'Хадисный сборник'} (${mainHadith.number_or_page || ''})\nСтепень достоверности: ${mainHadith.grade || 'Сахих (достоверный)'}\n\nЭтот достоверный хадис показывает, как мусульманин должен воплощать это учение на практике.`;
+      hadithTranslated = `Руководство из благородной Пророческой Сунны:\n\nПосланник Аллаха ﷺ разъяснил суть темы «${topic}» своими словами и личным примером.\n\nПророк Мухаммад ﷺ сказал:\n«${mainHadith.text_full || mainHadith.text_clean}»\n\n📚 Источник: ${mainHadith.source_book || 'Хадисный сборник'} (${mainHadith.number_or_page || ''})\nСтепень достоверности: ${mainHadith.grade || 'Сахих (достоверный)'}\n\nЭта передача показана как источник по теме согласно указанной степени достоверности.`;
     } else if (language === 'en') {
-      hadithTranslated = `Prophetic Sunnah Guidance:\n\nThe Prophet Muhammad ﷺ taught the reality of "${topic}" through authentic instruction.\n\nThe Prophet ﷺ said:\n«${mainHadith.text_full || mainHadith.text_clean}»\n[Source: ${mainHadith.source_book || 'Sunnah corpus'} — Grade: ${mainHadith.grade || 'Sahih'}]\n\nThis prophetic narration provides direct practical instruction for applying divine guidance in daily life.`;
+      hadithTranslated = `Prophetic Sunnah Guidance:\n\nThe Prophet Muhammad ﷺ taught the reality of "${topic}" through authentic instruction.\n\nThe Prophet ﷺ said:\n«${mainHadith.text_full || mainHadith.text_clean}»\n[Source: ${mainHadith.source_book || 'Sunnah corpus'} — Grade: ${mainHadith.grade || 'Sahih'}]\n\nThis narration is presented as source material; detailed application should be reviewed before publication.`;
     }
 
     sections.push({
@@ -461,7 +461,7 @@ function buildVideoReelScript(
       scene_number: 3,
       duration_seconds: '25-45 ثانية',
       visual_description: 'تغير المشهد إلى لقطة للأيدي تدعو أو جامع تاريخي، مع ظهور شارة التوثيق الذهبية للدرر السنية.',
-      voiceover_ar: hadith ? `ورد في المصدر الحديثي: «${(hadith.text_full || hadith.text_clean).slice(0, 110)}...» (${hadith.grade || 'حكم المصدر غير محدد'})` : 'وجاء في الهدي النبوي الوارد في المصادر المعتمدة...'
+      voiceover_ar: hadith ? `ورد في المصدر الحديثي: «${(hadith.text_full || hadith.text_clean).slice(0, 110)}...» (${hadith.grade || 'حكم المصدر غير محدد'})` : 'وجاء في الهدي النبوي الوارد في المصادر المعتمدة...',
       voiceover_translated: isRu && hadithRu ? `Пророк Мухаммад ﷺ сказал: «${hadithRu.ru.slice(0, 120)}...»` : undefined,
       on_screen_text: hadith ? `«${(hadith.text_full || hadith.text_clean).slice(0, 80)}...»\n(الدرجة: ${hadith.grade || 'غير محدد'})` : ''
     },
