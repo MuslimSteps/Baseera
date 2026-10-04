@@ -487,5 +487,7 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
       authority: 'مجمع الملك فهد لطباعة المصحف الشريف'
     },
     abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
-  };
+    ,
+    _needs_live_search: true
+  } as VerificationResult & { _needs_live_search?: boolean };
 }
