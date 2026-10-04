@@ -14,7 +14,7 @@ import {
   AnalysisReport
 } from '../types/baseera.ts';
 import { normalizeArabic } from './normalizer.ts';
-import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from './dorarEncyclopediaClient.ts';
+import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from './dorarQueryUtils.ts';
 
 /**
  * Core Decision Engine with Cross-Source Search
