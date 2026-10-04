@@ -111,7 +111,7 @@ export function verifyIslamicTerm(item: ExtractedItem): VerificationResult {
   }
 
   // If not found in Jamhara
-  return {
+  const pending: VerificationResult & { _needs_live_search?: boolean } = {
     id: `term-notfound-${Date.now()}`,
     item,
     status: 'NOT_FOUND_IN_CHECKED_SOURCES',
@@ -123,6 +123,8 @@ export function verifyIslamicTerm(item: ExtractedItem): VerificationResult {
       source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
       authority: 'الحزمة المرجعية المعتمدة للمصطلحات والتعريف بالإسلام'
     },
-    abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
+    abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.',
+    _needs_live_search: true
   };
+  return pending;
 }
