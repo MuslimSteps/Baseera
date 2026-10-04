@@ -213,6 +213,36 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
     }
   }
 
+  // 4. Tafsir / Aqeedah question patterns
+  const isTafsirQuestion =
+    /(?:تفسير|يفسر|فسر|معنى\s+(?:هذه|الآية|الآيه)|ما\s+معنى\s+(?:هذه|الآية|الآيه)|سبب\s+النزول|أسباب\s+النزول|شرح\s+(?:الآية|الآيه))/i.test(text);
+
+  const isAqeedahQuestion =
+    /(?:ما\s+(?:هي|هو)\s+(?:العقيدة|عقيدة|عقيدة\s+أهل\s+السنة)|في\s+العقيدة|مسألة\s+عقدية|التوحيد|الإيمان|القدر|أسماء\s+الله\s+وصفاته|صفات\s+الله|الملائكة|الشرك|الردة)/i.test(text) &&
+    /(?:ما|كيف|هل|ما\s+(?:هو|هي)|اشرح|أثبت|إثبات|حكم)/i.test(text);
+
+  if (isTafsirQuestion) {
+    items.push({
+      type: 'tafsir_question',
+      text,
+      context: text,
+      language: /[a-zA-Z]/.test(text) ? 'en' : 'ar',
+      location_in_input: 'full question',
+      confidence: 0.96
+    });
+  }
+
+  if (isAqeedahQuestion && !isTafsirQuestion) {
+    items.push({
+      type: 'aqeedah_question',
+      text,
+      context: text,
+      language: /[a-zA-Z]/.test(text) ? 'en' : 'ar',
+      location_in_input: 'full question',
+      confidence: 0.96
+    });
+  }
+
   // 4. Fiqh Question patterns
   // High-consequence religious/legal terms are routed to the fiqh safety path
   // even when the user omits an explicit phrase such as "ما حكم".
