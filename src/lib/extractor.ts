@@ -214,13 +214,19 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
   }
 
   // 4. Fiqh Question patterns
+  // High-consequence religious/legal terms are routed to the fiqh safety path
+  // even when the user omits an explicit phrase such as "ما حكم".
+  const isSensitiveFiqhTerm =
+    /(?:سب\s+(?:الله|الدين|الرسول|النبي)|شتم\s+(?:الله|الدين|الرسول|النبي)|استهزاء\s+(?:بالدين|بالإسلام|بالرسول|بالقرآن)|(?:الردة|المرتد|التكفير|تكفير))\b/i.test(text);
+
   const isFiqhQuestionText =
     /(?:^|\s)(?:ما\s*حكم|حكم|أحكام|هل\s*يجوز|هل\s*يصح|هل\s*يحل|هل\s*يحرم|ما\s*رأي\s*الشرع|طلقت|زوجتي|ينقض\s*الوضوء|قنوت\s*الفجر|الميراث|تركة)(?:\s|$)/i.test(text) ||
     text.startsWith('حكم ') ||
     text.includes('ما حكم') ||
     text.includes('هل يجوز') ||
     text.includes('هل يصح') ||
-    text.includes('حكم ');
+    text.includes('حكم ') ||
+    isSensitiveFiqhTerm;
 
   if (isFiqhQuestionText) {
     // Only add if not already extracting an ayah or hadith solely
