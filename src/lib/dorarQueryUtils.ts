@@ -27,3 +27,11 @@ export function generateFiqhSearchKeywords(rawText: string): string[] {
     .filter(w => w.length > 2 && !['حكم', 'شرع', 'ماذا', 'يجوز', 'يصح', 'رأي', 'الشريعة', 'في', 'من', 'على', 'عن', 'هل', 'ما'].includes(w));
   return [...new Set(words)];
 }
+
+export function buildDorarAqeedahUrl(query: string): string {
+  return 'https://dorar.net/aqeeda/search?skeys=' + encodeURIComponent(query.trim());
+}
+
+export function buildDorarTafsirUrl(query: string): string {
+  return 'https://dorar.net/tafseer';
+}
