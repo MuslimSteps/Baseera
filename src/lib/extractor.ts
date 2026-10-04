@@ -172,6 +172,14 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
       claimedSource = 'صحيح مسلم';
     } else if (fullMatch.includes('الترمذي')) {
       claimedSource = 'سنن الترمذي';
+    } else {
+      const genericSource = fullMatch.match(/(?:رواه|أخرجه|خرجه)\s+(?:الإمام\s+)?([^،:؛\n]+?)(?:\s+في\s+([^،؛\n]+))?(?:\s*[:؛]|\s*$)/i);
+      if (genericSource) {
+        const narratorOrAuthor = genericSource[1]?.trim();
+        const bookName = genericSource[2]?.trim();
+        if (bookName) claimedSource = bookName;
+        else if (narratorOrAuthor) claimedSource = narratorOrAuthor;
+      }
     }
 
     coveredRanges.push({ start: hMatch.index, end: hMatch.index + fullMatch.length });
