@@ -17,6 +17,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import registryData from '../../sources/source-registry.json' with { type: 'json' };
+import { apiFetch } from '../lib/apiClient.ts';
 
 const OFFICIAL_URLS: Record<string, string> = {
   'quran-uthmani': 'https://qurancomplex.gov.sa/',
@@ -93,7 +94,7 @@ export const SourceRegistryView: React.FC = () => {
             onClick={async () => {
               setSmokeLoading(true);
               try {
-                const res = await fetch('/api/source-smoke');
+                const res = await apiFetch('/api/source-smoke');
                 const data = await res.json();
                 setSmoke(data.checks || []);
               } catch {
