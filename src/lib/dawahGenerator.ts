@@ -237,19 +237,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     });
   }
 
-  if (liveHadith && !verifiedHadiths.some(h => h.text?.includes(liveHadith.text?.slice(0, 30)))) {
-    allCitations.push({
-      type: 'hadith',
-      arabic_text: liveHadith.text,
-      source_name: `${liveHadith.book} (${liveHadith.numberOrPage}) — حكم المحدث: ${liveHadith.grade}`,
-      source_url: `https://dorar.net/hadith/search?q=${encodeURIComponent(cleanSearchQuery(topic))}`,
-      authority: 'الموسوعة الحديثية بالدرر السنية (بحث مباشر)',
-      grade: liveHadith.grade,
-      verified: true
-    });
-  }
-
-  // Jamhara terminology citation
+  
   if (termDef) {
     const ruT = JAMHARA_RUSSIAN_TERMS[termDef.term_ar];
     allCitations.push({
