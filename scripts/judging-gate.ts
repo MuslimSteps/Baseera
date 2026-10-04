@@ -142,6 +142,18 @@ test('sensitive fiqh detector is fail-closed for blasphemy/takfir language', () 
   assert.equal(isSensitiveFiqhQuestion('ما حكم التكفير؟'), true);
 });
 
+test('tafsir questions are routed to the approved tafsir source only', () => {
+  const result = verifySingleItemCrossSource(item('tafsir_question', 'ما تفسير سورة الفاتحة؟'));
+  assert.equal(result.citation.source_id, 'quran-tafsir-salaf');
+  assert.equal((result as any)._needs_live_search, true);
+});
+
+test('aqeedah questions are routed to the approved aqeedah source only', () => {
+  const result = verifySingleItemCrossSource(item('aqeedah_question', 'ما هي عقيدة أهل السنة في القدر؟'));
+  assert.equal(result.citation.source_id, 'dorar-aqeedah');
+  assert.equal((result as any)._needs_live_search, true);
+});
+
 // C. Quran
 const basmala = quranData.verses.find((v: any) =>
   normalizeArabicStrict(v.text_clean || '') === normalizeArabicStrict('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ')
@@ -345,7 +357,7 @@ test('fiqh corpus exposes only the implemented A/C/D levels', () => {
   assert.deepEqual([...levels].sort(), ['A', 'C', 'D']);
 });
 
-console.log(`\nPassed: ${34 - failures.length}/34`);
+console.log(`\nPassed: ${36 - failures.length}/36`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
