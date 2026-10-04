@@ -47,7 +47,7 @@ function searchUrl(kind: DorarEncyclopediaKind, query: string): string {
   }
 
   const norm = normalizeArabic(query);
-  const explicit = query.match(/(?:سورة|سوره)\\s+([^:0-9]+)(?::|\\s+آية\\s*|\\s+(\\d+))?/i);
+  const explicit = query.match(/(?:سورة|سوره)\s+([^:0-9]+)(?::|\s+آية\s*|\s+(\d+))?/i);
   if (explicit?.[1]) {
     const name = normalizeArabic(explicit[1]).trim();
     const surah = (quranData.surahs as any[]).find((s: any) => normalizeArabic(s.name_ar).includes(name));
@@ -59,6 +59,12 @@ function searchUrl(kind: DorarEncyclopediaKind, query: string): string {
     return norm.includes(sn) || norm.includes(sn.replace(/^ال/, ''));
   });
   if (surahFromName) return `https://dorar.net/tafseer/${surahFromName.number}`;
+
+  const exactVerse = (quranData.verses as any[]).find((v: any) => {
+    const verseText = normalizeArabic(v.text_clean || '');
+    return verseText.length >= 24 && norm.includes(verseText);
+  });
+  if (exactVerse) return `https://dorar.net/tafseer/${exactVerse.surah_number}`;
 
   return 'https://dorar.net/tafseer';
 }
@@ -110,6 +116,23 @@ async function search(kind: DorarEncyclopediaKind, query: string): Promise<Dorar
     }
 
     const html = await readTextWithLimit(response, 2_000_000);
+
+    const parsedPath = new URL(url).pathname;
+    if (kind === 'tafsir' && /^\/tafseer\/\d+$/.test(parsedPath)) {
+      const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const mainMatch = html.match(/<(?:main|article)[^>]*>([\s\S]*?)<\/(?:main|article)>/i);
+      const directText = cleanHtml(mainMatch ? mainMatch[1] : html).slice(0, 5000);
+      const directResult = {
+        found: directText.length > 0,
+        title: titleMatch ? cleanHtml(titleMatch[1]) : 'موسوعة التفسير — الدرر السنية',
+        text: directText,
+        url,
+        source: 'موسوعة التفسير — الدرر السنية',
+        kind
+      };
+      cache.set(key, directResult);
+      return directResult;
+    }
 
     // Accept only links that remain inside the requested Dorar encyclopedia.
     const links = [...html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
