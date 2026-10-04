@@ -17,6 +17,7 @@ import fiqhData from './sources/fiqh.json' with { type: 'json' };
 
 import { extractItemsRuleBased } from './src/lib/extractor.ts';
 import { verifyExtractedItems } from './src/lib/decisionEngine.ts';
+import { isSensitiveFiqhQuestion } from './src/lib/fiqhEngine.ts';
 import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
 import { normalizeArabic, normalizeArabicStrict } from './src/lib/normalizer.ts';
 import { getComparativeBenchmarkResults } from './src/lib/benchmarkRunner.ts';
@@ -31,20 +32,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
-const APPROVED_SOURCE_IDS = new Set([
-  'quran-uthmani',
-  'quran-translations',
-  'quran-tafsir-salaf',
-  'dorar-hadith',
-  'dorar-hadith-live',
-  'dorar-hadith-fiqh',
-  'shamela-sunnah',
-  'jamhara-terms',
-  'fiqh-madhahib-dorar',
-  'dorar-feqhia',
-  'dawa-center',
-  'source-registry-all'
-]);
+const APPROVED_SOURCE_IDS = new Set(
+  (Array.isArray((sourceRegistry as any).sources) ? (sourceRegistry as any).sources : [])
+    .map((source: any) => source.id)
+    .filter(Boolean)
+);
 
 function isApprovedSourceUrl(rawUrl: string | undefined): boolean {
   if (!rawUrl) return true;
@@ -334,25 +326,45 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       const fiqhResult = await searchDorarFiqhLive(queryToSearch);
 
       if (fiqhResult?.found) {
-        // ✅ Got live verified ruling from Dorar Fiqhia
-        const rulingDetails = fiqhResult.detailedRuling
-          ? fiqhResult.detailedRuling
-          : (fiqhResult.text ? `${fiqhResult.title} — ${fiqhResult.text}` : fiqhResult.title);
+        const sensitive = isSensitiveFiqhQuestion(queryToSearch);
 
-        v.status = 'NEEDS_REVIEW';
-        v.status_label_ar = 'مسألة فقهية موثقة المصدر — تحتاج مراجعة ولا تمثل فتوى آلية';
-        v.status_label_en = 'Documented Ruling from Comparative Fiqh Encyclopedia (Dorar.net)';
-        v.reason = `المسألة مفصلة وموثقة في الموسوعة الفقهية المقارنة بالدرر السنية وفق المذاهب الأربعة:\n«${fiqhResult.title}»\n\nنص الحكم الشرعي المعتمد والدليل من الموسوعة الفقهية:\n${rulingDetails}`;
-        v.canonical_text = rulingDetails;
-        v.decision_level = 'C';
-        v.citation = {
-          source_id: 'dorar-feqhia-live',
-          source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية (بحث مباشر في المذاهب الأربعة)',
-          authority: 'المذاهب الأربعة (الحنفي، المالكي، الشافعي، الحنبلي) — مؤسسة الدرر السنية',
-          book: fiqhResult.title,
-          url: fiqhResult.url || fiqhSearchUrl
-        };
-      } else {
+        // Retrieving a source is not the same thing as Baseera issuing a ruling.
+        // High-consequence fiqh questions are referral-only.
+        if (sensitive) {
+          v.status = 'REFER_TO_SPECIALIST';
+          v.status_label_ar = 'إحالة إلى مختص — وُجد مصدر فقهي معتمد';
+          v.status_label_en = 'Refer to Qualified Specialist — Approved Source Found';
+          v.reason = `تم العثور على مادة ذات صلة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»). بسبب حساسية المسألة، لا تعرض بصيرة نص الحكم ولا تصدر ترجيحًا أو فتوى؛ استخدم الرابط لمراجعة المصدر مع أهل العلم المؤهلين.`;
+          delete v.canonical_text;
+          delete v.school_positions;
+          v.decision_level = 'D';
+          v.citation = {
+            source_id: 'fiqh-madhahib-dorar',
+            source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية (بحث مباشر)',
+            authority: 'المذاهب الأربعة — مؤسسة الدرر السنية',
+            book: fiqhResult.title,
+            url: fiqhResult.url || fiqhSearchUrl
+          };
+        } else {
+          const rulingDetails = fiqhResult.detailedRuling
+            ? fiqhResult.detailedRuling
+            : (fiqhResult.text ? `${fiqhResult.title} — ${fiqhResult.text}` : fiqhResult.title);
+
+          v.status = 'NEEDS_REVIEW';
+          v.status_label_ar = 'وُجدت مادة فقهية في مصدر معتمد — مراجعة مطلوبة';
+          v.status_label_en = 'Approved Fiqh Source Found — Review Required';
+          v.reason = `عُثر على مادة فقهية ذات صلة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»). النص المعروض هو من المادة المرجعية للمراجعة البشرية، وليس حكمًا صادرًا من بصيرة ولا فتوى شخصية.`;
+          v.canonical_text = rulingDetails;
+          v.decision_level = 'C';
+          v.citation = {
+            source_id: 'fiqh-madhahib-dorar',
+            source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية (بحث مباشر في المذاهب الأربعة)',
+            authority: 'المذاهب الأربعة (الحنفي، المالكي، الشافعي، الحنبلي) — مؤسسة الدرر السنية',
+            book: fiqhResult.title,
+            url: fiqhResult.url || fiqhSearchUrl
+          };
+        }
+      }      } else {
         // Step 2: Feqhia has no direct article -> check Dorar Hadith API for supporting evidence
         const wordsForSearch = contentWords.length > 0
           ? contentWords.slice(0, 3).join(' ')
@@ -383,7 +395,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
               v.canonical_text = top.text;
               v.decision_level = 'C';
               v.citation = {
-                source_id: 'dorar-hadith-fiqh',
+                source_id: 'dorar-hadith',
                 source_name: 'الموسوعة الحديثية — الدرر السنية (دليل المسألة الفقهية)',
                 authority: 'مؤسسة الدرر السنية للإشراف العلمي',
                 book: `${top.book} (${top.numberOrPage})`,
@@ -398,7 +410,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
               v.canonical_text = top.text;
               v.decision_level = 'B';
               v.citation = {
-                source_id: 'dorar-hadith-fiqh',
+                source_id: 'dorar-hadith',
                 source_name: 'الموسوعة الحديثية — الدرر السنية (دليل المسألة الفقهية)',
                 authority: 'مؤسسة الدرر السنية للإشراف العلمي',
                 book: `${top.book} (${top.numberOrPage})`,
@@ -413,7 +425,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
               v.canonical_text = top.text;
               v.decision_level = 'C';
               v.citation = {
-                source_id: 'dorar-hadith-fiqh',
+                source_id: 'dorar-hadith',
                 source_name: 'الموسوعة الحديثية — الدرر السنية',
                 authority: 'مؤسسة الدرر السنية للإشراف العلمي',
                 book: `${top.book} (${top.numberOrPage})`,
@@ -429,7 +441,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
             v.reason = 'لم يُعثر على نص قطعي أو حديث صريح مطابق لهذه المسألة في المصادر المعتمدة المفحوصة (الموسوعة الفقهية والحديثية). تلتزم منظومة «بصيرة» بالامتناع الصارم عن إصدار أي حكم شرعي أو عزو أحاديث غير مطابقة منعاً للهلوسة والخطأ في دين الله. يمكنك البحث في الموسوعة الفقهية المقارنة بالدرر السنية عبر الرابط المرفق.';
             v.decision_level = 'C';
             v.citation = {
-              source_id: 'dorar-feqhia',
+              source_id: 'fiqh-madhahib-dorar',
               source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
               authority: 'المذاهب الأربعة — مؤسسة الدرر السنية',
               book: 'الموسوعة الفقهية المقارنة',
@@ -444,7 +456,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           v.reason = 'لم يُعثر على هذه المسألة في المراجع المفحوصة (الموسوعة الفقهية والحديثية بالدرر السنية). تلتزم المنظومة بالامتناع القطعي عن إصدار أي حكم فقهي غير موثق من المصادر المعتمدة.';
           v.decision_level = 'C';
           v.citation = {
-            source_id: 'dorar-feqhia',
+            source_id: 'fiqh-madhahib-dorar',
             source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
             authority: 'المذاهب الأربعة — مؤسسة الدرر السنية',
             book: 'الموسوعة الفقهية المقارنة',
@@ -752,14 +764,14 @@ ${extractedText}
     enforceApprovedCitations(report);
     // Image/audio capture is not itself proof that the transcription is exact.
     // Keep any source-backed result visible, but require review unless capture was explicitly verified.
-    const inputCaptureVerified = inputType === 'image' ? req.body.ocrConsensus === true : false;
-    if ((inputType === 'image' || inputType === 'audio') && !inputCaptureVerified) {
+    const inputCaptureVerified = false;
+    if (inputType === 'image' || inputType === 'audio') {
       for (const verification of report.verifications) {
         if (verification.status === 'MATCHED') {
           verification.status = 'NEEDS_REVIEW';
           verification.status_label_ar = 'النص المستخرج مطابق للمصدر، لكن التحقق من دقة التفريغ يحتاج مراجعة بشرية';
           verification.status_label_en = 'Source match found; capture/transcription still requires human review';
-          verification.reason = `${verification.reason} لم تُعتبر دقة التفريغ من الصورة/الصوت مثبتة آلياً بنسبة 100%.`;
+          verification.reason = `${verification.reason} دقة التفريغ من الصورة/الصوت ليست دليلاً مصدرّياً كافياً لإصدار مطابقة نهائية؛ لذلك تتطلب مراجعة بشرية.`;
         }
       }
       if (report.verifications.some((v: any) => v.status === 'NEEDS_REVIEW')) {
