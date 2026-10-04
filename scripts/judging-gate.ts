@@ -15,6 +15,7 @@ import { verifyFiqhQuestion, isSensitiveFiqhQuestion } from '../src/lib/fiqhEngi
 import { buildHadithDecision } from '../src/lib/hadithVerifier.ts';
 import { normalizeArabicStrict } from '../src/lib/normalizer.ts';
 import { runBaseeraBenchmark } from '../src/lib/benchmarkRunner.ts';
+import { getAllFrozenBenchmarkCases } from '../src/lib/benchmarkData.ts';
 import { APPROVED_SOURCE_IDS, enforceApprovedCitations, isApprovedSourceUrl } from '../src/lib/sourcePolicy.ts';
 import { isGroundedInInput } from '../src/lib/inputGrounding.ts';
 
@@ -266,7 +267,6 @@ test('frozen benchmark has the required size and zero false confirmations', () =
 
 // I. Frozen benchmark integrity and repository hygiene
 test('frozen benchmark covers the required categories, statuses, languages, and frozen flag', async () => {
-  const { getAllFrozenBenchmarkCases } = await import('../src/lib/benchmarkData.ts');
   const cases = getAllFrozenBenchmarkCases();
   const categories = new Set(cases.map((x: any) => x.category));
   const statuses = new Set(cases.map((x: any) => x.expected_status));
