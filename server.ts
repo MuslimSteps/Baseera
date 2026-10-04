@@ -46,46 +46,38 @@ const APPROVED_SOURCE_IDS = new Set([
   'source-registry-all'
 ]);
 
-function enforceApprovedCitations(report: any): void {
-  for (const verification of report.verifications || []) {
-    const citation = verification.citation;
-    if (!citation) continue;
-    if (!APPROVED_SOURCE_IDS.has(citation.source_id)) {
-      verification.status = 'NEEDS_REVIEW';
-      verification.status_label_ar = 'يحتاج مراجعة — المرجع خارج سجل المصادر المعتمد';
-      verification.status_label_en = 'Needs Review — Citation is outside the approved source registry';
-      verification.reason = 'تم منع هذه النتيجة لأن المرجع أو نطاق الرابط ليس ضمن سجل المصادر المعتمد للحزمة العلمية.';
-    }
+function isApprovedSourceUrl(rawUrl: string | undefined): boolean {
+  if (!rawUrl) return true;
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase();
+    return (
+      host === 'dorar.net' || host.endsWith('.dorar.net') ||
+      host === 'qurancomplex.gov.sa' || host.endsWith('.qurancomplex.gov.sa') ||
+      host === 'quranpedia.net' || host.endsWith('.quranpedia.net') ||
+      host === 'islamic-content.com' || host.endsWith('.islamic-content.com') ||
+      host === 'dawa.center' || host.endsWith('.dawa.center') ||
+      host === 'shamela.ws' || host.endsWith('.shamela.ws')
+    );
+  } catch {
+    return false;
   }
 }
 
-
-const APPROVED_SOURCE_IDS = new Set([
-  'quran-uthmani',
-  'quran-translations',
-  'quran-tafsir-salaf',
-  'dorar-hadith',
-  'dorar-hadith-live',
-  'dorar-hadith-fiqh',
-  'shamela-sunnah',
-  'jamhara-terms',
-  'fiqh-madhahib-dorar',
-  'dorar-feqhia',
-  'dawa-center',
-  'source-registry-all'
-]);
-
 function enforceApprovedCitations(report: any): void {
+  let blocked = false;
   for (const verification of report.verifications || []) {
     const citation = verification.citation;
-    const host = citation?.url ? (() => { try { return new URL(citation.url).hostname.toLowerCase(); } catch { return ''; } })() : '';
-    const approvedHost = !host || host === 'dorar.net' || host.endsWith('.dorar.net') || host === 'qurancomplex.gov.sa' || host.endsWith('.qurancomplex.gov.sa') || host === 'quranpedia.com' || host.endsWith('.quranpedia.com') || host === 'islamic-content.com' || host.endsWith('.islamic-content.com') || host === 'dawa.center' || host.endsWith('.dawa.center') || host === 'shamela.ws' || host.endsWith('.shamela.ws');
-    if (citation && (!APPROVED_SOURCE_IDS.has(citation.source_id) || !approvedHost)) {
+    if (!citation) continue;
+    if (!APPROVED_SOURCE_IDS.has(citation.source_id) || !isApprovedSourceUrl(citation.url)) {
+      blocked = true;
       verification.status = 'NEEDS_REVIEW';
       verification.status_label_ar = 'يحتاج مراجعة — المرجع خارج سجل المصادر المعتمد';
       verification.status_label_en = 'Needs Review — Citation outside approved registry';
-      verification.reason = 'تم منع هذه النتيجة لأن المرجع ليس ضمن سجل المصادر المعتمد للحزمة العلمية.';
+      verification.reason = 'تم منع هذه النتيجة لأن المرجع أو نطاق الرابط ليس ضمن سجل المصادر المعتمد للحزمة العلمية.';
     }
+  }
+  if (blocked) {
+    report.overall_status = 'NEEDS_REVIEW';
   }
 }
 
