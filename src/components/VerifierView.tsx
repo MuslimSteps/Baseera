@@ -198,6 +198,7 @@ export const VerifierView: React.FC = () => {
       if (data.success && data.text) {
         setInputText(data.text);
         setOcrEngineUsed(data.method);
+        setOcrConsensus(data.consensus === true);
       } else {
         setErrorMsg(data.error || 'لم يتم التعرف على أي نص داخل الصورة.');
       }
