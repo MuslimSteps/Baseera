@@ -59,6 +59,34 @@ function enforceApprovedCitations(report: any): void {
   }
 }
 
+
+const APPROVED_SOURCE_IDS = new Set([
+  'quran-uthmani',
+  'quran-translations',
+  'quran-tafsir-salaf',
+  'dorar-hadith',
+  'dorar-hadith-live',
+  'dorar-hadith-fiqh',
+  'shamela-sunnah',
+  'jamhara-terms',
+  'fiqh-madhahib-dorar',
+  'dorar-feqhia',
+  'dawa-center',
+  'source-registry-all'
+]);
+
+function enforceApprovedCitations(report: any): void {
+  for (const verification of report.verifications || []) {
+    const citation = verification.citation;
+    if (citation && !APPROVED_SOURCE_IDS.has(citation.source_id)) {
+      verification.status = 'NEEDS_REVIEW';
+      verification.status_label_ar = 'يحتاج مراجعة — المرجع خارج سجل المصادر المعتمد';
+      verification.status_label_en = 'Needs Review — Citation outside approved registry';
+      verification.reason = 'تم منع هذه النتيجة لأن المرجع ليس ضمن سجل المصادر المعتمد للحزمة العلمية.';
+    }
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
