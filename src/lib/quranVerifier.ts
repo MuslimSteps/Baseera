@@ -187,7 +187,6 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
 
   if (!bestMatch || highestScore < 0.6) {
     for (const v of searchPool) {
-    for (const v of searchPool) {
       const normCanonical = normalizeArabic(v.text_clean);
 
       // Check if substring / superset
