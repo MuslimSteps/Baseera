@@ -58,44 +58,65 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
   let highestScore = 0;
   let wordDiffResult: ReturnType<typeof computeWordDiff> | null = null;
 
-  // 1. Check if user explicitly provided claimed surah or ayah number (with fuzzy OCR support)
+  // 1. Respect explicit attribution without locking onto the first verse.
+  //
+  // If the user gives BOTH surah + ayah, inspect that exact location.
+  // If the user gives ONLY the surah, search ALL verses in that surah and
+  // select the strongest textual candidate. Never assume verse 1.
   if (item.claimed_surah || item.claimed_ayah) {
     const fuzzySurah = findSurahFuzzy(item.claimed_surah);
     let resolvedAyah = item.claimed_ayah;
 
-    if (fuzzySurah && resolvedAyah) {
-      if (resolvedAyah > fuzzySurah.ayah_count) {
-        // Handle reversed or space-split OCR digits (e.g. 51 instead of 15)
-        const strDigits = resolvedAyah.toString();
-        const reversed = parseInt(strDigits.split('').reverse().join(''), 10);
-        if (reversed <= fuzzySurah.ayah_count) {
-          resolvedAyah = reversed;
-        }
+    if (fuzzySurah && resolvedAyah && resolvedAyah > fuzzySurah.ayah_count) {
+      // Handle reversed OCR digits only when the stated number is impossible.
+      const strDigits = resolvedAyah.toString();
+      const reversed = parseInt(strDigits.split('').reverse().join(''), 10);
+      if (reversed <= fuzzySurah.ayah_count) {
+        resolvedAyah = reversed;
       }
     }
 
-    const candidate = quranData.verses.find(v => {
-      const matchSurah = fuzzySurah
-        ? v.surah_number === fuzzySurah.number
-        : (item.claimed_surah
-            ? normalizeArabic(v.surah_name_ar).includes(normalizeArabic(item.claimed_surah)) ||
-              v.surah_name_en.toLowerCase().includes(item.claimed_surah.toLowerCase())
-            : true);
-      const matchAyah = resolvedAyah ? v.ayah_number === resolvedAyah : true;
-      return matchSurah && matchAyah;
+    const surahCandidates = quranData.verses.filter(v => {
+      if (fuzzySurah) return v.surah_number === fuzzySurah.number;
+      if (!item.claimed_surah) return true;
+      return (
+        normalizeArabic(v.surah_name_ar).includes(normalizeArabic(item.claimed_surah)) ||
+        v.surah_name_en.toLowerCase().includes(item.claimed_surah.toLowerCase())
+      );
     });
 
-    if (candidate) {
+    const locationCandidates = resolvedAyah
+      ? surahCandidates.filter(v => v.ayah_number === resolvedAyah)
+      : surahCandidates;
+
+    for (const candidate of locationCandidates) {
       const diff = computeWordDiff(item.text, candidate.text_clean);
-      bestMatch = candidate;
-      highestScore = Math.max(diff.similarityScore, 0.7);
-      wordDiffResult = diff;
+      if (
+        diff.similarityScore > highestScore ||
+        (diff.similarityScore === highestScore &&
+          candidate.text_clean.length < (bestMatch?.text_clean.length ?? Infinity))
+      ) {
+        highestScore = diff.similarityScore;
+        bestMatch = candidate;
+        wordDiffResult = diff;
+      }
     }
   }
 
-  // 2. Search whole Quran dataset if not found or if score is low
+  // 2. If only a surah was supplied, the search above is scoped to that
+  // surah. Otherwise search the entire Quran. Either way, do not fabricate
+  // a minimum score: similarity must come from the actual text comparison.
+  const searchPool = item.claimed_surah
+    ? quranData.verses.filter(v => {
+        const surah = findSurahFuzzy(item.claimed_surah);
+        if (surah) return v.surah_number === surah.number;
+        return normalizeArabic(v.surah_name_ar).includes(normalizeArabic(item.claimed_surah));
+      })
+    : quranData.verses;
+
   if (!bestMatch || highestScore < 0.6) {
-    for (const v of quranData.verses) {
+    for (const v of searchPool) {
+    for (const v of searchPool) {
       const normCanonical = normalizeArabic(v.text_clean);
 
       // Check if substring / superset
@@ -168,7 +189,9 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
     }
   }
 
-  // 4. Decision logic for Arabic matching
+  // 4. Decision logic for Arabic matching.
+  // A candidate found only because a surah/topic word overlaps the input is not
+  // enough. Require real textual evidence before exposing a canonical verse.
   if (bestMatch && wordDiffResult) {
     const matchedTranslation = translationData.translations.find(
       t => t.surah === bestMatch!.surah_number && t.ayah === bestMatch!.ayah_number
