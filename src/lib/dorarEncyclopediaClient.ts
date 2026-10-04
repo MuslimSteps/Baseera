@@ -142,8 +142,7 @@ async function search(kind: DorarEncyclopediaKind, query: string): Promise<Dorar
         href: m[1],
         title: cleanHtml(m[2]),
       }))
-      .filter(x => x.title.length >= 8 && allowedPath(kind, x.href))
-      .slice(0, 12);
+      .filter(x => x.title.length >= 8 && allowedPath(kind, x.href));
 
     if (links.length === 0) {
       cache.set(key, null);
