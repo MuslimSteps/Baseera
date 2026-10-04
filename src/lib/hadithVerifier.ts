@@ -9,7 +9,7 @@
  * Encyclopedia. Approximate matches are never marked MATCHED.
  */
 
-import { normalizeArabic } from './normalizer.ts';
+import { normalizeArabic, normalizeArabicStrict } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
 
 export type DorarMatch = {
@@ -61,8 +61,8 @@ export function verifyHadith(item: ExtractedItem): HadithVerificationResult {
 }
 
 export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch): VerificationResult {
-  const normalizedInput = normalizeArabic(item.text).trim();
-  const normalizedCanonical = normalizeArabic(bestMatch.text).trim();
+  const normalizedInput = normalizeArabicStrict(item.text);
+  const normalizedCanonical = normalizeArabicStrict(bestMatch.text);
 
   const exact = normalizedInput === normalizedCanonical;
   const partial =
