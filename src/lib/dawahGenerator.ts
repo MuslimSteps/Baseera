@@ -21,13 +21,11 @@
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
-import https from 'https';
 import quranData from '../../sources/quran.json' with { type: 'json' };
-import hadithData from '../../sources/hadith.json' with { type: 'json' };
 import terminologyData from '../../sources/terminology.json' with { type: 'json' };
 import transData from '../../sources/quran_translations.json' with { type: 'json' };
 import { normalizeArabic } from './normalizer.ts';
-import { searchDorarWithSmartQueries, generateSearchQueries, buildDorarFiqhUrl, cleanSearchQuery } from './dorarClient.ts';
+import { searchDorarApiLive, searchDorarWithSmartQueries, generateSearchQueries, buildDorarFiqhUrl, cleanSearchQuery } from './dorarClient.ts';
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -99,42 +97,6 @@ export interface DawahContent {
   verification_note: string;
   infographic_suggestion: string;
   video_reel_script: VideoReelScript;
-}
-
-// ──────────────────────────────────────────────────────────────
-// In-Memory Translation Cache (King Fahd Complex / Elmir Kuliev)
-// ──────────────────────────────────────────────────────────────
-
-const KULIEV_CACHE = new Map<string, string>();
-
-async function fetchKulievRussianTranslation(surah: number, ayah: number): Promise<string | null> {
-  const key = `${surah}:${ayah}`;
-  if (KULIEV_CACHE.has(key)) return KULIEV_CACHE.get(key)!;
-
-  return new Promise((resolve) => {
-    const opts = {
-      hostname: 'api.alquran.cloud',
-      path: `/v1/ayah/${surah}:${ayah}/ru.kuliev`,
-      headers: { 'User-Agent': 'Baseera-Dawah-Studio/1.0' },
-      timeout: 5000
-    };
-    https.get(opts, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          const text = json?.data?.text;
-          if (text) {
-            KULIEV_CACHE.set(key, text);
-            resolve(text);
-            return;
-          }
-        } catch { /* parse error */ }
-        resolve(null);
-      });
-    }).on('error', () => resolve(null));
-  });
 }
 
 function getEnglishQuranTranslation(surah: number, ayah: number): string | null {
@@ -260,31 +222,24 @@ function findRelevantVerses(topic: string, limit = 4): Array<{
     .map(x => x.v);
 }
 
-function findRelevantHadiths(topic: string, limit = 3): any[] {
-  const normTopic = normalizeArabic(topic);
-  const words = normTopic.split(/\s+/).map(w => w.replace(/^ال/, '')).filter(w => w.length > 2);
-  const synonyms = generateSearchQueries(topic);
-  const allSearchTerms = [...new Set([...words, ...synonyms.flatMap(q => q.split(/\s+/).filter(w => w.length > 2))].map(normalizeArabic))];
+async function findRelevantHadiths(topic: string, limit = 3): Promise<any[]> {
+  const queries = [...new Set([topic, ...generateSearchQueries(topic)].filter(Boolean))].slice(0, 8);
+  const found: any[] = [];
+  const seen = new Set<string>();
 
-  const allHadiths = Array.isArray(hadithData) ? hadithData : (hadithData as any).hadiths || [];
-  const candidates: Array<{ h: any; score: number }> = [];
-
-  for (const h of allHadiths) {
-    if (h.grade_category !== 'sahih' && h.grade_category !== 'hasan') continue;
-    const cleanH = normalizeArabic(h.text_clean || h.text_full || '');
-    let score = 0;
-    for (const term of allSearchTerms) {
-      if (cleanH.includes(term)) {
-        score += term.length > 5 ? 4 : 2;
-      }
+  for (const q of queries) {
+    const results = await searchDorarApiLive(q);
+    for (const h of results) {
+      if (h.gradeCategory !== 'sahih' && h.gradeCategory !== 'hasan') continue;
+      const key = \`\${h.text}|\${h.book}|\${h.numberOrPage}\`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      found.push(h);
+      if (found.length >= limit) return found;
     }
-    if (h.keywords?.some((k: string) => normTopic.includes(normalizeArabic(k)))) {
-      score += 5;
-    }
-    if (score >= 4) candidates.push({ h, score });
   }
 
-  return candidates.sort((a, b) => b.score - a.score).slice(0, limit).map(x => x.h);
+  return found;
 }
 
 function findJamharaTerm(topic: string): any | null {
@@ -309,16 +264,10 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   const relevantVerses = findRelevantVerses(topic, 4);
 
   // 2. Retrieve Local Authenticated Hadiths
-  const localHadiths = findRelevantHadiths(topic, 3);
+  const localHadiths = await findRelevantHadiths(topic, 3);
 
   // 3. Retrieve Live Hadith from Dorar if available
-  let liveHadith: any = null;
-  try {
-    const liveSearch = await searchDorarWithSmartQueries(topic);
-    if (liveSearch.topResult && (liveSearch.topResult.gradeCategory === 'sahih' || liveSearch.topResult.gradeCategory === 'hasan')) {
-      liveHadith = liveSearch.topResult;
-    }
-  } catch { /* live Dorar fallback gracefully handled */ }
+  let liveHadith: any = localHadiths[0] || null;
 
   // 4. Retrieve Terminology from Jamhara
   const termDef = findJamharaTerm(topic);
