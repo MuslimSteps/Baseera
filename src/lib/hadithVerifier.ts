@@ -156,16 +156,16 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
   return {
     id: `hadith-${Date.now()}`,
     item,
-    status: 'MATCHED',
+    status: partial ? 'NEEDS_REVIEW' : 'MATCHED',
     status_label_ar: partial
-      ? 'مطابقة جزئية موثقة في الدرر السنية'
+      ? 'مطابقة جزئية موثقة — لا تثبت الحديث كاملًا'
       : (bestMatch.gradeCategory === 'hasan' ? 'حديث حسن ثابت في الدرر السنية' : 'حديث صحيح ثابت في الدرر السنية'),
-    status_label_en: partial ? 'Verified Partial Hadith Wording' : 'Verified Hadith in Dorar',
+    status_label_en: partial ? 'Partial Match — Review Required' : 'Verified Hadith in Dorar',
     reason: partial
       ? 'المقطع المدخل وارد حرفياً ضمن متن الرواية في المصدر الحديثي المعتمد. لم يُعامل المقطع على أنه كامل الحديث.'
       : 'النص المدخل يطابق متن الرواية في المصدر الحديثي المعتمد، مع إظهار الراوي والمحدث والمصدر ودرجة الحكم.',
     citation,
     canonical_text: bestMatch.text,
-    decision_level: 'A'
+    decision_level: partial ? 'B' : 'A'
   };
 }
