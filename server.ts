@@ -570,13 +570,46 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       const smart = await searchDorarWithSmartQueries(queryToSearch);
 
       if (smart.topResult) {
-        const top = smart.topResult;
-        const queryUsed = smart.queryUsed;
-        const gradeCategory = top.gradeCategory;
+        let top = smart.topResult;
+
+        // Rerank retrieved Dorar candidates with AI. The model may choose only
+        // among source-returned records; buildHadithDecision remains authoritative.
+        if (smart.allResults.length > 1) {
+          const hadithCandidates = smart.allResults.slice(0, 12).map((r, index) => ({
+            id: `hadith-${index}`,
+            source: 'dorar-hadith',
+            title: `${r.book || 'الدرر السنية'} ${r.numberOrPage || ''}`.trim(),
+            text: r.text
+          }));
+
+          const ai = await rankCandidatesWithAI('hadith', v.item.text, hadithCandidates);
+          if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
+            const selectedIndex = Number(ai.candidate_id.replace('hadith-', ''));
+            if (Number.isInteger(selectedIndex) && smart.allResults[selectedIndex]) {
+              top = smart.allResults[selectedIndex];
+              v.ai_match = {
+                provider: 'gemini',
+                candidate_id: ai.candidate_id,
+                relation: ai.relation,
+                confidence: ai.confidence
+              };
+            }
+          }
+        }
+
         const hadithDecision = buildHadithDecision(v.item, top);
 
-        if (hadithDecision.status === 'NEEDS_REVIEW' || hadithDecision.status === 'MATCHED') {
-          Object.assign(v, hadithDecision);
+        if (v.item.type === 'ayah') {
+          // A hadith found after a Quran claim is evidence of misattribution,
+          // never permission to mark the original Quran claim as matched.
+          Object.assign(v, {
+            ...hadithDecision,
+            item: { ...v.item, type: 'ayah' },
+            status: 'NEEDS_REVIEW',
+            status_label_ar: 'خطأ في العزو — النص حديث/رواية وليس آية قرآنية',
+            status_label_en: 'Misattributed as Quran — Hadith/Report Found',
+            reason: `نُسب النص في المدخل إلى القرآن، لكن البحث في المصحف لم يثبت مطابقته، بينما عثر المصدر الحديثي المعتمد على رواية مطابقة/قريبة: ${hadithDecision.reason}`
+          });
         } else {
           Object.assign(v, hadithDecision);
         }
