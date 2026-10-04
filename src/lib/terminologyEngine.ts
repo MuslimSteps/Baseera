@@ -74,7 +74,7 @@ export function verifyIslamicTerm(item: ExtractedItem): VerificationResult {
       source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
       authority: 'الحزمة المرجعية المعتمدة للمصطلحات والتعريف بالإسلام',
       book: `مفردة: ${matched.term_ar} (${matched.term_en})`,
-      url: 'https://jamhara.alukah.net'
+      url: 'https://islamic-content.com/dictionary'
     };
 
     if (isReductionist) {
