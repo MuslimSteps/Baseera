@@ -192,6 +192,17 @@ test('Altered Ayat al-Kursi is matched to the correct verse, not the first verse
   assert.match(result.canonical_text || '', /القيوم/);
 });
 
+test('Altered Quranic word is explicitly classified as wording corruption, not generic review', () => {
+  const result = verifyQuranAyah(item(
+    'ayah',
+    'الله لا إله إلا هو الحي الغفور لا تأخذه سنة ولا نوم',
+    { claimed_surah: 'البقرة' }
+  ));
+  assert.match(result.status_label_ar, /تحريف/);
+  assert.match(result.reason, /الغفور/);
+  assert.match(result.reason, /القيوم/);
+});
+
 test('Quran incorrect verse attribution is not MATCHED', () => {
   const result = verifyQuranAyah(item('ayah', 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', {
     claimed_surah: 'البقرة',
