@@ -31,6 +31,77 @@ function levenshtein(a: string, b: string): number {
   return d[m][n];
 }
 
+/**
+ * Compare the input against the best contiguous token window in a canonical
+ * verse. This catches an altered word inside a quoted prefix of a longer ayah.
+ *
+ * Example:
+ *   "الله لا إله إلا هو الحي الغفور لا تأخذه سنة ولا نوم"
+ * should strongly match the beginning of Al-Baqarah 2:255 while still failing
+ * exact verification because "الغفور" != "القيوم".
+ */
+function orderedTokenSimilarity(input: string, canonical: string): number {
+  const inputTokens = normalizeArabic(input).split(/\s+/).filter(Boolean);
+  const canonicalTokens = normalizeArabic(canonical).split(/\s+/).filter(Boolean);
+  if (inputTokens.length < 3 || canonicalTokens.length < 3) return 0;
+
+  const distanceToWindow = (a: string[], b: string[]) => {
+    const m = a.length;
+    const n = b.length;
+    const prev = Array.from({ length: n + 1 }, (_, j) => j);
+    let prevRow = prev;
+
+    for (let i = 1; i <= m; i++) {
+      const row = new Array<number>(n + 1);
+      row[0] = i;
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        row[j] = Math.min(
+          prevRow[j] + 1,
+          row[j - 1] + 1,
+          prevRow[j - 1] + cost
+        );
+      }
+      prevRow = row;
+    }
+    return prevRow[n];
+  };
+
+  let best = 0;
+
+  // The most common case is a quoted prefix of a longer ayah.
+  if (canonicalTokens.length >= inputTokens.length) {
+    for (let start = 0; start <= canonicalTokens.length - inputTokens.length; start++) {
+      const window = canonicalTokens.slice(start, start + inputTokens.length);
+      const distance = distanceToWindow(inputTokens, window);
+      best = Math.max(best, 1 - distance / inputTokens.length);
+    }
+  } else {
+    const distance = distanceToWindow(
+      canonicalTokens,
+      inputTokens.slice(0, canonicalTokens.length)
+    );
+    best = Math.max(best, 1 - distance / inputTokens.length);
+  }
+
+  return Number(Math.max(0, best).toFixed(3));
+}
+
+function quranCandidateScore(input: string, canonical: string): {
+  score: number;
+  diff: ReturnType<typeof computeWordDiff>;
+  sequenceSimilarity: number;
+} {
+  const diff = computeWordDiff(input, canonical);
+  const sequenceSimilarity = orderedTokenSimilarity(input, canonical);
+  const exact = normalizeArabicStrict(input) === normalizeArabicStrict(canonical);
+  return {
+    score: exact ? 1 : Math.max(diff.similarityScore, sequenceSimilarity),
+    diff,
+    sequenceSimilarity
+  };
+}
+
 function findSurahFuzzy(rawName?: string) {
   if (!rawName) return null;
   const norm = normalizeArabic(rawName).replace(/^سوره?\s+/, '').replace(/^ال/, '').trim();
@@ -90,15 +161,15 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
       : surahCandidates;
 
     for (const candidate of locationCandidates) {
-      const diff = computeWordDiff(item.text, candidate.text_clean);
+      const scored = quranCandidateScore(item.text, candidate.text_clean);
       if (
-        diff.similarityScore > highestScore ||
-        (diff.similarityScore === highestScore &&
+        scored.score > highestScore ||
+        (scored.score === highestScore &&
           candidate.text_clean.length < (bestMatch?.text_clean.length ?? Infinity))
       ) {
-        highestScore = diff.similarityScore;
+        highestScore = scored.score;
         bestMatch = candidate;
-        wordDiffResult = diff;
+        wordDiffResult = scored.diff;
       }
     }
   }
@@ -120,32 +191,32 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
       const normCanonical = normalizeArabic(v.text_clean);
 
       // Check if substring / superset
-      if (normCanonical.includes(normInput) || normInput.includes(normCanonical)) {
-        const diff = computeWordDiff(item.text, v.text_clean);
-        const isSubMatch = normCanonical.includes(normInput) && inputWords.length >= 2;
-        // Input is a multi-verse containing this verse
-        const isSuperMatch = normInput.includes(normCanonical) && normCanonical.split(/\s+/).length >= 2;
-        const exactNormalized = normalizeArabicStrict(item.text) === normalizeArabicStrict(v.text_clean);
-        const effectiveScore = exactNormalized ? 1 : (isSubMatch || isSuperMatch ? 0.78 : Math.max(diff.similarityScore, 0.45));
+      const exactNormalized = normalizeArabicStrict(item.text) === normalizeArabicStrict(v.text_clean);
 
-        if (effectiveScore > highestScore) {
-          highestScore = effectiveScore;
+      if (exactNormalized) {
+        highestScore = 1;
+        bestMatch = v;
+        wordDiffResult = computeWordDiff(item.text, v.text_clean);
+        continue;
+      }
+
+      // Fast word-overlap prefilter before the ordered sequence comparison.
+      let shared = 0;
+      for (const iw of inputWords) {
+        if (normCanonical.includes(iw)) shared++;
+      }
+
+      const inputSubsequenceCandidate =
+        normCanonical.includes(normInput) ||
+        normInput.includes(normCanonical) ||
+        shared >= 2;
+
+      if (inputSubsequenceCandidate) {
+        const scored = quranCandidateScore(item.text, v.text_clean);
+        if (scored.score > highestScore) {
+          highestScore = scored.score;
           bestMatch = v;
-          wordDiffResult = diff;
-        }
-      } else {
-        // Fast word overlap pre-filter before expensive Levenshtein
-        let shared = 0;
-        for (const iw of inputWords) {
-          if (normCanonical.includes(iw)) shared++;
-        }
-        if (shared >= 2 || (inputWords.length <= 2 && shared >= 1)) {
-          const diff = computeWordDiff(item.text, v.text_clean);
-          if (diff.similarityScore > highestScore && diff.similarityScore > 0.45) {
-            highestScore = diff.similarityScore;
-            bestMatch = v;
-            wordDiffResult = diff;
-          }
+          wordDiffResult = scored.diff;
         }
       }
     }
@@ -247,7 +318,7 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
     }
 
     // High similarity but with word discrepancies (altered or omitted words)
-    if (highestScore >= 0.45 || wordDiffResult.hasDiscrepancy) {
+    if (highestScore >= 0.55 || wordDiffResult.hasDiscrepancy) {
       return {
         id: `quran-${bestMatch.surah_number}-${bestMatch.ayah_number}`,
         item,
