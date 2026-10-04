@@ -18,6 +18,8 @@ import fiqhData from './sources/fiqh.json' with { type: 'json' };
 import { extractItemsRuleBased } from './src/lib/extractor.ts';
 import { verifyExtractedItems } from './src/lib/decisionEngine.ts';
 import { isSensitiveFiqhQuestion } from './src/lib/fiqhEngine.ts';
+import { enforceApprovedCitations } from './src/lib/sourcePolicy.ts';
+import { isGroundedInInput } from './src/lib/inputGrounding.ts';
 import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
 import { normalizeArabic, normalizeArabicStrict } from './src/lib/normalizer.ts';
 import { getComparativeBenchmarkResults } from './src/lib/benchmarkRunner.ts';
@@ -31,47 +33,6 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
-const APPROVED_SOURCE_IDS = new Set(
-  (Array.isArray((sourceRegistry as any).sources) ? (sourceRegistry as any).sources : [])
-    .map((source: any) => source.id)
-    .filter(Boolean)
-);
-
-function isApprovedSourceUrl(rawUrl: string | undefined): boolean {
-  if (!rawUrl) return true;
-  try {
-    const host = new URL(rawUrl).hostname.toLowerCase();
-    return (
-      host === 'dorar.net' || host.endsWith('.dorar.net') ||
-      host === 'qurancomplex.gov.sa' || host.endsWith('.qurancomplex.gov.sa') ||
-      host === 'quranpedia.net' || host.endsWith('.quranpedia.net') ||
-      host === 'islamic-content.com' || host.endsWith('.islamic-content.com') ||
-      host === 'dawa.center' || host.endsWith('.dawa.center') ||
-      host === 'shamela.ws' || host.endsWith('.shamela.ws')
-    );
-  } catch {
-    return false;
-  }
-}
-
-function enforceApprovedCitations(report: any): void {
-  let blocked = false;
-  for (const verification of report.verifications || []) {
-    const citation = verification.citation;
-    if (!citation) continue;
-    if (!APPROVED_SOURCE_IDS.has(citation.source_id) || !isApprovedSourceUrl(citation.url)) {
-      blocked = true;
-      verification.status = 'NEEDS_REVIEW';
-      verification.status_label_ar = 'يحتاج مراجعة — المرجع خارج سجل المصادر المعتمد';
-      verification.status_label_en = 'Needs Review — Citation outside approved registry';
-      verification.reason = 'تم منع هذه النتيجة لأن المرجع أو نطاق الرابط ليس ضمن سجل المصادر المعتمد للحزمة العلمية.';
-    }
-  }
-  if (blocked) {
-    report.overall_status = 'NEEDS_REVIEW';
-  }
-}
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -671,25 +632,19 @@ ${extractedText}
         if (jsonStr) {
           const parsed = JSON.parse(jsonStr);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const sourceNormalized = normalizeArabic(extractedText);
             extractedItems = parsed
               .map(p => {
                 const extracted = String(p.text || '').trim();
-                if (!extracted) return null;
+                if (!isGroundedInInput(extracted, extractedText)) return null;
 
-                const normalizedExtracted = normalizeArabic(extracted);
-                if (!normalizedExtracted || !sourceNormalized.includes(normalizedExtracted)) {
-                  return null;
-                }
-
-                const claimedSource = p.claimed_source && sourceNormalized.includes(normalizeArabic(String(p.claimed_source)))
+                const claimedSource = p.claimed_source && isGroundedInInput(String(p.claimed_source), extractedText)
                   ? String(p.claimed_source)
                   : undefined;
 
                 return {
                   type: p.type || 'claim',
                   text: extracted,
-                  context: p.context && sourceNormalized.includes(normalizeArabic(String(p.context))) ? String(p.context) : '',
+                  context: p.context && isGroundedInInput(String(p.context), extractedText) ? String(p.context) : '',
                   language: p.language || 'ar',
                   claimed_source: claimedSource,
                   confidence: 0.95
