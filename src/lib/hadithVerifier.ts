@@ -66,6 +66,7 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
 
   const exact = normalizedInput === normalizedCanonical;
   const partial =
+    !exact &&
     normalizedCanonical.includes(normalizedInput) &&
     normalizedInput.split(/\s+/).length >= 4;
 
