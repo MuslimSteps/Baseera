@@ -74,7 +74,7 @@ export function verifyFiqhQuestion(item: ExtractedItem): VerificationResult {
   // as Baseera's own answer.
   if (isSensitiveFiqhQuestion(item.text)) {
     return {
-      id: `fiqh-sensitive-ref-1791141011081`,
+      id: 'fiqh-sensitive-ref',
       item,
       status: 'REFER_TO_SPECIALIST',
       status_label_ar: 'إحالة إلى مختص — مسألة فقهية حساسة',
