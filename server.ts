@@ -22,6 +22,7 @@ import { enforceApprovedCitations } from './src/lib/sourcePolicy.ts';
 import { isGroundedInInput } from './src/lib/inputGrounding.ts';
 import { getAvailableTranslationLanguages, getAyahTranslations } from './src/lib/quranpediaClient.ts';
 import { buildDorarAqeedahUrl, buildDorarTafsirUrl, searchDorarAqeedahLive, searchDorarTafsirLive } from './src/lib/dorarEncyclopediaClient.ts';
+import { buildJamharaSearchUrl, searchJamharaLive } from './src/lib/jamharaClient.ts';
 import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
 import { normalizeArabic, normalizeArabicStrict } from './src/lib/normalizer.ts';
 import { getComparativeBenchmarkResults } from './src/lib/benchmarkRunner.ts';
@@ -339,6 +340,38 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
         v.decision_level = 'B';
       }
 
+      delete r._needs_live_search;
+      return;
+    }
+
+    if (v.item.type === 'term') {
+      const found = await searchJamharaLive(queryToSearch);
+      if (found?.found) {
+        v.status = 'NEEDS_REVIEW';
+        v.status_label_ar = 'مصطلح من مصدر الجمهرة المعتمد — يحتاج مراجعة';
+        v.status_label_en = 'Jamhara Source Found — Review Required';
+        v.reason = `تم العثور على مادة للمصطلح في موسوعة الجمهرة («${found.title}»). تعرض بصيرة مادة المصدر والرابط، ولا تنشئ تعريفًا من النموذج خارج المرجع.`;
+        v.canonical_text = found.text || found.title;
+        v.decision_level = 'B';
+        v.citation = {
+          source_id: 'jamhara-terms',
+          source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
+          authority: 'منصة islamic-content.com / الحزمة المرجعية المعتمدة',
+          book: found.title,
+          url: found.url
+        };
+      } else {
+        v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
+        v.status_label_ar = 'لم يُعثر على المصطلح في مصدر الجمهرة المفحوص';
+        v.status_label_en = 'Term Not Found in Checked Jamhara Source';
+        v.reason = 'لم يُعثر على مادة مطابقة في البحث المباشر بموسوعة الجمهرة. لا تُنشئ بصيرة تعريفًا بديلًا من النموذج.';
+        v.citation = {
+          source_id: 'jamhara-terms',
+          source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
+          authority: 'منصة islamic-content.com',
+          url: buildJamharaSearchUrl(queryToSearch)
+        };
+      }
       delete r._needs_live_search;
       return;
     }
