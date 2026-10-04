@@ -84,9 +84,9 @@ export const GovernanceView: React.FC = () => {
             تلتزم «بصيرة» بأعلى معايير الانضباط العلمي والشرعي والأمني دون تهاون أو استبدال للمصادر.
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className="badge badge-gold">مراجعة بشرية مزدوجة</span>
-            <span className="badge badge-matched">Audit Log</span>
-            <span className="badge badge-ai">Ephemeral Processing</span>
+            <span className="badge badge-gold">سياسة مراجعة بشرية</span>
+            <span className="badge badge-matched">توثيق الإصدار</span>
+            <span className="badge badge-ai">معالجة مؤقتة</span>
           </div>
         </div>
 
@@ -148,7 +148,7 @@ export const GovernanceView: React.FC = () => {
             </li>
             <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
               <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-soft" />
-              <span><strong className="text-ink">سجل التدقيق غير القابل للتلاعب:</strong> تسجيل رقم الإصدار والتاريخ لكل عملية تدقيق مرجعي في المنظومة.</span>
+              <span><strong className="text-ink">توثيق الإصدار:</strong> ملفات المصادر تحمل الإصدار وتاريخ الاعتماد، بينما لا يدّعي التطبيق وجود سجل تشغيل دائم غير قابل للتلاعب.</span>
             </li>
           </ul>
         </div>
@@ -165,11 +165,11 @@ export const GovernanceView: React.FC = () => {
             </li>
             <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
-              <span><strong className="text-ink">المعالجة اللحظية العابرة:</strong> لا يتم حفظ النصوص الخاصة أو الصور المرفوعة بعد اكتمال الفحص.</span>
+              <span><strong className="text-ink">المعالجة اللحظية العابرة:</strong> لا يتعمد التطبيق حفظ النصوص أو الصور بعد الفحص، مع احتمال وجود بيانات مؤقتة في ذاكرة التشغيل أثناء الطلب.</span>
             </li>
             <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
-              <span><strong className="text-ink">عدم إعادة تدريب النماذج:</strong> مدخلات القارئ لا تُستخدم في تدريب أي نماذج خارجية.</span>
+              <span><strong className="text-ink">حدود مزودات الذكاء الاصطناعي:</strong> عند استخدام Gemini تُرسل المدخلات إلى Google، وتخضع معالجة البيانات لسياسة المزود وإعداداته.</span>
             </li>
           </ul>
         </div>
