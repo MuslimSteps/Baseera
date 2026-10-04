@@ -4,19 +4,22 @@
  * 
  * Baseera MCP Server (Model Context Protocol)
  * Enables any AI model (Claude, Cursor, Gemini, etc.) to query:
- * 1. Dorar.net Live Hadith API (40,000+ hadiths with narrators & rulings)
- * 2. King Fahd Complex Quran Database (6,236 verses)
+ * 1. Dorar.net Live Hadith API (approved source retrieval + grading)
+ * 2. King Fahd Complex Quran Database (6,236 indexed verses)
  * 3. Jamhara Islamic Terminology Dictionary
  * 4. Four Madhahib Fiqh Consensus & Fatwa Guardrails
  */
 
 import readline from 'readline';
-import { searchDorarApiLive } from './src/lib/dorarClient.ts';
+import { searchDorarWithSmartQueries } from './src/lib/dorarClient.ts';
+import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
+import { verifyQuranAyah } from './src/lib/quranVerifier.ts';
+import { verifyIslamicTerm } from './src/lib/terminologyEngine.ts';
+import { verifyFiqhQuestion } from './src/lib/fiqhEngine.ts';
 import quranData from './sources/quran.json' with { type: 'json' };
 import translationData from './sources/quran_translations.json' with { type: 'json' };
 import termData from './sources/terminology.json' with { type: 'json' };
 import fiqhData from './sources/fiqh.json' with { type: 'json' };
-import { normalizeArabic, computeWordDiff } from './src/lib/normalizer.ts';
 
 const SERVER_NAME = 'baseera-islamic-mcp';
 const SERVER_VERSION = '1.0.0';
@@ -101,174 +104,111 @@ const TOOLS = [
 async function handleToolCall(name: string, args: Record<string, any>) {
   switch (name) {
     case 'search_dorar_hadith': {
-      const query = args.query;
-      const limit = args.limit || 5;
-      const results = await searchDorarApiLive(query);
-      const sliced = results.slice(0, limit);
+      const query = String(args.query || '').trim();
+      const limit = Math.max(1, Math.min(Number(args.limit || 5), 20));
+      const searched = await searchDorarWithSmartQueries(query);
+      const results = searched.allResults.slice(0, limit);
 
-      if (sliced.length === 0) {
+      if (results.length === 0) {
         return {
-          content: [
-            {
-              type: 'text',
-              text: `لم يُعثر على الحديث في منصة الدرر السنية للبحث: "${query}".\nتلتزم المنظومة بالامتناع عن إصدار حكم جازم بالاختلاق ما لم يُصرّح به المرجع.`
-            }
-          ]
+          content: [{
+            type: 'text',
+            text: `لم يُعثر على تطابق موثوق لهذا النص في الموسوعة الحديثية بالدرر السنية. لا تُثبت النسبة إلى النبي ﷺ دون مطابقة مصدرية.`
+          }]
         };
       }
 
-      const formatted = sliced.map((h, i) => (
+      const formatted = results.map((h, i) =>
         `[${i + 1}] المتن: ${h.text}\n` +
         `• الراوي: ${h.rawi || 'غير محدد'}\n` +
         `• المحدث: ${h.muhaddith || 'غير محدد'}\n` +
         `• المصدر: ${h.book} (${h.numberOrPage})\n` +
-        `• خلاصة الحكم: ${h.grade || 'غير محدد'} [تصنيف: ${h.gradeCategory}]`
-      )).join('\n\n');
+        `• الحكم: ${h.grade || 'غير محدد'} [${h.gradeCategory}]\n` +
+        `• جودة المطابقة: ${h.matchQuality || 'غير محددة'}`
+      ).join('\n\n');
 
       return {
-        content: [
-          {
-            type: 'text',
-            text: `نتائج البحث المباشر في منصة الدرر السنية (dorar.net):\n\n${formatted}`
-          }
-        ]
+        content: [{
+          type: 'text',
+          text: `نتائج بحث المصدر المعتمد في الدرر السنية:\n\n${formatted}`
+        }]
       };
     }
 
     case 'verify_quran_verse': {
-      const input = args.text;
-      const normInput = normalizeArabic(input);
-      let bestMatch: any = null;
-      let highestScore = 0;
+      const input = String(args.text || '').trim();
+      if (!input) throw new Error('text is required');
 
-      for (const v of quranData.verses) {
-        const normClean = normalizeArabic(v.text_clean);
-        if (normClean.includes(normInput) || normInput.includes(normClean)) {
-          const diff = computeWordDiff(input, v.text_clean);
-          const score = diff.similarityScore;
-          if (score > highestScore) {
-            highestScore = score;
-            bestMatch = { verse: v, diff };
-          }
-        }
-      }
-
-      if (!bestMatch) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `لم يتطابق النص مع المصحف الشريف بالرسم العثماني المعتمد (مجمع الملك فهد). النص المفحوص: "${input}"`
-            }
-          ]
-        };
-      }
-
-      const v = bestMatch.verse;
-      const diff = bestMatch.diff;
-      const status = diff.hasDiscrepancy ? 'يحتاج مراجعة (يوجد اختلاف في الألفاظ)' : 'مطابق تماماً';
+      const result = verifyQuranAyah({
+        type: 'ayah',
+        text: input,
+        context: input,
+        language: 'ar',
+        confidence: 1,
+        claimed_surah: args.surah ? String(args.surah) : undefined,
+        claimed_ayah: args.ayah_number ? Number(args.ayah_number) : undefined
+      });
 
       return {
-        content: [
-          {
-            type: 'text',
-            text: `حالة التحقق: ${status}\n` +
-                  `السورة: ${v.surah_name_ar} (رقم السورة: ${v.surah_number})\n` +
-                  `رقم الآية: ${v.ayah_number}\n` +
-                  `النص المعتمد: ${v.text_uthmani}\n` +
-                  `المصدر: مجمع الملك فهد لطباعة المصحف الشريف`
-          }
-        ]
+        content: [{
+          type: 'text',
+          text:
+            `حالة التحقق: ${result.status_label_ar}\n` +
+            `السبب: ${result.reason}\n` +
+            (result.canonical_surah ? `السورة: ${result.canonical_surah}\n` : '') +
+            (result.canonical_ayah_number ? `رقم الآية: ${result.canonical_ayah_number}\n` : '') +
+            (result.canonical_text ? `النص المرجعي: ${result.canonical_text}\n` : '') +
+            `المصدر: ${result.citation.source_name}`
+        }]
       };
     }
 
     case 'lookup_jamhara_term': {
-      const termInput = args.term.toLowerCase();
-      const context = (args.context || '').toLowerCase();
+      const term = String(args.term || '').trim();
+      if (!term) throw new Error('term is required');
 
-      const matched = termData.terms.find(t => 
-        t.term_ar.includes(termInput) || 
-        t.term_en.toLowerCase().includes(termInput)
-      );
-      const term = matched as (typeof matched & { reductionist_cues?: string[]; warning_ar?: string; approved_translation?: string; definition_ar?: string }) | undefined;
-
-      if (!term) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `لم يُعثر على المصطلح في موسوعة الجمهرة المعتمدة: "${args.term}"`
-            }
-          ]
-        };
-      }
-
-      let warning = '';
-      if (context && term.reductionist_cues) {
-        for (const cue of term.reductionist_cues) {
-          if (context.includes(cue.toLowerCase())) {
-            warning = `⚠️ تنبيه: تم رصد مؤشر اختزال للمصطلح (${cue}).\n${term.warning_ar || term.reduction_warning}`;
-            break;
-          }
-        }
-      }
+      const result = verifyIslamicTerm({
+        type: 'term',
+        text: term,
+        context: String(args.context || term),
+        language: /[a-zA-Z]/.test(term) ? 'en' : 'ar',
+        confidence: 1
+      });
 
       return {
-        content: [
-          {
-            type: 'text',
-            text: `المصطلح: ${term.term_ar} (${term.term_en})\n` +
-                  `المقابل المعتمد: ${term.approved_translation || term.approved_translations?.join(' | ') || 'غير محدد'}\n` +
-                  `التعريف المعتمد: ${term.definition_ar || term.jamhara_definition}\n` +
-                  `المصدر: موسوعة الجمهرة لمفردات المحتوى الإسلامي\n` +
-                  (warning ? `\n${warning}` : '\n✅ الاستخدام سليم وضمن المعنى الشرعي المعتمد.')
-          }
-        ]
+        content: [{
+          type: 'text',
+          text:
+            `حالة التحقق: ${result.status_label_ar}\n` +
+            `السبب: ${result.reason}\n` +
+            (result.jamhara_definition ? `التعريف المعتمد: ${result.jamhara_definition}\n` : '') +
+            (result.verified_translation ? `المقابل المعتمد: ${result.verified_translation}\n` : '') +
+            `المصدر: ${result.citation.source_name}`
+        }]
       };
     }
 
     case 'check_fiqh_ruling': {
-      const q = args.question;
-      const normQ = normalizeArabic(q);
+      const question = String(args.question || '').trim();
+      if (!question) throw new Error('question is required');
 
-      const matched = fiqhData.topics.find(t => 
-        normQ.includes(normalizeArabic(t.topic)) ||
-        (t.topic.includes('طلاق') && (normQ.includes('طلاق') || normQ.includes('زوجتي')))
-      );
-
-      if (matched?.level === 'D' || normQ.includes('زوجتي') || normQ.includes('طلقت')) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `المستوى: D (حالة أو فتوى شخصية خاصة)\n` +
-                    `الحكم المنهجي: الامتناع الصارم عن الفتوى الآلية.\n` +
-                    `التوجيه: يلزم إحالة السائل إلى دار الإفتاء الرسمية أو المحكمة الشرعية المختصة.`
-            }
-          ]
-        };
-      }
-
-      if (matched?.level === 'C') {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `المستوى: C (مسألة خلافية معتبرة بين أئمة الفقه)\n` +
-                    `المسألة: ${matched.topic}\n` +
-                    `المنهج: عرض أقوال المذاهب الأربعة باعتدال وتجرد دون ترجيح آلي بين الأئمة.`
-            }
-          ]
-        };
-      }
+      const result = verifyFiqhQuestion({
+        type: 'fiqh_question',
+        text: question,
+        context: question,
+        language: /[a-zA-Z]/.test(question) ? 'en' : 'ar',
+        confidence: 1
+      });
 
       return {
-        content: [
-          {
-            type: 'text',
-            text: `المسألة الفقهية معروضة على أصول المذاهب الأربعة (dorar.net/feqhia). عند عدم كفاية الدليل المعتمد، تُحال المسألة لمختص.`
-          }
-        ]
+        content: [{
+          type: 'text',
+          text:
+            `حالة المنهج: ${result.status_label_ar}\n` +
+            `المستوى: ${result.decision_level || 'غير محدد'}\n` +
+            `السبب: ${result.reason}\n` +
+            `المصدر/الإحالة: ${result.citation.url || result.citation.source_name}`
+        }]
       };
     }
 
