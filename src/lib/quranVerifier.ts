@@ -104,7 +104,8 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
         const isSubMatch = normCanonical.includes(normInput) && inputWords.length >= 2;
         // Input is a multi-verse containing this verse
         const isSuperMatch = normInput.includes(normCanonical) && normCanonical.split(/\s+/).length >= 2;
-        const effectiveScore = (isSubMatch || isSuperMatch) ? 0.98 : Math.max(diff.similarityScore, 0.85);
+        const exactNormalized = normalizeArabic(item.text).trim() === normalizeArabic(v.text_clean).trim();
+        const effectiveScore = exactNormalized ? 1 : (isSubMatch || isSuperMatch ? 0.78 : Math.max(diff.similarityScore, 0.45));
 
         if (effectiveScore > highestScore) {
           highestScore = effectiveScore;
@@ -169,7 +170,7 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
     );
 
     // Exact or normalized complete match
-    if (highestScore >= 0.95 && !wordDiffResult.hasDiscrepancy) {
+    if (highestScore >= 0.99 && !wordDiffResult.hasDiscrepancy) {
       // Check if claimed number was wrong
       if (item.claimed_ayah && item.claimed_ayah !== bestMatch.ayah_number) {
         return {
@@ -198,9 +199,9 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
         id: `quran-${bestMatch.surah_number}-${bestMatch.ayah_number}`,
         item,
         status: 'MATCHED',
-        status_label_ar: 'مطابق',
+        status_label_ar: 'مطابقة تامة للنص القرآني المعتمد',
         status_label_en: 'Matched',
-        reason: `تطابق تام مع النص القرآني المعتمد في سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)} الآية ${bestMatch.ayah_number}.`,
+        reason: `النص بعد التطبيع يطابق الآية كاملةً مع النص القرآني المعتمد في سورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)} الآية ${bestMatch.ayah_number}.`,
         citation: {
           source_id: 'quran-uthmani',
           source_name: 'المصحف الشريف بالرسم العثماني المعتمد',
@@ -218,14 +219,14 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
     }
 
     // High similarity but with word discrepancies (altered or omitted words)
-    if (highestScore >= 0.55 || wordDiffResult.hasDiscrepancy) {
+    if (highestScore >= 0.45 || wordDiffResult.hasDiscrepancy) {
       return {
         id: `quran-${bestMatch.surah_number}-${bestMatch.ayah_number}`,
         item,
         status: 'NEEDS_REVIEW',
-        status_label_ar: 'يحتاج مراجعة (فوارق في الرسم — أخطاء الماسح الضوئي أو تغيير في اللفظ)',
+        status_label_ar: 'يحتاج مراجعة — لم تثبت المطابقة التامة للنص القرآني',
         status_label_en: 'Needs Review (Text Discrepancy / OCR Noise)',
-        reason: `يوجد اختلاف بين النص المنقول والنص القرآني المعتمد لسورة ${cleanSurahDisplayName(bestMatch.surah_name_ar)} الآية ${bestMatch.ayah_number}. قد تكون الفوارق ناتجة عن أخطاء الماسح الضوئي (OCR) أو تغيير حقيقي في لفظ الآية.`,
+        reason: `عُثر على آية محتملة في المصدر المعتمد، لكن النص المدخل لا يطابقها مطابقة تامة. قد يكون السبب اقتباساً جزئياً أو خطأ OCR أو تغييراً في اللفظ؛ لذلك لا يُعامل كآية مطابقة.`,
         citation: {
           source_id: 'quran-uthmani',
           source_name: 'المصحف الشريف بالرسم العثماني المعتمد',
