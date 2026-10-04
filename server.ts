@@ -80,17 +80,17 @@ app.get('/api/sources', (_req, res) => {
       active_verification_source_ids: [
         'quran-uthmani',
         'quran-translations',
+        'quran-tafsir-salaf',
+        'dorar-aqeedah',
         'dorar-hadith',
         'jamhara-terms',
         'fiqh-madhahib-dorar'
       ],
       registry_only_source_ids: [
-        'quran-tafsir-salaf',
-        'dorar-aqeedah',
         'shamela-sunnah'
       ],
       supplemental_source_ids: ['dawa-center'],
-      coverage_note: 'الترجمات المفهرسة حالياً بالإنجليزية فقط؛ التفسير والعقيدة والشاملة ليست مسارات تحقق آلية مستقلة في النسخة الحالية.'
+      coverage_note: 'الترجمات المحلية الإنجليزية فقط، مع استعلام حي للغات المتاحة في Quranpedia لكل آية؛ التفسير والعقيدة لهما مسارات مصدرية حية؛ الشاملة ما زالت مرجعاً مسجلاً بلا موصل مستقل.'
     }
   });
 });
