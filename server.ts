@@ -807,8 +807,28 @@ ${extractedText}
       return 0;
     });
 
-    // Now run strict verifier layer (The AI CANNOT alter or touch this output)
+    // AI semantic matching is advisory: it can propose the most likely source
+    // candidate, but the canonical verifier below remains the final authority.
+    if (aiClient && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY') {
+      await applyAISemanticMatching(extractedItems);
+    }
+
+    // Run the deterministic/source-first verifier after AI candidate selection.
     const report = verifyExtractedItems(extractedItems, extractedText, inputType);
+
+    // Preserve AI provenance without treating its confidence as proof.
+    for (const verification of report.verifications) {
+      const hint = (verification.item as any).ai_match_hint;
+      if (hint?.candidate_id) {
+        verification.ai_match = {
+          provider: 'gemini',
+          candidate_id: hint.candidate_id,
+          relation: hint.relation,
+          confidence: hint.confidence
+        };
+        verification.reason = `اقتراح المطابقة الدلالية بالذكاء الاصطناعي: ${hint.candidate_id} (ثقة النموذج ${Math.round(hint.confidence * 100)}٪). النتيجة النهائية أدناه حُسمت من المصدر المرجعي لا من النموذج.${verification.reason ? ' ' + verification.reason : ''}`;
+      }
+    }
 
     // ── UNIFIED APPROVED SOURCES LIVE SEARCH ──────────────────────────────
     for (const v of report.verifications) {
