@@ -150,11 +150,12 @@ async function search(kind: DorarEncyclopediaKind, query: string): Promise<Dorar
     }
 
     // Rank exact phrase / token overlap; never use a weak unrelated result.
-    const qWords = cleanQuery.split(/\s+/).filter(w => w.length >= 3);
+    const normalizedQuery = normalizeArabic(cleanQuery);
+    const qWords = normalizedQuery.split(/\s+/).filter(w => w.length >= 3);
     const ranked = links.map(link => {
-      const titleLower = link.title;
-      const score = qWords.reduce((sum, word) => sum + (titleLower.includes(word) ? 2 : 0), 0)
-        + (link.title.includes(cleanQuery) ? 10 : 0);
+      const normalizedTitle = normalizeArabic(link.title);
+      const score = qWords.reduce((sum, word) => sum + (normalizedTitle.includes(word) ? 2 : 0), 0)
+        + (normalizedTitle.includes(normalizedQuery) ? 10 : 0);
       return { ...link, score };
     }).sort((a,b) => b.score - a.score);
 
