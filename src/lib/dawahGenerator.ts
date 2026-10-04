@@ -447,12 +447,12 @@ function buildVideoReelScript(
     {
       scene_number: 4,
       duration_seconds: '45-60 ثانية',
-      visual_description: 'خاتمة سريعة مع شعار بصيرة وشارة التحقق 100% ورابط المستودع الدعوي dawa.center لدعوة المتابعين للعمل والنشر.',
+      visual_description: 'خاتمة سريعة مع شعار بصيرة وروابط المراجع ذات الصلة.',
       voiceover_ar: `ابدأ اليوم بتطبيق «${topic}» في يومك، وشارك هذا المقطع لتنال أجر الدال على الخير كفاعله.`,
       voiceover_translated: isRu
         ? `Начните применять это в своей жизни уже сегодня и поделитесь этим видео ради довольства Аллаха.`
         : `Implement "${topic}" in your daily routine today and share this reminder.`,
-      on_screen_text: isRu ? `Поделитесь благом · Басира 100% Достоверно` : `شارك تؤجر · مدعوم بمراجع بصيرة`
+      on_screen_text: isRu ? `Поделитесь благом · Источники Басиры` : `شارك الخير · راجع المصادر المعتمدة`
     }
   ];
 
@@ -609,7 +609,7 @@ export function generateInfographicSvg(content: DawahContent): string {
     <!-- Reference Footer -->
     <line x1="40" y1="230" x2="860" y2="230" stroke="#1e293b" stroke-width="1" />
     <text x="40" y="265" fill="#fbbf24" font-size="16" font-weight="600">${verseRef}</text>
-    <text x="860" y="265" text-anchor="end" fill="#10b981" font-size="15" font-weight="bold">✓ نص قطعي مطابق 100%</text>
+    <text x="860" y="265" text-anchor="end" fill="#10b981" font-size="15" font-weight="bold">✓ نص مصدرّي مسترجع</text>
   </g>
 
   <!-- Card 2: Prophetic Sunnah Box -->
