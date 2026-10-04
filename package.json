@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "mcp": "tsx mcp-server.ts"
+    "mcp": "tsx mcp-server.ts",
+    "test": "tsx scripts/judging-gate.ts",
+    "test:judging": "npm run test"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
