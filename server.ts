@@ -19,6 +19,7 @@ import fiqhData from './sources/fiqh.json' with { type: 'json' };
 import { extractItemsRuleBased } from './src/lib/extractor.ts';
 import { verifyExtractedItems } from './src/lib/decisionEngine.ts';
 import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
+import { normalizeArabic, normalizeArabicStrict } from './src/lib/normalizer.ts';
 import { getComparativeBenchmarkResults } from './src/lib/benchmarkRunner.ts';
 import { searchDorarApiLive, searchDorarWithSmartQueries, searchDorarFiqhLive, buildDorarFiqhUrl, cleanSearchQuery, generateFiqhSearchKeywords } from './src/lib/dorarClient.ts';
 import { generateDawahContent, formatContentAsText, generateInfographicSvg, DawahContentRequest } from './src/lib/dawahGenerator.ts';
@@ -313,11 +314,7 @@ app.post('/api/ocr', async (req, res) => {
       });
     }
 
-    res.json({
-      success: true,
-      text: extractedText,
-      method: methodUsed
-    });
+    res.json({ success: true, text: extractedText, method: methodUsed, consensus: false });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'فشلت معالجة الصورة.' });
   }
@@ -655,14 +652,31 @@ ${extractedText}
         if (jsonStr) {
           const parsed = JSON.parse(jsonStr);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            extractedItems = parsed.map(p => ({
-              type: p.type || 'claim',
-              text: p.text || '',
-              context: p.context || '',
-              language: p.language || 'ar',
-              claimed_source: p.claimed_source,
-              confidence: 0.95
-            }));
+            const sourceNormalized = normalizeArabic(extractedText);
+            extractedItems = parsed
+              .map(p => {
+                const extracted = String(p.text || '').trim();
+                if (!extracted) return null;
+
+                const normalizedExtracted = normalizeArabic(extracted);
+                if (!normalizedExtracted || !sourceNormalized.includes(normalizedExtracted)) {
+                  return null;
+                }
+
+                const claimedSource = p.claimed_source && sourceNormalized.includes(normalizeArabic(String(p.claimed_source)))
+                  ? String(p.claimed_source)
+                  : undefined;
+
+                return {
+                  type: p.type || 'claim',
+                  text: extracted,
+                  context: p.context && sourceNormalized.includes(normalizeArabic(String(p.context))) ? String(p.context) : '',
+                  language: p.language || 'ar',
+                  claimed_source: claimedSource,
+                  confidence: 0.95
+                } as ExtractedItem;
+              })
+              .filter((x): x is ExtractedItem => Boolean(x));
           }
         }
       } catch (aiErr) {
