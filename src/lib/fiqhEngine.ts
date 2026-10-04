@@ -13,6 +13,27 @@ import fiqhData from '../../sources/fiqh.json' with { type: 'json' };
 import { normalizeArabic } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
 import { generateSearchQueries, cleanSearchQuery, buildDorarFiqhUrl } from './dorarClient.ts';
+const SENSITIVE_FIQH_PATTERNS: RegExp[] = [
+  /سب\s+(?:الله|الدين|الرسول|النبي)/i,
+  /شتم\s+(?:الله|الدين|الرسول|النبي)/i,
+  /إهان(?:ة|ه)\s+(?:الله|الدين|الرسول|النبي)/i,
+  /الاستهزاء\s+(?:بالله|بالدين|بالرسول|بالإسلام|بالقرآن)/i,
+  /استهز(?:أ|اء)\s+(?:بالله|بالدين|بالرسول|بالإسلام|بالقرآن)/i,
+  /(?:الردة|الردّة|المرتد|الكفر|تكفير|التكفير)/i,
+  /(?:الزنا|القذف|الحدود|القصاص|القتل)\b/i,
+  /(?:الطلاق|اللعان|النسب|النكاح)\b/i
+];
+
+/**
+ * Questions involving takfir/apostasy, blasphemy, or other high-consequence
+ * personal/legal matters are referral-only. Baseera may surface an approved
+ * source for human review, but it never emits a ruling as its own conclusion.
+ */
+export function isSensitiveFiqhQuestion(text: string): boolean {
+  const normalized = normalizeArabic(text || '');
+  return SENSITIVE_FIQH_PATTERNS.some(re => re.test(normalized));
+}
+
 
 // Stopwords to strip before searching
 const FIQH_STOPWORDS = new Set([
@@ -48,6 +69,30 @@ export function verifyFiqhQuestion(item: ExtractedItem): VerificationResult {
     normInput.includes('هل يجوز لي شخصيا');
 
   const feqhiaSearchUrl = buildDorarFiqhUrl(item.text);
+  // High-consequence / takfir / personal-law questions are referral-only.
+  // We may provide the approved source link, but never surface the ruling text
+  // as Baseera's own answer.
+  if (isSensitiveFiqhQuestion(item.text)) {
+    return {
+      id: `fiqh-sensitive-ref-1791141011081`,
+      item,
+      status: 'REFER_TO_SPECIALIST',
+      status_label_ar: 'إحالة إلى مختص — مسألة فقهية حساسة',
+      status_label_en: 'Refer to Qualified Specialist — Sensitive Fiqh Matter',
+      reason: 'وُجد مصدر فقهي معتمد ذي صلة، لكن بصيرة لا تصدر حكمًا أو ترجيحًا آليًا في مسائل التكفير والردة والإساءة إلى المقدسات وما في حكمها، ولا تعرض نص الحكم كأنه فتوى صادرة عنها.',
+      citation: {
+        source_id: 'fiqh-madhahib-dorar',
+        source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
+        authority: 'المذاهب الفقهية الأربعة ومنصة الدرر السنية',
+        book: 'الموسوعة الفقهية المقارنة',
+        url: feqhiaSearchUrl
+      },
+      abstention_note: 'للمراجعة البشرية فقط: افتح المصدر المعتمد وراجع أهل العلم المؤهلين.',
+      decision_level: 'D'
+    };
+  }
+
+
 
   const baseCitation = {
     source_id: 'fiqh-madhahib-dorar',
@@ -97,9 +142,9 @@ export function verifyFiqhQuestion(item: ExtractedItem): VerificationResult {
       id: `fiqh-${matched.id}`,
       item,
       status: 'MATCHED',
-      status_label_ar: 'معلومة مستقرة مجمع عليها (حكم معتمد مع الدليل)',
+      status_label_ar: 'معلومة فقهية مستقرة في السجل المرجعي — مصدر للمراجعة',
       status_label_en: 'Established Consensus (Ijma & Evidence)',
-      reason: `حكم قطعي مجمع عليه في المذاهب الأربعة مع ثبوت الدليل من الكتاب والسنة الصحيحة: ${(matched as any).summary}`,
+      reason: `المادة المدرجة في السجل الفقهي المعتمد تصف هذه المسألة على أنها مستقرة وتورد ملخصها: ${(matched as any).summary}. هذه مطابقة لمادة مرجعية، وليست فتوى شخصية صادرة عن بصيرة.`,
       citation: {
         ...baseCitation,
         book: matched.topic,
