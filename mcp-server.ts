@@ -18,6 +18,7 @@ import { verifyIslamicTerm } from './src/lib/terminologyEngine.ts';
 import { verifyFiqhQuestion } from './src/lib/fiqhEngine.ts';
 import { getAvailableTranslationLanguages, getAyahTranslations } from './src/lib/quranpediaClient.ts';
 import { searchDorarAqeedahLive, searchDorarTafsirLive, buildDorarAqeedahUrl, buildDorarTafsirUrl } from './src/lib/dorarEncyclopediaClient.ts';
+import { searchJamharaLive, buildJamharaSearchUrl } from './src/lib/jamharaClient.ts';
 
 const SERVER_NAME = 'baseera-islamic-mcp';
 const SERVER_VERSION = '1.0.0';
