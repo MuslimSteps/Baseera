@@ -105,90 +105,6 @@ function getEnglishQuranTranslation(surah: number, ayah: number): string | null 
 }
 
 // ──────────────────────────────────────────────────────────────
-// Authoritative Russian Hadith Translations Catalog
-// ──────────────────────────────────────────────────────────────
-
-const RUSSIAN_HADITH_CATALOG: Record<string, { ru: string; translator: string }> = {
-  'النيات': {
-    ru: 'Поистине, дела оцениваются только по намерениям, и каждому человеку достанется лишь то, что он намеревался обрести...',
-    translator: 'В. Нирша (Мухтасар Сахих аль-Бухари, № 1)'
-  },
-  'بني الإسلام': {
-    ru: 'Ислам основывается на пяти столпах: свидетельстве о том, что нет божества, кроме Аллаха, и что Мухаммад — Посланник Аллаха, совершении молитвы, выплате закята, совершении хаджа и соблюдении поста в рамадане.',
-    translator: 'В. Нирша (Мухтасар Сахих аль-Бухари, № 8)'
-  },
-  'الصبر ضياء': {
-    ru: '...А молитва — свет, а милостыня — доказательство, а терпение — сияние, а Коран — довод за тебя или против тебя.',
-    translator: 'В. Нирша (Сахих Муслим, 40 хадисов ан-Навави, № 23)'
-  },
-  'لا ضرر': {
-    ru: 'Нельзя причинять вред ни себе, ни другим (в Исламе нет причинения вреда и воздаяния вредом за вред).',
-    translator: '40 хадисов ан-Навави, № 32 (Сунан Ибн Маджа)'
-  },
-  'البر حسن الخلق': {
-    ru: 'Благочестие — это благонравие, а грех — это то, что шевелится в твоей душе и что тебе не хотелось бы открывать людям.',
-    translator: 'Сахих Муслим (40 хадисов ан-Навави, № 27)'
-  },
-  'من حسن إسلام المرء': {
-    ru: 'Признаком хорошего исповедания Ислама человеком является оставление им того, что его не касается.',
-    translator: 'Сунан ат-Тирмизи (40 хадисов ан-Навави, № 12)'
-  },
-  'اتق الله حيثما كنت': {
-    ru: 'Бойся Аллаха, где бы ты ни был, вслед за дурным делом соверши благое, которое сотрёт его, и относись к людям с благим нравом.',
-    translator: 'Сунан ат-Тирмизи (40 хадисов ан-Навави, № 18)'
-  },
-  'النصيحة': {
-    ru: 'Религия — это искреннее наставление (насыха): по отношению к Аллаху, Его Книге, Его Посланнику, предводителям мусульман и всем им в целом.',
-    translator: 'Сахих Муслим (40 хадисов ан-Навави, № 7)'
-  }
-};
-
-function findRussianHadithTranslation(hadithText: string): { ru: string; translator: string } | null {
-  const norm = normalizeArabic(hadithText);
-  for (const [key, val] of Object.entries(RUSSIAN_HADITH_CATALOG)) {
-    if (norm.includes(normalizeArabic(key))) {
-      return val;
-    }
-  }
-  return null;
-}
-
-// ──────────────────────────────────────────────────────────────
-// Jamhara Terminology in Russian & English
-// ──────────────────────────────────────────────────────────────
-
-const JAMHARA_RUSSIAN_TERMS: Record<string, { term_ru: string; def_ru: string }> = {
-  'التوحيد': {
-    term_ru: 'Таухид (Единобожие)',
-    def_ru: 'Признание единственности Аллаха в Его Господстве (Рубубийя), Поклонении (Улюхийя) и Прекрасных Именах и Атрибутах (Асма ва Сифат) без уподобления и отрицания.'
-  },
-  'الشريعة': {
-    term_ru: 'Шариат (Божественный закон)',
-    def_ru: 'Совокупность божественных предписаний и норм, ниспосланных Аллахом через Пророка Мухаммада ﷺ для устроения жизни человека.'
-  },
-  'العبادة': {
-    term_ru: 'Ибадат (Поклонение)',
-    def_ru: 'Всё то, что любит Аллах и чем Он доволен из слов и деяний, как явных, так и скрытых, совершаемых с искренностью и по Сунне.'
-  },
-  'الدعوة': {
-    term_ru: 'Дава (Призыв к Аллаху)',
-    def_ru: 'Донесение послания Ислама, разъяснение его истин с мудростью и добрым увещеванием людям всех национальностей и языков.'
-  },
-  'الصبر': {
-    term_ru: 'Сабр (Терпение)',
-    def_ru: 'Удержание души от ропота, языка от жалоб, а тела от греховного при выполнении повелений Аллаха, воздержании от запретов и перенесении испытаний.'
-  },
-  'التوبة': {
-    term_ru: 'Тауба (Покаяние)',
-    def_ru: 'Искреннее возвращение к Аллаху, оставление греха, сожаление о содеянном и твёрдое намерение никогда к нему не возвращаться.'
-  },
-  'السنة': {
-    term_ru: 'Сунна Пророка ﷺ',
-    def_ru: 'Путь и образ жизни Пророка Мухаммада ﷺ, включающий его высказывания, поступки, одобрения и нравственные качества.'
-  }
-};
-
-// ──────────────────────────────────────────────────────────────
 // Source Retrieval Functions
 // ──────────────────────────────────────────────────────────────
 
@@ -313,11 +229,10 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
   // Hadith citations
   for (const h of localHadiths.slice(0, 2)) {
-    const ruH = language === 'ru' ? findRussianHadithTranslation(h.text_clean || h.text_full) : null;
     allCitations.push({
       type: 'hadith',
       arabic_text: h.text_full || h.text_clean,
-      translation: ruH?.ru,
+      translation: undefined,
       source_name: `${h.source_book || 'الموسوعة الحديثية'} (${h.number_or_page || ''}) — حكم المحدث: ${h.grade || 'صحيح'}`,
       source_url: h.dorar_url || `https://dorar.net/hadith/search?q=${encodeURIComponent(cleanSearchQuery(topic))}`,
       authority: 'مؤسسة الدرر السنية للإشراف العلمي',
@@ -361,7 +276,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
   const mainVerseTr = mainVerse ? verseTranslations.get(mainVerse.ayah_number) : undefined;
   const secondVerseTr = secondVerse ? verseTranslations.get(secondVerse.ayah_number) : undefined;
-  const mainHadithRu = mainHadith ? findRussianHadithTranslation(mainHadith.text_clean || mainHadith.text_full) : null;
+  const mainHadithRu = null;
 
   // ── Section 1: Introduction ──
   const isKhutba = contentType === 'khutba_friday';
@@ -442,7 +357,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   let applicationTranslated: string | undefined;
   if (language === 'ru') {
     const ruT = termDef ? JAMHARA_RUSSIAN_TERMS[termDef.term_ar] : null;
-    applicationTranslated = `Практическое применение в жизни мусульманина:\n\nЗнание в Исламе требует искреннего воплощения в делах. Плоды темы «${topic}» реализуются через следующие практические шаги:\n\n1. Искренность (ихлас) ради Единого Аллаха и строгое следование Сунне Пророка ﷺ.\n2. Ежедневный самоконтроль и соблюдение этики в семье, на работе и в обществе.\n3. Стойкость на прямом пути и призыв к добру с мудростью и добрым увещеванием.\n\n${ruT ? `📌 Терминологическая точность (Энциклопедия «Аль-Джамхара»):\n«${ruT.term_ru}»: ${ruT.def_ru}` : ''}`;
+    applicationTranslated = `Практическое применение в жизни мусульманина:\n\nЗнание в Исламе требует искреннего воплощения в делах. Плоды темы «${topic}» реализуются через следующие практические шаги:\n\n1. Искренность (ихлас) ради Единого Аллаха и строгое следование Сунне Пророка ﷺ.\n2. Ежедневный самоконтроль и соблюдение этики в семье, на работе и в обществе.\n3. Стойкость на прямом пути и призыв к добру с мудростью и добрым увещеванием.\n\n`;
   } else if (language === 'en') {
     applicationTranslated = `Practical Application in the Believer's Life:\n\nIslamic knowledge is intended for righteous action. To realize the fruits of "${topic}", we must commit to:\n\n1. Pure sincerity (Ikhlas) for Allah alone and adherence to the Sunnah.\n2. Daily self-reckoning and ethical conduct with family and community.\n3. Steadfastness and gentle dawah with wisdom and good manners.\n\n${termDef ? `📌 Terminology Precision (Jamhara Encyclopedia):\n"${termDef.term_en || termDef.term_ar}": ${termDef.jamhara_definition || termDef.approved_translations?.[0]}` : ''}`;
   }
