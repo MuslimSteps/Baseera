@@ -58,7 +58,7 @@ export default function App() {
               </div>
               <div className="flex items-center gap-3">
                 <span>النموذج يستخرج ويقترح، والمصدر المعتمد هو الذي يحكم.</span>
-                <span className="badge badge-matched font-mono-numbers">FCR = 0.0%</span>
+                <span className="badge badge-matched font-mono-numbers">FCR المعيار المجمّد: 0.0%</span>
               </div>
             </div>
           </footer>
