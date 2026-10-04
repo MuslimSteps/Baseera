@@ -29,7 +29,7 @@ type HadithVerificationResult = VerificationResult & { _needs_live_search?: bool
 
 function notFound(item: ExtractedItem, reason: string): HadithVerificationResult {
   return {
-    id: \`hadith-notfound-\${Date.now()}\`,
+    id: `hadith-notfound-${Date.now()}`,
     item,
     status: 'NOT_FOUND_IN_CHECKED_SOURCES',
     status_label_ar: 'لم يُثبت في المصدر الحديثي المعتمد بعد',
@@ -76,7 +76,7 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
     book: bestMatch.book,
     number_or_page: bestMatch.numberOrPage,
     grade: bestMatch.grade,
-    url: \`https://dorar.net/hadith/search?q=\${encodeURIComponent(bestMatch.text)}\`
+    url: `https://dorar.net/hadith/search?q=${encodeURIComponent(bestMatch.text)}`
   };
 
   if (item.claimed_source) {
@@ -100,7 +100,7 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
 
   if (!exact && !partial)
     return {
-      id: \`hadith-review-\${Date.now()}\`,
+      id: `hadith-review-${Date.now()}`,
       item,
       status: 'NEEDS_REVIEW',
       status_label_ar: 'يحتاج مراجعة — عُثر على نتيجة قريبة دون ثبوت مطابقة اللفظ',
@@ -114,7 +114,7 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
 
   if (bestMatch.isDisputed || bestMatch.gradeCategory === 'disputed') {
     return {
-      id: \`hadith-\${Date.now()}\`,
+      id: `hadith-${Date.now()}`,
       item,
       status: 'NEEDS_REVIEW',
       status_label_ar: 'حديث مختلف في صحته — يُعرض المصدر والخلاف دون جزم',
@@ -128,12 +128,12 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
 
   if (bestMatch.gradeCategory === 'fabricated') {
     return {
-      id: \`hadith-\${Date.now()}\`,
+      id: `hadith-${Date.now()}`,
       item,
       status: 'NEEDS_REVIEW',
-      status_label_ar: \`حديث موضوع/مكذوب بحسب المصدر المعتمد: \${bestMatch.grade}\`,
+      status_label_ar: `حديث موضوع/مكذوب بحسب المصدر المعتمد: ${bestMatch.grade}`,
       status_label_en: 'Fabricated/Rejected Hadith',
-      reason: \`أظهرت الموسوعة الحديثية بالدرر السنية أن الحكم على الرواية هو: \${bestMatch.grade}. لا يجوز نسبتها إلى النبي ﷺ على أنها صحيحة.\`,
+      reason: `أظهرت الموسوعة الحديثية بالدرر السنية أن الحكم على الرواية هو: ${bestMatch.grade}. لا يجوز نسبتها إلى النبي ﷺ على أنها صحيحة.`,
       citation,
       canonical_text: bestMatch.text,
       decision_level: 'B'
@@ -142,10 +142,10 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
 
   if (bestMatch.gradeCategory === 'weak' || bestMatch.gradeCategory === 'unknown') {
     return {
-      id: \`hadith-\${Date.now()}\`,
+      id: `hadith-${Date.now()}`,
       item,
       status: 'NEEDS_REVIEW',
-      status_label_ar: \`حديث يحتاج بيان درجته: \${bestMatch.grade || 'غير محدد'}\`,
+      status_label_ar: `حديث يحتاج بيان درجته: ${bestMatch.grade || 'غير محدد'}`,
       status_label_en: 'Hadith Requires Grade Review',
       reason: 'وُجدت الرواية في المصدر المعتمد، لكن درجتها لا تسمح باعتبارها حديثاً صحيحاً ثابتاً دون بيان الحكم الحديثي.',
       citation,
@@ -155,7 +155,7 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
   }
 
   return {
-    id: \`hadith-\${Date.now()}\`,
+    id: `hadith-${Date.now()}`,
     item,
     status: 'MATCHED',
     status_label_ar: partial
