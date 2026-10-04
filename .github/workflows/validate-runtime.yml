@@ -47,6 +47,11 @@ jobs:
           BUILD_RC=$?
           echo "build_rc=$BUILD_RC" | tee -a /tmp/baseera-validation.log
 
+          echo "live_source_smoke=running" | tee -a /tmp/baseera-validation.log
+          npm run test:live >> /tmp/baseera-validation.log 2>&1
+          LIVE_RC=$?
+          echo "live_source_smoke_rc=$LIVE_RC" | tee -a /tmp/baseera-validation.log
+
           cat > /tmp/CI_PROOF.txt <<EOF
           Baseera Runtime Validation
           commit=$GITHUB_SHA
@@ -54,7 +59,8 @@ jobs:
           lint_rc=$LINT_RC
           test_rc=$TEST_RC
           build_rc=$BUILD_RC
-          conclusion=$([ $INSTALL_RC -eq 0 ] && [ $LINT_RC -eq 0 ] && [ $TEST_RC -eq 0 ] && [ $BUILD_RC -eq 0 ] && echo PASS || echo FAIL)
+          live_source_smoke_rc=$LIVE_RC
+          conclusion=$([ $INSTALL_RC -eq 0 ] && [ $LINT_RC -eq 0 ] && [ $TEST_RC -eq 0 ] && [ $BUILD_RC -eq 0 ] && [ $LIVE_RC -eq 0 ] && echo PASS || echo FAIL)
 
           Last validation output:
           EOF
@@ -62,7 +68,7 @@ jobs:
 
           cp /tmp/CI_PROOF.txt CI_PROOF.txt
 
-          if [ $INSTALL_RC -ne 0 ] || [ $LINT_RC -ne 0 ] || [ $TEST_RC -ne 0 ] || [ $BUILD_RC -ne 0 ]; then
+          if [ $INSTALL_RC -ne 0 ] || [ $LINT_RC -ne 0 ] || [ $TEST_RC -ne 0 ] || [ $BUILD_RC -ne 0 ] || [ $LIVE_RC -ne 0 ]; then
             exit 1
           fi
 
