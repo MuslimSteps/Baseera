@@ -53,6 +53,7 @@ export interface VerifiedCitation {
   authority: string;
   grade?: string;
   verified: boolean;
+  source_id: 'quran-uthmani' | 'quran-translations' | 'dorar-hadith' | 'jamhara-terms' | 'dawa-center';
 }
 
 export interface DawahContentSection {
@@ -206,7 +207,8 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     source_name: 'المستودع الدعوي الرقمي — dawa.center',
     source_url: `https://dawa.center/search?q=${encodeURIComponent(cleanSearchQuery(topic))}`,
     authority: 'المرجعية المعتمدة للموضوعات الدعوية والمحتوى الإسلامي بالحزمة العلمية',
-    verified: true
+    verified: true,
+    source_id: 'dawa-center'
   });
 
   // Quran citations
@@ -219,7 +221,8 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
       source_name: `القرآن الكريم — سورة ${v.surah_name_ar}، آية ${v.ayah_number} (المصدر القرآني المعتمد)`,
       source_url: 'https://qurancomplex.gov.sa/',
       authority: 'النص القرآني المحلي المسجل ضمن المصادر المعتمدة',
-      verified: true
+      verified: true,
+      source_id: 'quran-uthmani'
     });
   }
 
@@ -232,8 +235,9 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
       source_name: `${h.source_book || 'الموسوعة الحديثية'} (${h.number_or_page || ''}) — حكم المحدث: ${h.grade || 'صحيح'}`,
       source_url: h.dorar_url || `https://dorar.net/hadith/search?q=${encodeURIComponent(cleanSearchQuery(topic))}`,
       authority: 'مؤسسة الدرر السنية للإشراف العلمي',
-      grade: h.grade || 'صحيح',
-      verified: true
+      grade: h.grade || 'غير محدد',
+      verified: true,
+      source_id: 'dorar-hadith'
     });
   }
 
@@ -246,7 +250,8 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
       source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
       source_url: 'https://islamic-content.com/dictionary',
       authority: 'المرجعية المعتمدة للمصطلحات الشرعية الحساسة بالحزمة العلمية',
-      verified: true
+      verified: true,
+      source_id: 'jamhara-terms'
     });
   }
 
@@ -288,11 +293,11 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
   // ── Section 2: Quranic Foundation ──
   if (mainVerse) {
-    const quranAr = `الدليل والتأصيل من كتاب الله جل وعلا:\n\nلقد أنزل الله تبارك وتعالى كتابه هدى ونوراً، وبيّن فيه منزلة «${topic}» بياناً شافياً:\n\nقال الله تعالى في محكم التنزيل:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [سورة ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]\n\n${secondVerse ? `ويؤكد هذا المعنى العظيم قول الحق سبحانه في موضع آخر:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [سورة ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]\n\n` : ''}وهذه الآيات البينات تدل دلالة قطعية على أن «${topic}» من صميم ما أمر الله به وندب إليه عباده الصالحين.`;
+    const quranAr = `الدليل والتأصيل من كتاب الله جل وعلا:\n\nلقد أنزل الله تبارك وتعالى كتابه هدى ونوراً، وبيّن فيه منزلة «${topic}» بياناً شافياً:\n\nقال الله تعالى في محكم التنزيل:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [سورة ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]\n\n${secondVerse ? `ويؤكد هذا المعنى العظيم قول الحق سبحانه في موضع آخر:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [سورة ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]\n\n` : ''}وتُعرض هذه الآيات هنا بوصفها نصوصًا مصدرية ذات صلة بالموضوع؛ أما الربط التفسيري والحكم على دلالة الموضوع فيحتاج إلى مراجعة بشرية.`;
 
     let quranTranslated: string | undefined;
     if (language === 'ru') {
-      quranTranslated = `Доказательство из Священного Корана:\n\nВсевышний Аллах ниспослал Своё Писание верным руководством и светом, разъяснив величие и достоинство темы «${topic}».\n\nВсевышний Аллах говорит:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾\n[Сура «${mainVerse.surah_name_ar}», аят ${mainVerse.ayah_number}]\n\n📖 Перевод смыслов (указанный переводчик):\n«${mainVerseTr || 'Изучите подлинный перевод смыслов данного аята в утверждённом издании комплекса Короля Фахда.'}»\n\n${secondVerse && secondVerseTr ? `Также Аллах подтверждает это в другом аяте:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Сура «${secondVerse.surah_name_ar}», аят ${secondVerse.ayah_number}]\n«${secondVerseTr}»\n\n` : ''}Эти благословенные аяты ясно указывают на первостепенное значение соблюдения этой нормы.`;
+      quranTranslated = `Коранический источник по теме:\n\nВсевышний Аллах ниспослал Своё Писание верным руководством и светом, разъяснив величие и достоинство темы «${topic}».\n\nВсевышний Аллах говорит:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾\n[Сура «${mainVerse.surah_name_ar}», аят ${mainVerse.ayah_number}]\n\n📖 Перевод смыслов (указанный переводчик):\n«${mainVerseTr || 'Изучите подлинный перевод смыслов данного аята в утверждённом издании комплекса Короля Фахда.'}»\n\n${secondVerse && secondVerseTr ? `Также Аллах подтверждает это в другом аяте:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Сура «${secondVerse.surah_name_ar}», аят ${secondVerse.ayah_number}]\n«${secondVerseTr}»\n\n` : ''}Эти благословенные аяты ясно указывают на первостепенное значение соблюдения этой нормы.`;
     } else if (language === 'en') {
       quranTranslated = `Quranic Foundation:\n\nAllah ﷻ says in the Noble Quran:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [Surah ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]\n\n📖 Translation of Meanings (local approved translation catalog, when available):\n"${mainVerseTr || 'Verified authentic translation per King Fahd Complex'}"\n\n${secondVerse && secondVerseTr ? `Allah also affirms:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Surah ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]\n"${secondVerseTr}"\n\n` : ''}These verses firmly establish "${topic}" as a divine priority for every believer.`;
     }
@@ -309,7 +314,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
   // ── Section 3: Hadith Foundation ──
   if (mainHadith) {
-    const hadithAr = `الهدي النبوي من السنة المطهرة (الموسوعة الحديثية — الدرر السنية):\n\nلقد فصّل المصطفى ﷺ معالم «${topic}» بقوله وعمله وخلقه العظيم:\n\nعن النبي صلى الله عليه وسلم أنه قال:\n«${mainHadith.text_full || mainHadith.text_clean}»\n[المصدر: ${mainHadith.source_book || 'صحيح السنة'} (${mainHadith.number_or_page || ''}) — خلاصة حكم المحدث: ${mainHadith.grade || 'صحيح'}]\n\n${secondHadith ? `وجاء في حديث آخر يؤكد هذا المنهج الشريف:\n«${secondHadith.text_full || secondHadith.text_clean}»\n[المصدر: ${secondHadith.source_book || ''} — حكم المحدث: ${secondHadith.grade || 'صحيح'}]\n\n` : ''}وهذا البيان النبوي يُجسد التطبيق العملي لما جاء في كتاب الله تعالى، ويقطع كل تأويل أو اختزال مخالف لمنهج السلف الصالح.`;
+    const hadithAr = `الهدي النبوي من السنة المطهرة (الموسوعة الحديثية — الدرر السنية):\n\nلقد فصّل المصطفى ﷺ معالم «${topic}» بقوله وعمله وخلقه العظيم:\n\nعن النبي صلى الله عليه وسلم أنه قال:\n«${mainHadith.text_full || mainHadith.text_clean}»\n[المصدر: ${mainHadith.source_book || 'صحيح السنة'} (${mainHadith.number_or_page || ''}) — خلاصة حكم المحدث: ${mainHadith.grade || 'صحيح'}]\n\n${secondHadith ? `وجاء في حديث آخر يؤكد هذا المنهج الشريف:\n«${secondHadith.text_full || secondHadith.text_clean}»\n[المصدر: ${secondHadith.source_book || ''} — حكم المحدث: ${secondHadith.grade || 'صحيح'}]\n\n` : ''}ويُعرض هذا الحديث بوصفه مادة مصدرية مرتبطة بالموضوع، مع ترك الاستنباط والترجيح التفصيلي للمراجع المختصة.`;
 
     let hadithTranslated: string | undefined;
     if (language === 'ru') {
@@ -387,7 +392,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     contentType,
     language,
     audience,
-    title_ar: isKhutba ? `خطبة الجمعة الموثقة: ${topic}` : `مقال دعوي موثق: ${topic}`,
+    title_ar: isKhutba ? `مسودة خطبة مبنية على المصادر: ${topic}` : `مسودة دعوية مبنية على المصادر: ${topic}`,
     title_translated: language === 'ru'
       ? (isKhutba ? `Пятничная хутба: «${topic}»` : `Исламская статья: «${topic}»`)
       : language === 'en'
@@ -440,9 +445,9 @@ function buildVideoReelScript(
       scene_number: 3,
       duration_seconds: '25-45 ثانية',
       visual_description: 'تغير المشهد إلى لقطة للأيدي تدعو أو جامع تاريخي، مع ظهور شارة التوثيق الذهبية للدرر السنية.',
-      voiceover_ar: hadith ? `ويُعلّمنا الحبيب المصطفى ﷺ في الحديث الصحيح: «${(hadith.text_full || hadith.text_clean).slice(0, 110)}...»` : 'وجاء في هدي نبينا محمد ﷺ التوجيه المبارك...',
+      voiceover_ar: hadith ? `ورد في المصدر الحديثي: «${(hadith.text_full || hadith.text_clean).slice(0, 110)}...» (${hadith.grade || 'حكم المصدر غير محدد'})` : 'وجاء في الهدي النبوي الوارد في المصادر المعتمدة...'
       voiceover_translated: isRu && hadithRu ? `Пророк Мухаммад ﷺ сказал: «${hadithRu.ru.slice(0, 120)}...»` : undefined,
-      on_screen_text: hadith ? `«${(hadith.text_full || hadith.text_clean).slice(0, 80)}...»\n(الموسوعة الحديثية — صحيح)` : ''
+      on_screen_text: hadith ? `«${(hadith.text_full || hadith.text_clean).slice(0, 80)}...»\n(الدرجة: ${hadith.grade || 'غير محدد'})` : ''
     },
     {
       scene_number: 4,
@@ -580,7 +585,7 @@ export function generateInfographicSvg(content: DawahContent): string {
     <text x="0" y="8" fill="#10b981" font-size="24" font-weight="bold" font-family="'Amiri', serif">ب</text>
     
     <text x="0" y="50" fill="#f8fafc" font-size="28" font-weight="bold" letter-spacing="1">بصيرة · BASEERA</text>
-    <text x="0" y="75" fill="#10b981" font-size="16" font-weight="600" letter-spacing="2">منظومة التحقق والإنتاج الدعوي الموثق</text>
+    <text x="0" y="75" fill="#10b981" font-size="16" font-weight="600" letter-spacing="2">منظومة التحقق ومسودة الإنتاج الدعوي</text>
   </g>
 
   <!-- Main Topic Banner -->
@@ -596,7 +601,7 @@ export function generateInfographicSvg(content: DawahContent): string {
     
     <!-- Header -->
     <text x="40" y="45" fill="#10b981" font-size="20" font-weight="bold">📖 الدليل من القرآن الكريم (مصحف مجمع الملك فهد)</text>
-    <text x="860" y="45" text-anchor="end" fill="#64748b" font-size="15 font-family="monospace">KING FAHD COMPLEX</text>
+    <text x="860" y="45" text-anchor="end" fill="#64748b" font-size="15" font-family="monospace">KING FAHD COMPLEX</text>
     
     <!-- Ayah Text -->
     <text x="450" y="125" text-anchor="middle" fill="#ffffff" font-size="25" font-weight="bold" font-family="'Amiri', 'Traditional Arabic', serif" letter-spacing="0.5">
