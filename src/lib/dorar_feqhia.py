@@ -281,7 +281,7 @@ def search_index_for_subject(subject_tokens, intent):
         source_html = response.read().decode("utf-8", errors="ignore")
 
     rows = re.findall(
-        r'href=["\']((?:https://dorar\.net)?/feqhia/\\d+[^"\']*)["\'][^>]*>([\\s\\S]*?)</a>',
+        r'href=["\']((?:https://dorar\.net)?/feqhia/\d+[^"\']*)["\'][^>]*>([\s\S]*?)</a>',
         source_html,
         flags=re.I,
     )
