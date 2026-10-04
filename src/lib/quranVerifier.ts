@@ -5,7 +5,7 @@
 
 import quranData from '../../sources/quran.json' with { type: 'json' };
 import translationData from '../../sources/quran_translations.json' with { type: 'json' };
-import { normalizeArabic, computeWordDiff } from './normalizer.ts';
+import { normalizeArabic, normalizeArabicStrict, computeWordDiff } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
 
 /** Strip diacritics + Uthmani script marks for clean display */
@@ -104,7 +104,7 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
         const isSubMatch = normCanonical.includes(normInput) && inputWords.length >= 2;
         // Input is a multi-verse containing this verse
         const isSuperMatch = normInput.includes(normCanonical) && normCanonical.split(/\s+/).length >= 2;
-        const exactNormalized = normalizeArabic(item.text).trim() === normalizeArabic(v.text_clean).trim();
+        const exactNormalized = normalizeArabicStrict(item.text) === normalizeArabicStrict(v.text_clean);
         const effectiveScore = exactNormalized ? 1 : (isSubMatch || isSuperMatch ? 0.78 : Math.max(diff.similarityScore, 0.45));
 
         if (effectiveScore > highestScore) {
