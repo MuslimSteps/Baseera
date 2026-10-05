@@ -8,7 +8,7 @@
  */
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1';
-export const GROQ_TEXT_MODEL = 'qwen/qwen3.8-27b';
+export const GROQ_TEXT_MODEL = 'openai/gpt-oss-120b';
 export const GROQ_VISION_MODEL = 'qwen/qwen3.8-27b';
 export const GROQ_AUDIO_MODEL = 'whisper-large-v3-turbo';
 
@@ -59,7 +59,7 @@ export async function groqChat(
         messages,
         temperature: options.temperature ?? 0.1,
         max_completion_tokens: options.maxTokens ?? 2048,
-        reasoning_effort: options.reasoningEffort ?? 'none',
+        reasoning_effort: options.reasoningEffort ?? 'medium',
         ...(options.json ? { response_format: { type: 'json_object' } } : {})
       })
     });
