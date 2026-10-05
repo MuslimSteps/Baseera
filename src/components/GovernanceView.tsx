@@ -68,12 +68,12 @@ const LEVELS: Level[] = [
 
 export const GovernanceView: React.FC = () => {
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="page-shell mx-auto max-w-[1380px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
       {/* Bento Hero */}
       <section className="bento reveal">
         <div className="bento-card bento-card--gold bento-accent-top col-span-12 p-6 sm:p-8 lg:col-span-8">
           <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="eyebrow">الحوكمة والامتثال</span>
+            <span className="eyebrow">الحوكمة</span>
             <span aria-hidden="true" className="eyebrow-sep">·</span>
             <span className="text-muted">المسار الرابع: أدوات المعرفة والتحقق</span>
           </div>
@@ -93,7 +93,7 @@ export const GovernanceView: React.FC = () => {
         <div className="bento-card col-span-12 flex flex-col justify-between gap-4 p-6 lg:col-span-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-ink">
             <Scale className="h-4 w-4 text-gold" />
-            <span>مصفوفة مستويات القرار</span>
+            <span>مستويات القرار</span>
           </div>
           <p className="text-xs leading-relaxed text-muted">
             أربعة مستويات تحدّد كيف يتصرّف النظام: من الإجابة الموثقة إلى الامتناع والإحالة للمختص.
@@ -135,18 +135,18 @@ export const GovernanceView: React.FC = () => {
         <div className="bento-card col-span-12 space-y-4 p-6 lg:col-span-6 reveal">
           <h3 className="flex items-center gap-2 font-display text-base font-bold text-ink">
             <Users className="h-5 w-5 text-gold" />
-            <span>بروتوكول المراجعة البشرية المزدوجة</span>
+            <span>كيف تُراجع النتائج الحساسة؟</span>
           </h3>
           <ul className="space-y-2 text-xs text-muted">
-            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-page p-3">
               <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-soft" />
               <span><strong className="text-ink">المراجعة الشرعية:</strong> لا تُعتمد أي إضافة إلى سجل المصادر إلا بمراجعة محقق متخصص في علوم القرآن أو الحديث.</span>
             </li>
-            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-page p-3">
               <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-soft" />
               <span><strong className="text-ink">المراجعة التقنية المزدوجة:</strong> التحقق من سلامة نصوص التخريج وحظر أي تعديل غير مصرح به على ملفات الحزمة.</span>
             </li>
-            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-page p-3">
               <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-soft" />
               <span><strong className="text-ink">توثيق الإصدار:</strong> ملفات المصادر تحمل الإصدار وتاريخ الاعتماد، بينما لا يدّعي التطبيق وجود سجل تشغيل دائم غير قابل للتلاعب.</span>
             </li>
@@ -156,18 +156,18 @@ export const GovernanceView: React.FC = () => {
         <div className="bento-card col-span-12 space-y-4 p-6 lg:col-span-6 reveal reveal-1">
           <h3 className="flex items-center gap-2 font-display text-base font-bold text-ink">
             <Lock className="h-5 w-5 text-info" />
-            <span>سياسة الخصوصية وأخلاقيات البيانات</span>
+            <span>الخصوصية وحدود المعالجة</span>
           </h3>
           <ul className="space-y-2 text-xs text-muted">
-            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-page p-3">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
               <span><strong className="text-ink">حظر التنميط الديني والمذهبي:</strong> المنظومة تفحص النصوص المجردة ولا تحلل الميول الدينية للمستخدمين.</span>
             </li>
-            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-page p-3">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
               <span><strong className="text-ink">المعالجة اللحظية العابرة:</strong> لا يتعمد التطبيق حفظ النصوص أو الصور بعد الفحص، مع احتمال وجود بيانات مؤقتة في ذاكرة التشغيل أثناء الطلب.</span>
             </li>
-            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-black/20 p-3">
+            <li className="flex items-start gap-2 rounded-xl border border-hairline bg-page p-3">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
               <span><strong className="text-ink">حدود مزودات الذكاء الاصطناعي:</strong> عند استخدام Gemini تُرسل المدخلات إلى Google، وتخضع معالجة البيانات لسياسة المزود وإعداداته.</span>
             </li>
