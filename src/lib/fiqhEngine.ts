@@ -18,6 +18,35 @@ import { normalizeArabic } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
 import { buildDorarFiqhUrl } from './dorarQueryUtils.ts';
 
+const FIQH_GENERIC_WORDS = new Set([
+  'ما','هو','هي','هل','هذه','هذا','ذلك','تلك','المسألة','المساله','مسألة','مساله',
+  'الأمر','الامر','الفعل','موضوع','موضع','أمر','امر','خلاف','خلافية','خلافيه',
+  'مختلف','مختلفة','مسائل','المسائل','الحكم','حكم','الشرع','الشرعي','الشريعة',
+  'الإسلام','الإسلامي','الفقه','الدين'
+]);
+
+function hasConcreteFiqhSubject(text: string): boolean {
+  const normalized = normalizeArabic(text || '')
+    .replace(/[؟?.,!؛،:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const subject = normalized
+    .replace(/^ما\s+(?:هو\s+)?حكم\s*/i, '')
+    .replace(/^ما\s+حكم\s*/i, '')
+    .replace(/^هل\s+(?:يجوز|يجب|يصح|يحل|يحرم)\s*/i, '')
+    .replace(/^ما\s+رأي\s+الشرع\s+في\s*/i, '')
+    .replace(/\b(?:حكم|يجوز|يجب|يصح|يحرم|واجب|فرض|حرام|مكروه|مستحب|جائز)\b/gi, ' ');
+
+  const tokens = subject
+    .split(/\s+/)
+    .map(w => w.replace(/^ال/, ''))
+    .map(w => w.replace(/[^\u0621-\u064Aa-zA-Z0-9_-]/g, ''))
+    .filter(w => w.length >= 3 && !FIQH_GENERIC_WORDS.has(w));
+
+  return tokens.length > 0;
+}
+
 const SENSITIVE_FIQH_PATTERNS: RegExp[] = [
   /سب\s+(?:الله|الدين|الرسول|النبي)/i,
   /شتم\s+(?:الله|الدين|الرسول|النبي)/i,
@@ -62,6 +91,28 @@ export function verifyFiqhQuestion(item: ExtractedItem): VerificationResult {
   const searchUrl = buildDorarFiqhUrl(item.text);
   const sensitive = isSensitiveFiqhQuestion(item.text);
   const personal = isPersonalDispute(item.text);
+
+  // A generic label such as «مسألة خلافية» or «ما حكم هذه المسألة؟» has no
+  // concrete subject. Never let source-search ranking turn it into an
+  // unrelated Fiqh article.
+  if (!sensitive && !personal && !hasConcreteFiqhSubject(item.text)) {
+    return {
+      id: `fiqh-unclear-${Date.now()}`,
+      item,
+      status: 'NEEDS_REVIEW',
+      status_label_ar: 'السؤال غير محدد بما يكفي للبحث الفقهي',
+      status_label_en: 'Fiqh Question Is Too Vague to Search Reliably',
+      reason: 'لم يتضمن الإدخال موضوعًا فقهيًا محددًا يمكن ربطه بمادة مصدرية بعينها. لن تختار بصيرة مقالًا غير مرتبط لمجرد تشابه عام في نتائج البحث؛ اذكر الفعل أو المسألة محل السؤال بوضوح.',
+      citation: {
+        source_id: 'fiqh-madhahib-dorar',
+        source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
+        authority: 'مؤسسة الدرر السنية',
+        url: searchUrl
+      },
+      abstention_note: 'امتناع عن اختيار مادة فقهية غير مرتبطة بسبب غموض المدخل.',
+      decision_level: 'C'
+    };
+  }
 
   const result: VerificationResult = {
     id: `fiqh-live-${Date.now()}`,
