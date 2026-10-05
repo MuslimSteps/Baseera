@@ -36,35 +36,35 @@ GENERIC_STOP_WORDS = {
 INTENT_PATTERNS = [
     ("benefits", [
         r"فوائد", r"الفائدة", r"الفوائد", r"الحكمه", r"حكمه",
-        r"لماذاs+شرع", r"لماذاs+شرع", r"سببs+(?:مشروعيه|مشروعيّة|تشريع)",
+        r"لماذا\s+شرع", r"لماذا\s+شرع", r"سبب\s+(?:مشروعيه|مشروعيّة|تشريع)",
     ]),
     ("ruling", [
-        r"ماs+(?:هوs+)?حكم", r"حكم(?:ه)?(?:s+الشرعي)?",
-        r"هلs+(?:يجوز|يجب|يصح)", r"ماs+القولs+في",
-        r"(?:واجب|فرض|حرام|مكروه|مستحب|جائز)",
+        r"ما\s+(?:هو\s+)?حكم", r"حكم(?:ه)?(?:\s+الشرعي)?",
+        r"هل\s+(?:يجوز|يجب|يصح)", r"ما\s+القول\s+في",
+        r"(?:واجب|فرض|حرام|مكروه|مستحب|جائز)\b",
     ]),
     ("definition", [
-        r"ماs+(?:هو|هي)s+", r"ماs+معنى", r"معنى", r"تعريف",
+        r"ما\s+(?:هو|هي)\s+", r"ما\s+معنى", r"معنى", r"تعريف",
     ]),
     ("legitimacy", [
-        r"مشروعيه", r"مشروعية", r"مشروع", r"هلs+شرع",
+        r"مشروعيه", r"مشروعية", r"مشروع", r"هل\s+شرع",
     ]),
     ("timing", [
-        r"متى", r"وقت", r"متىs+w+",
+        r"متى", r"وقت", r"متى\s+\w+",
     ]),
     ("conditions", [
         r"شروط", r"يشترط", r"شرط(?:ه|ها)?",
     ]),
     ("exceptions", [
-        r"استثناء", r"يسقط", r"لاs+يقوى", r"عاجز", r"العجز", r"ضرر",
-        r"الضرر", r"متىs+يسقط",
+        r"استثناء", r"يسقط", r"لا\s+يقوى", r"عاجز", r"العجز", r"ضرر",
+        r"الضرر", r"متى\s+يسقط",
     ]),
     ("evidence", [
-        r"دليل", r"الدليل", r"أدلة", r"ادله", r"منs+السنة", r"منs+القرآن",
+        r"دليل", r"الدليل", r"أدلة", r"ادله", r"من\s+السنة", r"من\s+القرآن",
     ]),
     ("comparison", [
         r"المذاهب", r"الحنفي", r"المالكي", r"الشافعي", r"الحنبلي",
-        r"قولs+(?:العلماء|الفقهاء)", r"الأقوال",
+        r"قول\s+(?:العلماء|الفقهاء)", r"الأقوال",
     ]),
 ]
 
@@ -87,12 +87,12 @@ def norm_ar(value):
     value = re.sub(r"[ً-ٰٟ]", "", value)
     value = re.sub(r"[إأآا]", "ا", value)
     value = value.replace("ى", "ي").replace("ة", "ه")
-    value = re.sub(r"\s+", " ", value).strip()
+    value = re.sub(r"\\s+", " ", value).strip()
     return value
 
 def clean_raw_query(raw_text):
     value = re.sub(r"[«»"“؟?.,!؛،]", " ", raw_text or "")
-    return re.sub(r"\s+", " ", value).strip()[:180]
+    return re.sub(r"\\s+", " ", value).strip()[:180]
 
 def infer_intent(raw_text):
     normalized = norm_ar(raw_text)
@@ -106,19 +106,19 @@ def extract_subject_tokens(raw_text, intent):
     normalized = norm_ar(raw_text)
     # Remove interrogative framing, but DO NOT remove the intent before it is used.
     framing = [
-        r"^ماs+(?:هوs+)?", r"^هلs+", r"^ماذاs+", r"^كيفs+",
-        r"^ماs+القولs+فيs+", r"^ماs+رأيs+الشرعs+فيs+",
-        r"^فيs+القرآنs+(?:الكريمs+)?", r"^فيs+الحديثs+",
-        r"^قالs+رسولs+اللهs+", r"^قالs+النبيs+",
+        r"^ما\s+(?:هو\s+)?", r"^هل\s+", r"^ماذا\s+", r"^كيف\s+",
+        r"^ما\s+القول\s+في\s+", r"^ما\s+رأي\s+الشرع\s+في\s+",
+        r"^في\s+القرآن\s+(?:الكريم\s+)?", r"^في\s+الحديث\s+",
+        r"^قال\s+رسول\s+الله\s+", r"^قال\s+النبي\s+",
     ]
     for pattern in framing:
         normalized = re.sub(pattern, "", normalized, count=1)
     # Remove intent phrases from the subject.
     intent_removals = [
-        r"حكم(?:ه)?(?:s+الشرعي)?", r"يجوز", r"يجب", r"يصح",
+        r"حكم(?:ه)?(?:\s+الشرعي)?", r"يجوز", r"يجب", r"يصح",
         r"مشروعيه", r"مشروع", r"فوائد", r"الفوائد", r"الفائده",
         r"الحكمه", r"حكمه", r"تعريف", r"معنى", r"متى", r"وقت",
-        r"شروط", r"يشترط", r"شرط", r"استثناء", r"يسقط", r"لاs+يقوى",
+        r"شروط", r"يشترط", r"شرط", r"استثناء", r"يسقط", r"لا\s+يقوى",
         r"ضرر", r"الضرر", r"دليل", r"الدليل", r"أدلة", r"ادله",
         r"المذاهب", r"الحنفي", r"المالكي", r"الشافعي", r"الحنبلي",
         r"واجب", r"فرض", r"حرام", r"مكروه", r"مستحب", r"جائز",
@@ -142,7 +142,7 @@ def title_intent_fit(title, intent, subject_tokens):
         # Critical distinction:
         # "حكم مشروعية الختان وفوائده" is a wisdom/benefits section, not the
         # legal-ruling section "حكم الختان".
-        if re.search(r"حكم\s+مشروعيه|حكم\s+فوائد|الحكمه|حكم\s+فوائده", t):
+        if re.search(r"حكم\\s+مشروعيه|حكم\\s+فوائد|الحكمه|حكم\\s+فوائده", t):
             return -120
         if "حكم" in t:
             score = 100
@@ -198,11 +198,11 @@ def extract_article_fields(art):
 
     title = html_lib.unescape(re.sub(r"<[^>]+>", "", title_match.group(1)).strip()) if title_match else ""
     text = html_lib.unescape(re.sub(r"<[^>]+>", " ", art))
-    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\\s+", " ", text).strip()
 
     rel_link = link.group(1) if link else ""
     full_link = rel_link if rel_link.startswith("http") else ("https://dorar.net" + rel_link)
-    title = re.sub(r"^\d+\s*[-–]\s*", "", title).strip()
+    title = re.sub(r"^\d+\\s*[-–]\\s*", "", title).strip()
 
     return title, text, full_link
 
@@ -220,8 +220,8 @@ def fetch_article_details(article_url):
         chunk = source_html[pos:pos + 7000]
         chunk = re.sub(r'<span class="tip"[^>]*>[\s\S]*?</span>', "", chunk)
         clean = re.sub(r"<[^>]+>", " ", chunk)
-        clean = html_lib.unescape(re.sub(r"\s+", " ", clean)).strip()
-        clean = re.sub(r'^w-100 mt-4\s*["\'>\s]*', "", clean)
+        clean = html_lib.unescape(re.sub(r"\\s+", " ", clean)).strip()
+        clean = re.sub(r'^w-100 mt-4\\s*["\'>\s]*', "", clean)
 
         for marker in ["المادة في سؤال وجواب", "انظر أيضا", "الرابط المختصر"]:
             idx = clean.find(marker)
@@ -289,7 +289,7 @@ def search_index_for_subject(subject_tokens, intent):
     by_url = {}
     for href, anchor_html in rows:
         title = html_lib.unescape(re.sub(r"<[^>]+>", " ", anchor_html))
-        title = re.sub(r"\s+", " ", title).strip()
+        title = re.sub(r"\\s+", " ", title).strip()
         url = href if href.startswith("http") else "https://dorar.net" + href
         if not title:
             continue
