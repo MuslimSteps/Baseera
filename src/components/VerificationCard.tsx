@@ -113,6 +113,16 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
                 {compactReason(result.reason)}
               </p>
             )}
+
+            {/* مبدأ الحوكمة الصارم لتوثيق الأحاديث النبوية */}
+            {(result.item.type === 'hadith' || result.abstention_note) && (
+              <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-amber-600/25 bg-amber-500/10 px-3.5 py-2.5 text-xs font-bold leading-relaxed text-amber-900 shadow-sm">
+                <ShieldAlert className="h-4.5 w-4.5 shrink-0 text-amber-700 mt-0.5" />
+                <span>
+                  {result.abstention_note || 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -129,6 +139,14 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
           </a>
         )}
       </div>
+
+      {/* الفروق اللفظية المكتشفة تظهر مباشرة دون الحاجة لفتح التفاصيل */}
+      {result.diff && result.diff.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-line bg-page p-4">
+          <div className="eyebrow mb-2">الفروق المكتشفة مع المصحف الشريف</div>
+          <WordDiffViewer diff={result.diff} canonicalText={result.canonical_text} />
+        </div>
+      )}
 
       {result.canonical_text && !isNotFound && (
         <div className="evidence-block">

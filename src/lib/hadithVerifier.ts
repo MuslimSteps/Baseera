@@ -94,7 +94,8 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
         reason: `المتن موجود في الموسوعة الحديثية، لكن العزو المذكور («${item.claimed_source}») لا يطابق المصدر الموثق («${bestMatch.book}»).`,
         citation,
         canonical_text: bestMatch.text,
-        decision_level: 'B'
+        decision_level: 'B',
+        abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
       };
     }
   }
@@ -109,7 +110,8 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
       reason: 'وجدت منصة الدرر السنية نتيجة قريبة، لكن النص المدخل لا يطابقها مطابقة صريحة؛ لذلك لا تُنسب الرواية إلى النبي ﷺ آلياً.',
       citation,
       canonical_text: bestMatch.text,
-      decision_level: 'B'
+      decision_level: 'B',
+      abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
     };
 
   if (bestMatch.isDisputed || bestMatch.gradeCategory === 'disputed') {
@@ -122,7 +124,8 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
       reason: bestMatch.disputeDetails || 'نتائج المصدر المعتمد تشير إلى خلاف في ثبوته؛ لذلك لا يصدر النظام حكماً قطعياً.',
       citation,
       canonical_text: bestMatch.text,
-      decision_level: 'B'
+      decision_level: 'B',
+      abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
     };
   }
 
@@ -136,7 +139,8 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
       reason: `أظهرت الموسوعة الحديثية بالدرر السنية أن الحكم على الرواية هو: ${bestMatch.grade}. لا يجوز نسبتها إلى النبي ﷺ على أنها صحيحة.`,
       citation,
       canonical_text: bestMatch.text,
-      decision_level: 'B'
+      decision_level: 'B',
+      abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
     };
   }
 
@@ -150,7 +154,8 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
       reason: 'وُجدت الرواية في المصدر المعتمد، لكن درجتها لا تسمح باعتبارها حديثاً صحيحاً ثابتاً دون بيان الحكم الحديثي.',
       citation,
       canonical_text: bestMatch.text,
-      decision_level: 'B'
+      decision_level: 'B',
+      abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
     };
   }
 

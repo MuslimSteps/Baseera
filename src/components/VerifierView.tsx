@@ -40,10 +40,10 @@ const INPUTS: Array<{ id: InputKind; label: string; icon: React.ReactNode }> = [
   { id: 'audio', label: 'صوت', icon: <Mic /> }
 ];
 
-const EXAMPLES = [
-  { label: 'آية', text: 'مَن ذَا الَّذِي يَشْفَعُ عِندَهُ إِلَّا بِإِذْنِهِ' },
-  { label: 'حديث', text: 'قال رسول الله ﷺ: «إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى»' },
-  { label: 'نص دعوي', text: 'قال الله تعالى: «وَقُلْ رَبِّ زِدْنِي عِلْمًا»' }
+const EXAMPLES: Array<{ label: string; category: VerifyCategory; text: string }> = [
+  { label: 'آية قرآنية', category: 'ayah', text: 'مَن ذَا الَّذِي يَشْفَعُ عِندَهُ إِلَّا بِإِذْنِهِ' },
+  { label: 'حديث شريف', category: 'hadith', text: 'قال رسول الله ﷺ: «إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى»' },
+  { label: 'سؤال فقهي', category: 'fiqh_question', text: 'هل الوضوء ينتقض بالنوم اليسير؟' }
 ];
 
 export const VerifierView: React.FC = () => {
@@ -81,8 +81,8 @@ export const VerifierView: React.FC = () => {
     window.setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  const useExample = (text: string) => {
-    setCategory('ayah');
+  const useExample = (cat: VerifyCategory, text: string) => {
+    setCategory(cat);
     setInputType('text');
     setInputText(text);
     setUrlInput('');
@@ -225,64 +225,62 @@ export const VerifierView: React.FC = () => {
   return (
     <div className="page-shell">
       <section className="mx-auto max-w-[980px] px-4 pb-16 pt-8 sm:px-6">
-        <div className="mb-5">
+        <div className="mb-4">
           <div className="eyebrow">بصيرة · التحقق</div>
-          <h1 className="mt-2 font-display text-[30px] font-bold leading-tight tracking-tight text-ink sm:text-[42px]">
+          <h1 className="mt-1.5 font-display text-[28px] font-bold leading-tight tracking-tight text-ink sm:text-[38px]">
             تحقق من المحتوى
           </h1>
-          <p className="mt-2 text-sm leading-6 text-muted sm:text-base">
-            اختر النوع، ثم أدخل المحتوى. سنفحص المرجع المناسب فقط.
+          <p className="mt-1.5 text-sm leading-6 text-muted">
+            اختر نوع المحتوى ثم أدخل النص المراد فحصه.
           </p>
         </div>
 
-        <div className="tool-card">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-sm font-bold text-ink">نوع المحتوى</span>
-            {category && (
-              <span className="text-[11px] font-semibold text-muted">
-                {CATEGORIES.find(item => item.id === category)?.hint}
-              </span>
-            )}
-          </div>
+        <div className="tool-card p-4 sm:p-5">
+          {/* شريط اختيار نوع المحتوى وطريقة الإدخال مدمج وملتصق مباشرة بصندوق الكتابة */}
+          <div className="flex flex-col gap-2.5 pb-3 border-b border-line">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap" role="radiogroup" aria-label="نوع المحتوى">
+                <span className="text-xs font-bold text-ink ms-0.5">نوع المحتوى:</span>
+                {CATEGORIES.map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={category === item.id}
+                    onClick={() => chooseCategory(item.id)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      category === item.id
+                        ? 'bg-brand text-white shadow-sm ring-1 ring-brand'
+                        : 'bg-page hover:bg-surface border border-line text-muted hover:text-ink'
+                    }`}
+                  >
+                    <span className="h-3.5 w-3.5 flex items-center justify-center shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5" aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span>{item.label}</span>
+                    {category === item.id && (
+                      <span className="text-[10px] opacity-85 font-normal">({item.hint})</span>
+                    )}
+                  </button>
+                ))}
+              </div>
 
-          <div className="category-grid" role="radiogroup" aria-label="نوع المحتوى">
-            {CATEGORIES.map(item => (
-              <button
-                key={item.id}
-                type="button"
-                role="radio"
-                aria-checked={category === item.id}
-                onClick={() => chooseCategory(item.id)}
-                className={`category-option ${category === item.id ? 'category-option-active' : ''}`}
-              >
-                <span className="category-option-icon" aria-hidden="true">{item.icon}</span>
-                <span>
-                  <span className="category-option-label">{item.label}</span>
-                  <span className="category-option-hint">{item.hint}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-3 flex min-h-10 items-center gap-2 rounded-xl border border-line bg-page px-3 text-xs text-muted">
-            <ShieldCheck className="h-4 w-4 text-brand" />
-            <span>{category ? `سيُفحص هذا الإدخال في ${CATEGORIES.find(item => item.id === category)?.hint} فقط.` : 'اختر النوع للبدء.'}</span>
-          </div>
-
-          <div className="input-tabs mt-3" role="tablist" aria-label="طريقة الإدخال">
-            {INPUTS.map(item => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={inputType === item.id}
-                onClick={() => chooseType(item.id)}
-                className={`input-tab ${inputType === item.id ? 'input-tab-active' : ''}`}
-              >
-                <span aria-hidden="true">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+              <div className="input-tabs" role="tablist" aria-label="طريقة الإدخال">
+                {INPUTS.map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={inputType === item.id}
+                    onClick={() => chooseType(item.id)}
+                    className={`input-tab ${inputType === item.id ? 'input-tab-active' : ''}`}
+                  >
+                    <span aria-hidden="true">{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {inputType === 'url' && (
@@ -333,7 +331,7 @@ export const VerifierView: React.FC = () => {
             <textarea
               id="baseera-input"
               ref={inputRef}
-              rows={6}
+              rows={3}
               value={inputText}
               onChange={e => {
                 setInputText(e.target.value);
@@ -341,7 +339,7 @@ export const VerifierView: React.FC = () => {
               }}
               placeholder={
                 !category
-                  ? 'اختر النوع أولًا…'
+                  ? 'اختر نوع المحتوى من الشريط أعلاه أولًا…'
                   : category === 'ayah'
                     ? 'ألصق الآية أو جزءًا منها…'
                     : category === 'hadith'
@@ -396,7 +394,7 @@ export const VerifierView: React.FC = () => {
                 <button
                   key={example.label}
                   type="button"
-                  onClick={() => useExample(example.text)}
+                  onClick={() => useExample(example.category, example.text)}
                   className="example-item !min-h-9 !w-auto !justify-start !rounded-full !px-3"
                 >
                   <span className="example-dot" />

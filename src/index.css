@@ -749,11 +749,11 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
-    margin-top: 16px;
+    margin-top: 10px;
   }
 
   .input-with-icon {
-    min-height: 46px;
+    min-height: 42px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -783,15 +783,15 @@
   }
 
   .upload-zone {
-    min-height: 112px;
+    min-height: 80px;
     display: grid;
     place-items: center;
     align-content: center;
-    gap: 6px;
-    margin-top: 16px;
-    padding: 20px;
+    gap: 4px;
+    margin-top: 10px;
+    padding: 12px;
     border: 1px dashed var(--color-line-strong);
-    border-radius: 17px;
+    border-radius: 14px;
     background: var(--color-page);
     cursor: pointer;
     text-align: center;
@@ -816,23 +816,23 @@
 
   .textarea-wrap {
     position: relative;
-    margin-top: 16px;
+    margin-top: 10px;
   }
 
   .main-textarea {
     width: 100%;
-    min-height: 246px;
+    min-height: 96px;
     box-sizing: border-box;
     resize: vertical;
-    padding: 18px 18px 48px;
+    padding: 12px 14px 40px;
     border: 1px solid var(--color-line-strong);
-    border-radius: 18px;
+    border-radius: 14px;
     outline: 0;
     background: var(--color-surface-soft);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    font-size: 16px;
-    line-height: 2;
+    font-size: 15px;
+    line-height: 1.8;
     transition: border-color 180ms var(--ease-base), box-shadow 180ms var(--ease-base);
   }
 

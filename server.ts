@@ -807,6 +807,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           v.status_label_ar = 'لم يُعثر عليه في المراجع المفحوصة';
           v.status_label_en = 'Not Found in Checked Sources';
           v.reason = 'لم يُعثر على تطابق موثوق لهذا النص في الموسوعة الحديثية بالدرر السنية. تلتزم المنظومة بالامتناع عن الجزم بصحة أي رواية غير مثبتة.';
+          v.abstention_note = 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.';
           v.citation = {
             source_id: 'dorar-hadith',
             source_name: 'الموسوعة الحديثية — الدرر السنية',

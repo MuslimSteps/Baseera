@@ -189,7 +189,7 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
         book: 'الموسوعة الحديثية المعتمدة (الدرر السنية والمصادر المسندة)',
         url: `https://dorar.net/hadith/search?q=${encodeURIComponent(item.text.slice(0, 50))}`
       },
-      abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
+      abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
     };
   }
 
