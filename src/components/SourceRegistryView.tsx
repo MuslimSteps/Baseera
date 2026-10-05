@@ -53,16 +53,16 @@ export const SourceRegistryView: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold font-display text-ink tracking-tight">
-              مصادر البحث والتوثيق — لا نستخدم أي مصدر بديل
+              المراجع المعتمدة لبصيرة
             </h1>
             <p className="text-sm text-muted mt-3 max-w-3xl leading-relaxed">
-              هذه هي قائمة مصادر البحث والتوثيق في نطاق المشروع. ليست كل المصادر مسارات تحقق مباشرة داخل التطبيق؛ بعضُها مستخدم فعلياً، وبعضُها مخصص للتفسير أو الإحالة وفق مستوى المسألة.
+              هذه الصفحة توضح أين تبحث بصيرة، وما الذي يمكن استخدامه لإثبات النتيجة. تختلف وظيفة المصدر بحسب نوع المحتوى، وتبقى المراجع الظاهرة قابلة للفتح والمراجعة.
             </p>
           </div>
 
           <div className="text-xs text-ink/85 bg-white/[0.02] border border-hairline p-3 rounded-lg max-w-sm">
-            <strong className="text-gold block mb-1">القاعدة الحاكمة:</strong>
-            <span>النموذج اللغوي لا يصدر الحكم ولا يختلق المصدر. الحكم يُسترجع من مصادر البحث والتوثيق حصراً.</span>
+            <strong className="text-gold block mb-1">قاعدة التوثيق:</strong>
+            <span>الذكاء الاصطناعي يساعد في الاستخراج والترتيب فقط؛ الدليل النهائي يأتي من المصدر المعتمد.</span>
           </div>
         </div>
 
@@ -70,7 +70,7 @@ export const SourceRegistryView: React.FC = () => {
         <div className="mt-5 p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-rose-300 font-semibold">
             <ShieldX className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>المصادر المحظورة تماماً كمرجع ديني:</span>
+            <span>مصادر لا تعتمدها بصيرة كمرجع لإثبات النتيجة:</span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-rose-200">
             {registryData.prohibited_sources.map((src, i) => (
