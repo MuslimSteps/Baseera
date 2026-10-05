@@ -86,7 +86,7 @@ export async function rankCandidatesWithAI(
   kind: 'quran' | 'hadith' | 'fiqh',
   inputText: string,
   candidates: AICandidate[],
-  timeoutMs = 3500
+  timeoutMs = 6000
 ): Promise<AIMatchResult | null> {
   const apiKey = getGroqKey();
   if (!apiKey || !inputText.trim() || candidates.length === 0) return null;

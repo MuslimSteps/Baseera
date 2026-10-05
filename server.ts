@@ -37,8 +37,12 @@ import { groqChat, groqVisionText, groqTranscribe, GROQ_TEXT_MODEL, GROQ_VISION_
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+process.on('uncaughtException', (err) => {
+  console.error('[Baseera Server Error]', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Baseera Unhandled Rejection]', reason);
+});
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;

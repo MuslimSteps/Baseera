@@ -21,12 +21,15 @@ async function groqRequest(path: string, init: RequestInit): Promise<Response> {
   const key = getGroqKey();
   if (!key) throw new Error('GROQ_API_KEY is not configured on the server.');
 
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${key}`,
+    'User-Agent': 'Baseera-Server/1.0',
+    ...(init.headers as Record<string, string> || {})
+  };
+
   const response = await fetch(`${GROQ_API_URL}${path}`, {
     ...init,
-    headers: {
-      Authorization: `Bearer ${key}`,
-      ...(init.headers || {})
-    }
+    headers
   });
 
   if (!response.ok) {
@@ -48,20 +51,25 @@ export async function groqChat(
   } = {}
 ): Promise<string> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 12000);
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
   try {
+    const body: Record<string, any> = {
+      model: options.model || GROQ_TEXT_MODEL,
+      messages,
+      temperature: options.temperature ?? 0.1,
+      max_completion_tokens: options.maxTokens ?? 2048,
+      ...(options.json ? { response_format: { type: 'json_object' } } : {})
+    };
+
+    if (options.reasoningEffort && options.reasoningEffort !== 'none') {
+      body.reasoning_effort = options.reasoningEffort;
+    }
+
     const response = await groqRequest('/chat/completions', {
       method: 'POST',
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: options.model || GROQ_TEXT_MODEL,
-        messages,
-        temperature: options.temperature ?? 0.1,
-        max_completion_tokens: options.maxTokens ?? 2048,
-        reasoning_effort: options.reasoningEffort ?? 'medium',
-        ...(options.json ? { response_format: { type: 'json_object' } } : {})
-      })
+      body: JSON.stringify(body)
     });
     const data = await response.json() as any;
     return String(data?.choices?.[0]?.message?.content || '').trim();
