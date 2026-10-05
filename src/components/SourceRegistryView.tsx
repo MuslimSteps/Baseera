@@ -14,7 +14,8 @@ import {
   Calendar,
   Key,
   Scale,
-  FileCheck
+  FileCheck,
+  X
 } from 'lucide-react';
 import registryData from '../../sources/source-registry.json' with { type: 'json' };
 import { apiFetch } from '../lib/apiClient.ts';
@@ -75,7 +76,7 @@ export const SourceRegistryView: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 text-rose-200">
             {registryData.prohibited_sources.map((src, i) => (
               <span key={i} className="flex items-center gap-1 text-[11px] bg-page px-2 py-0.5 rounded border border-rose-500/30">
-                ✕ {src}
+                <X className="h-3 w-3 shrink-0" aria-hidden="true" /> {src}
               </span>
             ))}
           </div>
@@ -249,7 +250,7 @@ export const SourceRegistryView: React.FC = () => {
               </div>
             </div>
             <span className="text-[10px] font-mono bg-emerald-900/40 text-brand border border-emerald-500/30 px-2 py-0.5 rounded-full">
-              متصل حيّاً ✓
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> متصل حيّاً
             </span>
           </div>
 
