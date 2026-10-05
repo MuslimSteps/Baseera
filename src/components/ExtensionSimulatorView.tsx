@@ -127,10 +127,10 @@ export const ExtensionSimulatorView: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold font-display text-ink tracking-tight">
-              بصيرة أثناء التصفح
+              تحقق أثناء التصفح
             </h1>
             <p className="text-sm text-muted mt-3 max-w-3xl leading-relaxed">
-              ظلّل ما تقرأه، ثم افتح فحص بصيرة دون أن تترك الصفحة. ويمكن للإضافة التعامل مع النصوص والصور وإظهار رابط المرجع عندما يتوفر.
+              حدد النص أو الصورة أثناء التصفح، ثم اطلب التحقق دون مغادرة الصفحة. تعرض الإضافة حالة المصدر والدليل عندما يتوفران.
             </p>
           </div>
 
@@ -191,14 +191,14 @@ export const ExtensionSimulatorView: React.FC = () => {
             </div>
             <span className="text-xs text-brand flex items-center gap-1">
               <MousePointer className="w-3.5 h-3.5" />
-              جرّب تحديد النص أو صورة في المحاكاة
+              جرّب تحديد نص أو صورة في المحاكاة
             </span>
           </div>
 
           {/* Article & Social Mockup */}
           <div className="space-y-4 text-sm text-ink/85 leading-relaxed font-sans">
             <h2 className="text-xl font-bold font-display text-ink">
-              1. حدد اقتباسًا لتشاهد كيف تعمل الإضافة
+              1. حدّد اقتباسًا لترى رحلة التحقق
             </h2>
 
             <div className="p-4 rounded-xl bg-page border border-hairline space-y-3 font-amiri text-lg">
@@ -247,7 +247,7 @@ export const ExtensionSimulatorView: React.FC = () => {
             {/* Social Post Image Mockup */}
             <div className="pt-2">
               <h2 className="text-xl font-bold font-display text-ink mb-2">
-                2. عندما يكون الحديث داخل صورة (Right Click للصورة → تحقق عبر بصيرة):
+                2. وعندما يكون النص داخل صورة: جرّب التحقق مباشرة
               </h2>
 
               <div className="p-4 rounded-xl bg-slate-950/60 border border-hairline-strong space-y-3">
@@ -276,7 +276,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                       className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-ink font-bold text-xs shadow-lg shadow-emerald-950 flex items-center gap-1.5 transition-all cursor-pointer group-hover:scale-105"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>🔎 تحقّق من الصورة عبر بصيرة</span>
+                      <span>تحقّق من الصورة عبر بصيرة</span>
                     </button>
                   </div>
                 </div>
@@ -291,7 +291,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                 type="text"
                 value={customLookup}
                 onChange={(e) => setCustomLookup(e.target.value)}
-                placeholder="أو اكتب أي حديث أو نص لفحصه فورا بالإضافة..."
+                placeholder="أو الصق نصًا لتجربة الفحص عبر الإضافة…"
                 className="w-full px-3 py-2 rounded-lg bg-page border border-hairline-strong text-xs text-ink placeholder:text-faint focus:outline-none focus:border-gold font-amiri"
               />
               <button
