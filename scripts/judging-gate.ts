@@ -114,6 +114,13 @@ test('single common Quran word does not become a fuzzy match', () => {
   assert.equal(rows.length, 0);
 });
 
+test('deterministic Hafs source resolves the exact 75:1 wording', () => {
+  const rows = searchHafsAyahsLocal('لا أقسم بيوم القيامة', 5);
+  const row = rows.find(item => Number(item.surah) === 75 && item.number === 1);
+  assert.ok(row, '75:1 was not found');
+  assert.equal(row.search, undefined);
+});
+
 test('deterministic Hafs source resolves the canonical 2:255 quotation', () => {
   const rows = searchHafsAyahsLocal('مَن ذَا الَّذِي يَشْفَعُ عِندَهُ إِلَّا بِإِذْنِهِ', 5);
   assert.ok(rows.some(row => Number(row.surah) === 2 && row.number === 255));
