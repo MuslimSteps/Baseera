@@ -223,7 +223,7 @@ test('term verifier never produces MATCHED from local state', () => {
 });
 
 test('explicit fiqh question always enters the live-source path', () => {
-  const result = verifyFiqhQuestion(item('fiqh_question', 'ما حكم هذه المسألة؟'));
+  const result = verifyFiqhQuestion(item('fiqh_question', 'ما حكم نقض الوضوء بلمس المرأة الأجنبية؟'));
   assert.equal((result as any)._needs_live_search, true);
 });
 
