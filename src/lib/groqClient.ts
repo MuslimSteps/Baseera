@@ -58,15 +58,16 @@ export async function groqChat(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
   try {
+    const modelToUse = options.model || GROQ_TEXT_MODEL;
     const body: Record<string, any> = {
-      model: options.model || GROQ_TEXT_MODEL,
+      model: modelToUse,
       messages,
       temperature: options.temperature ?? 0.1,
       max_completion_tokens: options.maxTokens ?? 2048,
       ...(options.json ? { response_format: { type: 'json_object' } } : {})
     };
 
-    if (options.reasoningEffort && options.reasoningEffort !== 'none') {
+    if (options.reasoningEffort && options.reasoningEffort !== 'none' && modelToUse.includes('gpt-oss')) {
       body.reasoning_effort = options.reasoningEffort;
     }
 

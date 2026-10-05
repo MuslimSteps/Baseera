@@ -148,7 +148,8 @@ def title_intent_fit(title, intent, subject_tokens):
         if not has_subject:
             return -150
         score = 80
-        if "حكم" in t:
+        # Only reward "حكم" if it indicates a legal ruling, not phrases like "لا يرفع حكما"
+        if re.search(r"(?:^|[\s:؛-])(?:حكم|وحكمه|وحكمها|احكام)\b", t) and not re.search(r"(?:لا\s+يرفع|يرفع|يغير|تغير)\s+حكما", t):
             score += 80
         exact_phrase = "حكم " + " ".join(subject_tokens[:2])
         if len(subject_tokens) >= 1 and exact_phrase in t:
@@ -174,13 +175,23 @@ def title_intent_fit(title, intent, subject_tokens):
         return 120
     return -50
 
-def score_candidate(title, text, intent, subject_tokens):
+def score_candidate(title, text, intent, subject_tokens, breadcrumb=""):
     norm_title = norm_ar(title)
     norm_text = norm_ar(text)
+    norm_bc = norm_ar(breadcrumb)
     title_hits = sum(1 for token in subject_tokens if token and token in norm_title)
     text_hits = sum(1 for token in subject_tokens if token and token in norm_text)
+    bc_hits = sum(1 for token in subject_tokens if token and token in norm_bc)
+
     score = title_hits * 35 + min(text_hits, 5) * 3
     score += title_intent_fit(title, intent, subject_tokens)
+
+    # Breadcrumb topic authority: if the encyclopedia chapter itself is about the subject
+    if bc_hits > 0:
+        score += 120
+    elif norm_bc:
+        # Penalize articles belonging to entirely unrelated books/chapters
+        score -= 100
 
     # Stronger subject anchoring.
     if subject_tokens and all(token in norm_title for token in subject_tokens):
@@ -188,24 +199,51 @@ def score_candidate(title, text, intent, subject_tokens):
 
     # Generic topic words alone are not enough.
     answerable = (
-        (intent == "unknown" and title_hits > 0) or
-        (intent != "unknown" and title_hits > 0 and title_intent_fit(title, intent, subject_tokens) >= 60)
+        (intent == "unknown" and title_hits > 0 and score > 0) or
+        (intent != "unknown" and title_hits > 0 and title_intent_fit(title, intent, subject_tokens) >= 60 and score > 80)
     )
     return score, answerable, title_hits, text_hits
 
 def extract_article_fields(art):
     link = re.search(r'href="([^"]*)"', art, flags=re.I)
     title_match = re.search(r"<h[1-6][^>]*>([\s\S]*?)</h[1-6]>", art, flags=re.I)
+    bc_match = re.search(r'<span class="text-muted"[^>]*>([\s\S]*?)</span>', art, flags=re.I)
 
-    title = html_lib.unescape(re.sub(r"<[^>]+>", "", title_match.group(1)).strip()) if title_match else ""
+    h_title = html_lib.unescape(re.sub(r"<[^>]+>", "", title_match.group(1)).strip()) if title_match else ""
+    breadcrumb = html_lib.unescape(re.sub(r"<[^>]+>", " ", bc_match.group(1)).strip()) if bc_match else ""
+    breadcrumb = re.sub(r"\s+", " ", breadcrumb).strip()
+
+    # Clean citations and footnotes in h_title
+    h_title = re.sub(r"\[\d+\]", "", h_title)
+    h_title = re.sub(r"\(\([^)]*\)\)", "", h_title)
+    h_title = re.sub(r"^\d+\s*[-–]\s*", "", h_title).strip()
+    h_title = re.sub(r"^[)\]؛:\s.]+", "", h_title).strip()
+
+    # Clean breadcrumb: remove footnote definitions that dorar dumps into the breadcrumb span
+    breadcrumb_clean = re.sub(r'\[\d+\][\s\S]*?(?=اليَمينِ|اليمين|وحكم|صوره|$)', ' ', breadcrumb)
+    breadcrumb_clean = re.sub(r"\[\d+\]", "", breadcrumb_clean)
+    breadcrumb_clean = re.sub(r"\(\([^)]*\)\)", "", breadcrumb_clean)
+    breadcrumb_clean = re.sub(r"يُنظر:.*?(\d+/\d+|\))", "", breadcrumb_clean)
+    breadcrumb_clean = re.sub(r"\s+", " ", breadcrumb_clean).strip(' —-:')
+
+    # If h_title is just an excerpt snippet (has citation or quotes or continuation), prefer breadcrumb_clean
+    is_snippet = bool(re.search(r"قال\s+\w+|للموَّاق|للنووي|لابن|أخرجه|\)\)", h_title) or h_title.startswith("وال") or h_title.startswith(":"))
+    if breadcrumb_clean and (is_snippet or not h_title):
+        title = breadcrumb_clean
+    elif breadcrumb_clean and h_title and any(w in h_title for w in ["المطلب", "الفرع", "المبحث", "الفصل", "مسألة", "حكم"]):
+        title = f"{breadcrumb_clean} — {h_title}"
+    elif breadcrumb_clean:
+        title = breadcrumb_clean
+    else:
+        title = h_title
+
     text = html_lib.unescape(re.sub(r"<[^>]+>", " ", art))
     text = re.sub(r"\s+", " ", text).strip()
 
     rel_link = link.group(1) if link else ""
     full_link = rel_link if rel_link.startswith("http") else ("https://dorar.net" + rel_link)
-    title = re.sub(r"^\d+\s*[-–]\s*", "", title).strip()
 
-    return title, text, full_link
+    return title, text, full_link, breadcrumb_clean
 
 def fetch_article_details(article_url):
     """Fetch the source article itself; never generate or paraphrase its content."""
@@ -240,18 +278,19 @@ def build_queries(raw_query, intent, subject_tokens):
         queries.append(primary)
 
     subject = " ".join(subject_tokens)
-    if subject:
-        if intent != "unknown":
-            intent_term = INTENT_SEARCH_TERMS.get(intent, "")
-            if intent_term:
-                queries.append(f"{intent_term} {subject}")
-        queries.append(subject)
-
     if intent == "ruling" and subject:
         queries.extend([
             f"حكم {subject}",
             f"ما حكم {subject}",
         ])
+
+    if subject:
+        if intent != "unknown":
+            intent_term = INTENT_SEARCH_TERMS.get(intent, "")
+            if intent_term:
+                queries.append(f"{intent_term} {subject}")
+        if len(subject_tokens) > 1:
+            queries.append(subject)
 
     return list(dict.fromkeys(q for q in queries if len(q) >= 2))
 
@@ -353,11 +392,16 @@ def search_dorar_feqhia(raw_query):
             except Exception:
                 continue
 
-            for title, text, url in rows:
+            for row in rows:
+                if len(row) == 4:
+                    title, text, url, bc = row
+                else:
+                    title, text, url = row[:3]
+                    bc = ""
                 if not title and len(text) < 20:
                     continue
                 score, answerable, title_hits, text_hits = score_candidate(
-                    title, text, intent, subject_tokens
+                    title, text, intent, subject_tokens, bc
                 )
                 current = best_by_url.get(url)
                 candidate = {
@@ -413,7 +457,11 @@ def search_dorar_feqhia(raw_query):
                 candidates = canonical_candidates + candidates
                 answer_candidates = canonical_candidates
 
-        if not answer_candidates:
+        valid_candidates = [c for c in candidates if c.get("answerable") and c.get("score", 0) > 50]
+        if not valid_candidates and answer_candidates:
+            valid_candidates = [c for c in answer_candidates if c.get("score", 0) > 0]
+
+        if not valid_candidates:
             return {
                 "success": True,
                 "found": False,
@@ -422,19 +470,16 @@ def search_dorar_feqhia(raw_query):
                 "subject_tokens": subject_tokens,
                 "query_used": query,
                 "search_url": first_search_url,
-                "count": len(candidates),
-                "results": candidates[:10],
+                "count": 0,
+                "results": [],
             }
 
-        # The first candidate here has passed both subject and intent gates.
-        top = answer_candidates[0]
+        top = valid_candidates[0]
         detailed = fetch_article_details(top["url"])
         if detailed:
             top["detailed_ruling"] = detailed
 
-        # Never expose a "found" result unless it passed intent + subject gates.
-        # Always put the validated answer-bearing candidate first.
-        ordered = [top] + [c for c in candidates if c["url"] != top["url"]]
+        ordered = [top] + [c for c in valid_candidates if c["url"] != top["url"]]
         public_results = []
         for candidate in ordered[:10]:
             public_results.append({

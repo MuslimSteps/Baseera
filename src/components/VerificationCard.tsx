@@ -98,7 +98,7 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
                   icon: <Scale className="h-5 w-5 text-brand" />,
                   badge: 'status-badge bg-emerald-50 text-emerald-800 border-emerald-300',
                   panel: 'result-panel border-s-4 border-s-emerald-600 bg-emerald-50/20',
-                  label: 'مسألة فقهية موثقة'
+                  label: 'موثقة في المذاهب الأربعة'
                 }
               : isTafsir
                 ? {

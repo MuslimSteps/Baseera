@@ -531,6 +531,8 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           const addResults = (result: any) => {
             if (!result?.found) return;
             for (const row of result.allResults || []) {
+              if (row.answerable === false) continue;
+              if (typeof row.score === 'number' && row.score < 50) continue;
               const key = row.url || `${row.title}::${row.text?.slice(0, 160) || ''}`;
               if (!collected.has(key)) {
                 collected.set(key, {
@@ -540,7 +542,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
                 });
               }
             }
-            if (result.title || result.text) {
+            if ((result.title || result.text) && (result.answerable !== false)) {
               const key = result.url || `${result.title}::${result.text?.slice(0, 160) || ''}`;
               if (!collected.has(key)) {
                 collected.set(key, {
@@ -666,16 +668,16 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           let hasConsensusInSource = /(?:أجمع العلماء|أجمع أهل العلم|اتفاق أهل العلم|اتفاق العلماء|باتفاق العلماء|باتفاق الأئمة|بالإجماع|الدليل من الإجماع|نقل الإجماع|نقل الاتفاق|حكاية الإجماع|لا خلاف بين العلماء|أجمع المسلمون|إجماع أهل العلم)/i.test(fullTextForDispute);
           let hasDisputeIndicators = /(?:خلاف|اختلف|واختلفوا|القول الأول|القول الثاني|مذهب الحنفية|مذهب الشافعية|مذهب المالكية|مذهب الحنابلة|جمهور|ورواية|وفي قول|طائفة من السلف)/.test(fullTextForDispute);
 
-          if (/(?:الدليل من الإجماع|اتفاق أهل العلم|نقل الإجماع|نقل الاتفاق|باتفاق العلماء)/i.test(fullTextForDispute)) {
-            hasConsensusInSource = true;
-            hasDisputeIndicators = false;
+          // If explicit opposing opinions exist (القول الأول / القول الثاني), it is disputed by definition
+          if (/(?:القول الأول[\s\S]*?القول الثاني|اختلَفَ العُلَماءُ|اختلف العلماء)/i.test(fullTextForDispute)) {
+            hasDisputeIndicators = true;
           }
 
           try {
             const aiVerdict = await groqChat([
               {
                 role: 'system',
-                content: 'أنت باحث فقهي محقق في منصة بصيرة. أمامك سؤال فقهي ونص مسترجع من الموسوعة الفقهية المقارنة بالدرر السنية. مهمتك تحليل النص فقط دون أي اختلاق خارج النص:\n1. هل ينص المصدر على إجماع/اتفاق؟\n2. هل يذكر خلافاً بين المذاهب؟\n3. استخرج خلاصة الحكم المباشر في جملة واضحة وموجزة.\nأجب بـ JSON فقط: {"has_consensus": boolean, "is_disputed": boolean, "direct_ruling": string}'
+                content: 'أنت باحث فقهي محقق في منصة بصيرة. أمامك سؤال فقهي ونص مسترجع من الموسوعة الفقهية المقارنة بالدرر السنية. مهمتك تحليل النص فقط دون أي اختلاق خارج النص:\n1. هل ينص المصدر على إجماع/اتفاق تام، أم يذكر خلافاً بين المذاهب؟\n2. استخرج خلاصة الحكم المباشر في جملة واضحة وموجزة من النص.\nأجب بـ JSON فقط: {"has_consensus": boolean, "is_disputed": boolean, "direct_ruling": string}'
               },
               {
                 role: 'user',
@@ -685,11 +687,11 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
 
             const parsed = JSON.parse(aiVerdict);
             if (parsed && typeof parsed.has_consensus === 'boolean') {
-              if (parsed.has_consensus) {
+              if (parsed.has_consensus && !hasDisputeIndicators) {
                 hasConsensusInSource = true;
-                hasDisputeIndicators = false;
               } else if (parsed.is_disputed) {
                 hasDisputeIndicators = true;
+                hasConsensusInSource = false;
               }
             }
             if (parsed?.direct_ruling && typeof parsed.direct_ruling === 'string' && parsed.direct_ruling.length > 10) {
@@ -713,7 +715,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           const rulingPrefix = (fiqhResult as any).directRuling ? `الحكم المستنبط: ${(fiqhResult as any).directRuling} — ` : '';
 
           if (claimsConsensus) {
-            if (hasDisputeIndicators && !hasConsensusInSource) {
+            if (hasDisputeIndicators) {
               v.status_label_ar = 'دعوى إجماع غير صحيحة — المسألة خلافية بين المذاهب الأربعة';
               v.status_label_en = 'Incorrect Claim of Consensus — Disputed Across Four Madhhabs';
               v.reason = `${rulingPrefix}دعوى الإجماع غير صحيحة؛ فالمسألة خلافية مشهورة بين أئمة المذاهب الأربعة وفق ما وثقته الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»). تعددت أقوال المذاهب وأدلتهم بين مجيز ومانع ومفصل، ولا يصح ادعاء الإجماع فيها. راجع تفصيل الأقوال والأدلة من المصدر المعتمد أدناه.`;
@@ -727,9 +729,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
               v.reason = `${rulingPrefix}عُثر على مادة المسألة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»)، ولم يُنص في المصدر على وجود إجماع. راجع نص المادة المعتمدة أدناه.`;
             }
           } else {
-            v.status_label_ar = hasConsensusInSource
-              ? 'إجماع موثق في الموسوعة الفقهية المقارنة'
-              : 'مسألة فقهية موثقة في الموسوعة الفقهية (المذاهب الأربعة)';
+            v.status_label_ar = 'مسألة فقهية موثقة في الموسوعة الفقهية (المذاهب الأربعة)';
             v.status_label_en = 'Documented Fiqh Matter — Four Madhhabs Encyclopedia';
             v.reason = `${rulingPrefix}عُثر على مادة المسألة موثقة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}») مع تفصيل أقوال المذاهب الفقهية وأدلتها، والنص المعروض مأخوذ مباشرة من المادة المرجعية المعتمدة.`;
           }
