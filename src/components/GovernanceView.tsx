@@ -81,7 +81,7 @@ export const GovernanceView: React.FC = () => {
             حوكمة المنظومة و<span className="gradient-text">بروتوكول المراجعة</span>
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-            تلتزم «بصيرة» بأعلى معايير الانضباط العلمي والشرعي والأمني دون تهاون أو استبدال للمصادر.
+            تحدد الحوكمة ما يمكن لبصيرة إثباته، ومتى تتوقف عن الحكم، ومتى تطلب مراجعة بشرية.
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <span className="badge badge-gold">سياسة مراجعة بشرية</span>
@@ -135,7 +135,7 @@ export const GovernanceView: React.FC = () => {
         <div className="bento-card col-span-12 space-y-4 p-6 lg:col-span-6 reveal">
           <h3 className="flex items-center gap-2 font-display text-base font-bold text-ink">
             <Users className="h-5 w-5 text-gold" />
-            <span>كيف تُراجع النتائج الحساسة؟</span>
+            <span>كيف نتعامل مع النتائج الحساسة؟</span>
           </h3>
           <ul className="space-y-2 text-xs text-muted">
             <li className="flex items-start gap-2 rounded-xl border border-hairline bg-page p-3">
@@ -169,7 +169,7 @@ export const GovernanceView: React.FC = () => {
             </li>
             <li className="flex items-start gap-2 rounded-xl border border-hairline bg-page p-3">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
-              <span><strong className="text-ink">حدود مزودات الذكاء الاصطناعي:</strong> عند استخدام Gemini تُرسل المدخلات إلى Google، وتخضع معالجة البيانات لسياسة المزود وإعداداته.</span>
+              <span><strong className="text-ink">حدود مزودات الذكاء الاصطناعي:</strong> عند استخدام مزود الذكاء الاصطناعي، تُرسل المعالجة المطلوبة إلى مزود الخدمة وتخضع لسياسة الخصوصية وشروطه المعمول بها.</span>
             </li>
           </ul>
         </div>
