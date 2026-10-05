@@ -91,11 +91,11 @@ export async function rankCandidatesWithAI(
   const apiKey = getGroqKey();
   if (!apiKey || !inputText.trim() || candidates.length === 0) return null;
 
-  const compactCandidates = candidates.slice(0, 16).map(c => ({
+  const compactCandidates = candidates.slice(0, 8).map(c => ({
     id: c.id,
     source: c.source,
     title: c.title || '',
-    text: c.text.slice(0, 1400)
+    text: c.text.slice(0, 900)
   }));
 
   const prompt = `أنت طبقة مضاهاة دلالية في منظومة «بصيرة».
@@ -132,25 +132,17 @@ ${JSON.stringify(compactCandidates, null, 2)}
 
   try {
     const response = await Promise.race([
-      fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        signal: AbortSignal.timeout(timeoutMs),
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'qwen/qwen3.8-27b',
-          messages: [{ role: 'user', content: prompt }],
+      groqChat(
+        [{ role: 'user', content: prompt }],
+        {
+          model: GROQ_TEXT_MODEL,
           temperature: 0,
-          max_completion_tokens: 1024,
-          reasoning_effort: 'none',
-          response_format: { type: 'json_object' }
-        })
-      }).then(async r => {
-        if (!r.ok) throw new Error(`Groq API ${r.status}: ${(await r.text()).slice(0, 300)}`);
-        return (await r.json()).choices?.[0]?.message?.content || '';
-      }),
+          maxTokens: 768,
+          json: true,
+          reasoningEffort: 'medium',
+          timeoutMs
+        }
+      ),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('AI semantic match timeout')), timeoutMs)
       )
