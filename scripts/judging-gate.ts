@@ -13,6 +13,7 @@ import { buildHadithDecision } from '../src/lib/hadithVerifier.ts';
 import { enforceDecisionPolicy } from '../src/lib/decisionPolicy.ts';
 import { enforceApprovedCitations, isApprovedCitation, isApprovedSourceUrl } from '../src/lib/sourcePolicy.ts';
 import { isGroundedInInput } from '../src/lib/inputGrounding.ts';
+import { normalizeArabicStrict } from '../src/lib/normalizer.ts';
 import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from '../src/lib/dorarQueryUtils.ts';
 import { buildJamharaSearchUrl } from '../src/lib/jamharaClient.ts';
 import { buildQuranpediaAyahUrl, searchHafsAyahsLocal } from '../src/lib/quranpediaClient.ts';
@@ -118,7 +119,7 @@ test('deterministic Hafs source resolves the exact 75:1 wording', () => {
   const rows = searchHafsAyahsLocal('لا أقسم بيوم القيامة', 5);
   const row = rows.find(item => Number(item.surah) === 75 && item.number === 1);
   assert.ok(row, '75:1 was not found');
-  assert.match(row.text, /لآ?\s*أُ?قۡ?سُ?مُ?/u);
+  assert.equal(normalizeArabicStrict(row.text), normalizeArabicStrict('لا أقسم بيوم القيامة'));
 });
 
 test('deterministic Hafs source resolves the canonical 2:255 quotation', () => {
