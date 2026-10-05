@@ -87,12 +87,12 @@ def norm_ar(value):
     value = re.sub(r"[ً-ٰٟ]", "", value)
     value = re.sub(r"[إأآا]", "ا", value)
     value = value.replace("ى", "ي").replace("ة", "ه")
-    value = re.sub(r"\\s+", " ", value).strip()
+    value = re.sub(r"\s+", " ", value).strip()
     return value
 
 def clean_raw_query(raw_text):
     value = re.sub(r"[«»"“؟?.,!؛،]", " ", raw_text or "")
-    return re.sub(r"\\s+", " ", value).strip()[:180]
+    return re.sub(r"\s+", " ", value).strip()[:180]
 
 def infer_intent(raw_text):
     normalized = norm_ar(raw_text)
@@ -142,7 +142,7 @@ def title_intent_fit(title, intent, subject_tokens):
         # Critical distinction:
         # "حكم مشروعية الختان وفوائده" is a wisdom/benefits section, not the
         # legal-ruling section "حكم الختان".
-        if re.search(r"حكم\\s+مشروعيه|حكم\\s+فوائد|الحكمه|حكم\\s+فوائده", t):
+        if re.search(r"حكم\s+مشروعيه|حكم\\s+فوائد|الحكمه|حكم\\s+فوائده", t):
             return -120
         if "حكم" in t:
             score = 100
@@ -198,7 +198,7 @@ def extract_article_fields(art):
 
     title = html_lib.unescape(re.sub(r"<[^>]+>", "", title_match.group(1)).strip()) if title_match else ""
     text = html_lib.unescape(re.sub(r"<[^>]+>", " ", art))
-    text = re.sub(r"\\s+", " ", text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
 
     rel_link = link.group(1) if link else ""
     full_link = rel_link if rel_link.startswith("http") else ("https://dorar.net" + rel_link)
@@ -220,7 +220,7 @@ def fetch_article_details(article_url):
         chunk = source_html[pos:pos + 7000]
         chunk = re.sub(r'<span class="tip"[^>]*>[\s\S]*?</span>', "", chunk)
         clean = re.sub(r"<[^>]+>", " ", chunk)
-        clean = html_lib.unescape(re.sub(r"\\s+", " ", clean)).strip()
+        clean = html_lib.unescape(re.sub(r"\s+", " ", clean)).strip()
         clean = re.sub(r'^w-100 mt-4\\s*["\'>\s]*', "", clean)
 
         for marker in ["المادة في سؤال وجواب", "انظر أيضا", "الرابط المختصر"]:
@@ -289,7 +289,7 @@ def search_index_for_subject(subject_tokens, intent):
     by_url = {}
     for href, anchor_html in rows:
         title = html_lib.unescape(re.sub(r"<[^>]+>", " ", anchor_html))
-        title = re.sub(r"\\s+", " ", title).strip()
+        title = re.sub(r"\s+", " ", title).strip()
         url = href if href.startswith("http") else "https://dorar.net" + href
         if not title:
             continue
