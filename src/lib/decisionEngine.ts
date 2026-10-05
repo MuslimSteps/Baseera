@@ -32,13 +32,45 @@ import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from './dorarQueryUtils.ts'
  */
 
 export function verifySingleItemCrossSource(item: ExtractedItem): VerificationResult {
-  const scope = (item as any).verification_scope as 'quran' | 'hadith' | 'term' | 'fiqh' | 'auto' | undefined;
+  const scope = (item as any).verification_scope as 'quran' | 'hadith' | 'tafsir' | 'aqeedah' | 'term' | 'fiqh' | 'auto' | undefined;
 
   // An explicit category selected by the user is a hard source boundary.
   // Never search other religious corpora as a fallback.
   if (scope === 'quran' && item.type === 'ayah') return verifyQuranAyah(item);
   if (scope === 'hadith' && item.type === 'hadith') return verifyHadith(item);
   if (scope === 'term' && item.type === 'term') return verifyIslamicTerm(item);
+  if (scope === 'tafsir' && item.type === 'tafsir_question') return {
+    id: `tafsir-pending-${Date.now()}`,
+    item,
+    status: 'NOT_FOUND_IN_CHECKED_SOURCES',
+    status_label_ar: 'سيجري البحث في موسوعة التفسير المعتمدة',
+    status_label_en: 'Will Search Approved Tafsir Encyclopedia',
+    reason: 'سيجري البحث في موسوعة التفسير المعتمدة فقط.',
+    citation: {
+      source_id: 'quran-tafsir-salaf',
+      source_name: 'موسوعة التفسير — الدرر السنية',
+      authority: 'منصة الدرر السنية',
+      url: buildDorarTafsirUrl(item.text)
+    },
+    decision_level: 'B',
+    _needs_live_search: true
+  } as VerificationResult;
+  if (scope === 'aqeedah' && item.type === 'aqeedah_question') return {
+    id: `aqeedah-pending-${Date.now()}`,
+    item,
+    status: 'NOT_FOUND_IN_CHECKED_SOURCES',
+    status_label_ar: 'سيجري البحث في الموسوعة العقدية المعتمدة',
+    status_label_en: 'Will Search Approved Aqeedah Encyclopedia',
+    reason: 'سيجري البحث في الموسوعة العقدية المعتمدة فقط.',
+    citation: {
+      source_id: 'dorar-aqeedah',
+      source_name: 'الموسوعة العقدية — الدرر السنية',
+      authority: 'منصة الدرر السنية',
+      url: buildDorarAqeedahUrl(item.text)
+    },
+    decision_level: 'B',
+    _needs_live_search: true
+  } as VerificationResult;
   if (scope === 'fiqh' && item.type === 'fiqh_question') return verifyFiqhQuestion(item);
   // 1. If claimed/tagged as Ayah
   if (item.type === 'ayah') {
