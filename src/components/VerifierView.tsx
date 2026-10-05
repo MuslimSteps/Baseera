@@ -14,6 +14,7 @@ import {
   ScrollText,
   Languages,
   Scale,
+  BookOpenCheck,
   X
 } from 'lucide-react';
 import { AnalysisReport } from '../types/baseera.ts';
@@ -21,11 +22,13 @@ import { VerificationCard } from './VerificationCard.tsx';
 import { apiFetch } from '../lib/apiClient.ts';
 
 type InputKind = 'text' | 'url' | 'image' | 'audio';
-type VerifyCategory = 'ayah' | 'hadith' | 'term' | 'fiqh_question';
+type VerifyCategory = 'ayah' | 'hadith' | 'tafsir_question' | 'aqeedah_question' | 'term' | 'fiqh_question';
 
 const CATEGORIES: Array<{ id: VerifyCategory; label: string; hint: string; icon: React.ReactNode }> = [
-  { id: 'ayah', label: 'القرآن', hint: 'المصحف فقط', icon: <BookOpen /> },
+  { id: 'ayah', label: 'القرآن', hint: 'المصحف', icon: <BookOpen /> },
   { id: 'hadith', label: 'الحديث', hint: 'الدرر السنية', icon: <ScrollText /> },
+  { id: 'tafsir_question', label: 'التفسير', hint: 'موسوعة التفسير', icon: <BookOpenCheck /> },
+  { id: 'aqeedah_question', label: 'العقيدة', hint: 'الموسوعة العقدية', icon: <ShieldCheck /> },
   { id: 'term', label: 'مصطلح', hint: 'الجمهرة', icon: <Languages /> },
   { id: 'fiqh_question', label: 'فقه', hint: 'الموسوعة الفقهية', icon: <Scale /> }
 ];
@@ -345,7 +348,11 @@ export const VerifierView: React.FC = () => {
                       ? 'ألصق نص الحديث…'
                       : category === 'term'
                         ? 'اكتب المصطلح الذي تريد التحقق منه…'
-                        : 'اكتب السؤال الفقهي…'
+                        : category === 'tafsir_question'
+                          ? 'اكتب سؤالك في التفسير…'
+                          : category === 'aqeedah_question'
+                            ? 'اكتب سؤالك في العقيدة…'
+                            : 'اكتب السؤال الفقهي…'
               }
               className="main-textarea"
             />
