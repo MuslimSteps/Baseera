@@ -78,8 +78,7 @@ export default function App() {
               </span>
               <span className="min-w-0 text-right">
                 <span className="block truncate font-display text-[20px] font-bold leading-none tracking-tight">بصيرة</span>
-                <span className="mt-1 hidden text-[11px] font-medium text-muted sm:block">تحقق. افهم. انشر بثقة.</span>
-              </span>
+               </span>
             </button>
 
             <div className="hidden h-8 w-px bg-line lg:block" aria-hidden="true" />
@@ -104,12 +103,7 @@ export default function App() {
             </nav>
 
             <div className="mr-auto flex items-center gap-2">
-              <span className="hidden items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted xl:flex">
-                <span className="h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
-                المراجع تُفحص عند الطلب
-              </span>
-
-              <button
+               {activeTab !== 'verifier' && <button
                 type="button"
                 onClick={() => go('verifier')}
                 className="btn btn-primary min-h-11 px-4 sm:px-5"
@@ -117,7 +111,7 @@ export default function App() {
                 <ShieldCheck className="h-4 w-4" />
                 <span className="hidden sm:inline">ابدأ الفحص</span>
                 <span className="sm:hidden">فحص</span>
-              </button>
+              </button>}
 
               <button
                 type="button"
@@ -159,7 +153,7 @@ export default function App() {
         </div>
       </header>
 
-      {activeTab !== 'home' && (
+      {activeTab !== 'home' && activeTab !== 'verifier' && (
         <div className="mx-auto flex max-w-[1380px] items-center gap-2 px-4 pb-3 pt-4 text-xs text-muted sm:px-6 lg:px-8">
           <button type="button" onClick={() => go('home')} className="breadcrumb-link">
             الرئيسية
