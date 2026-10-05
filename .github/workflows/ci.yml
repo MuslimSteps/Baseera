@@ -32,5 +32,8 @@ jobs:
       - name: Judging gate
         run: npm run test
 
+      - name: Fiqh connector self-test
+        run: npm run test:fiqh
+
       - name: Production build
         run: npm run build
