@@ -13,7 +13,7 @@ import { verifyQuranAyah } from '../src/lib/quranVerifier.ts';
 import { verifyIslamicTerm } from '../src/lib/terminologyEngine.ts';
 import { verifyFiqhQuestion, isSensitiveFiqhQuestion } from '../src/lib/fiqhEngine.ts';
 import { buildHadithDecision } from '../src/lib/hadithVerifier.ts';
-import { normalizeArabicStrict } from '../src/lib/normalizer.ts';
+import { normalizeArabic, normalizeArabicStrict } from '../src/lib/normalizer.ts';
 import { runBaseeraBenchmark } from '../src/lib/benchmarkRunner.ts';
 import { getAllFrozenBenchmarkCases, getRobustnessBenchmarkCases } from '../src/lib/benchmarkData.ts';
 import { APPROVED_SOURCE_IDS, enforceApprovedCitations, isApprovedSourceUrl } from '../src/lib/sourcePolicy.ts';
@@ -189,7 +189,7 @@ test('Altered Ayat al-Kursi is matched to the correct verse, not the first verse
   assert.equal(result.citation.number_or_page, 'الآية: 255');
   assert.equal(result.canonical_surah, 'البقرة');
   assert.equal(result.canonical_ayah_number, 255);
-  assert.match(result.canonical_text || '', /القيوم/);
+  assert.ok(normalizeArabic(result.canonical_text || '').includes(normalizeArabic('القيوم')));
 });
 
 test('Altered Quranic word is explicitly classified as wording corruption, not generic review', () => {
