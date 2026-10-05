@@ -33,6 +33,11 @@ await run(
   (value: any) => 'found=' + Boolean(value?.found) + ' title=' + (value?.title || '') + ' url=' + (value?.url || '')
 );
 await run(
+  'Dorar Fiqh — wudu ruling regression',
+  () => searchDorarFiqhLive('ما حكم الوضوء؟'),
+  (value: any) => 'found=' + Boolean(value?.found) + ' title=' + (value?.title || '') + ' url=' + (value?.url || '')
+);
+await run(
   'Dorar Tafsir',
   () => searchDorarTafsirLive('تفسير سورة الفاتحة'),
   (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
