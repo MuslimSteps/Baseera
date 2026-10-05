@@ -285,7 +285,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           }
 
           const candidateRows = Array.from(collected.values()).slice(0, 16);
-          if (candidateRows.length > 1) {
+          if (candidateRows.length > 0) {
             const aiCandidates = candidateRows.map((row, index) => ({
               id: `fiqh-${index}`,
               source: 'fiqh-madhahib-dorar',
