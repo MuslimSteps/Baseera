@@ -468,9 +468,9 @@ const FIQH_GENERIC_STOPWORDS = new Set([
 
 function inferFiqhIntentForFallback(query: string): 'ruling' | 'benefits' | 'definition' | 'timing' | 'conditions' | 'unknown' {
   const n = normalizeArabic(query || '');
-  if (/ما\\s+(?:هو\\s+)?حكم|هل\\s+(?:يجوز|يجب|يصح|يحرم)|\\b(?:حكم|واجب|فرض|حرام|مكروه|مستحب|جائز)\\b/i.test(n)) return 'ruling';
-  if (/فوائد|الحكمه|حكمة|لماذا\\s+شرع/i.test(n)) return 'benefits';
-  if (/تعريف|ما\\s+معنى|معنى/i.test(n)) return 'definition';
+  if (/ما\s+(?:هو\s+)?حكم|هل\s+(?:يجوز|يجب|يصح|يحرم)|\b(?:حكم|واجب|فرض|حرام|مكروه|مستحب|جائز)\b/i.test(n)) return 'ruling';
+  if (/فوائد|الحكمه|حكمة|لماذا\s+شرع/i.test(n)) return 'benefits';
+  if (/تعريف|ما\s+معنى|معنى/i.test(n)) return 'definition';
   if (/متى|وقت/i.test(n)) return 'timing';
   if (/شروط|يشترط/i.test(n)) return 'conditions';
   return 'unknown';
@@ -479,16 +479,16 @@ function inferFiqhIntentForFallback(query: string): 'ruling' | 'benefits' | 'def
 function getFiqhSubjectTokensForFallback(query: string): string[] {
   const n = normalizeArabic(query || '');
   return n
-    .split(/\\s+/)
+    .split(/\s+/)
     .map(w => w.replace(/^ال/, ''))
-    .map(w => w.replace(/[^\\u0621-\\u064Aa-zA-Z0-9_-]/g, ''))
+    .map(w => w.replace(/[^\u0621-\u064Aa-zA-Z0-9_-]/g, ''))
     .filter(w => w.length >= 3 && !FIQH_GENERIC_STOPWORDS.has(w))
     .filter((w, i, arr) => arr.indexOf(w) === i)
     .slice(0, 5);
 }
 
 function stripDorarHtml(value: string): string {
-  return decodeHtmlEntities(value.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim());
+  return decodeHtmlEntities(value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
 }
 
 function decodeHtmlEntities(value: string): string {
@@ -503,22 +503,25 @@ function decodeHtmlEntities(value: string): string {
 
 function parseDorarFiqhSearchArticles(html: string): Array<{ title: string; text: string; url: string }> {
   if (!html) return [];
-  const articles = html.match(/<article[^>]*>[\\s\\S]*?<\\/article>/gi) || [];
+  const articles = html.match(/<article[^>]*>[\s\S]*?<\/article>/gi) || [];
   const results: Array<{ title: string; text: string; url: string }> = [];
+
   for (const article of articles.slice(0, 20)) {
-    const href = article.match(/href=["']([^"']*\\/feqhia\\/\\d+[^"']*)["']/i)?.[1] || '';
-    const h = article.match(/<h[1-6][^>]*>([\\s\\S]*?)<\\/h[1-6]>/i)?.[1] || '';
+    const href = article.match(/href=["']([^"']*\/feqhia\/\d+[^"']*)["']/i)?.[1] || '';
+    const h = article.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1] || '';
     const title = stripDorarHtml(h);
     const text = stripDorarHtml(article);
     if (!title || !href) continue;
+
     const url = href.startsWith('http') ? href : 'https://dorar.net' + href;
     results.push({ title, text: text.slice(0, 1800), url });
   }
+
   return results;
 }
 
 async function searchDorarFiqhHttpFallback(query: string): Promise<DorarFiqhLiveResult | null> {
-  const clean = query.replace(/[«»"“؟?.,!]/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 180);
+  const clean = query.replace(/[«»"“؟?.,!]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180);
   if (!clean) return null;
 
   try {
@@ -530,22 +533,27 @@ async function searchDorarFiqhHttpFallback(query: string): Promise<DorarFiqhLive
         'Accept-Language': 'ar,en;q=0.9'
       }
     });
+
     if (!response.ok) return null;
+
     const html = await readTextWithLimit(response, 1_500_000);
     const rows = parseDorarFiqhSearchArticles(html);
     if (!rows.length) return null;
 
     const intent = inferFiqhIntentForFallback(clean);
     const subjects = getFiqhSubjectTokensForFallback(clean);
+
     const scored = rows.map(row => {
       const title = normalizeArabic(row.title);
       const body = normalizeArabic(row.text);
       const subjectHits = subjects.filter(token => title.includes(token)).length;
       const bodyHits = subjects.filter(token => body.includes(token)).length;
+
       let score = subjectHits * 80 + Math.min(bodyHits, 6) * 8;
+
       if (intent === 'ruling') {
         if (title.includes('حكم')) score += 120;
-        if (/حكم\\s+مشروعيه|حكم\\s+فوائد|فوائد/.test(title)) score -= 140;
+        if (/حكم\s+مشروعيه|حكم\s+فوائد|فوائد/.test(title)) score -= 140;
       } else if (intent === 'benefits' && /فوائد|حكمة|حكمه/.test(title)) {
         score += 120;
       } else if (intent === 'definition' && /تعريف|معنى/.test(title)) {
@@ -555,8 +563,12 @@ async function searchDorarFiqhHttpFallback(query: string): Promise<DorarFiqhLive
       } else if (intent === 'conditions' && /شروط|يشترط/.test(title)) {
         score += 120;
       }
-      const answerable = subjects.length > 0 && (subjectHits > 0 || bodyHits >= 2) &&
+
+      const answerable =
+        subjects.length > 0 &&
+        (subjectHits > 0 || bodyHits >= 2) &&
         (intent === 'unknown' || intent !== 'ruling' || title.includes('حكم') || body.includes('حكم'));
+
       return { ...row, score, answerable };
     }).sort((a, b) => b.score - a.score);
 
@@ -565,6 +577,7 @@ async function searchDorarFiqhHttpFallback(query: string): Promise<DorarFiqhLive
 
     const article = await fetchDorarFiqhArticle(top.url);
     const detailedRuling = article?.text || top.text;
+
     return {
       found: true,
       title: article?.title || top.title,
