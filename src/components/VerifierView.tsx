@@ -25,7 +25,7 @@ import { AnalysisReport } from '../types/baseera.ts';
 import { VerificationCard } from './VerificationCard.tsx';
 import { extractItemsRuleBased } from '../lib/extractor.ts';
 import { verifyExtractedItems } from '../lib/decisionEngine.ts';
-import { apiFetch } from '../lib/apiClient.ts';
+import { apiFetch, API_BASE_URL } from '../lib/apiClient.ts';
 
 // Pre-defined realistic test cases for one-click verification demo
 const SAMPLE_PRESETS = [
@@ -139,9 +139,13 @@ export const VerifierView: React.FC = () => {
   const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('simple');
 
   useEffect(() => {
+    console.log('[BASEERA][CLIENT][BOOT]', JSON.stringify({ apiBaseUrl: API_BASE_URL || '(same-origin)', location: window.location.href }));
     let mounted = true;
     apiFetch('/api/ai-status')
-      .then(async res => res.ok ? await res.json() : null)
+      .then(async res => {
+        console.log('[BASEERA][CLIENT][AI_STATUS_RESPONSE]', JSON.stringify({ ok: res.ok, status: res.status, serverVersion: res.headers.get('X-Baseera-Server-Version') }));
+        return res.ok ? await res.json() : null;
+      })
       .then(data => { if (mounted && data) setAiStatus(data); })
       .catch(() => { if (mounted) setAiStatus(null); });
     return () => { mounted = false; };
@@ -275,6 +279,7 @@ export const VerifierView: React.FC = () => {
 
     setIsProcessing(true);
     setErrorMsg(null);
+    console.log('[BASEERA][CLIENT][VERIFY_START]', JSON.stringify({ apiBaseUrl: API_BASE_URL || '(same-origin)', location: window.location.href, inputType, inputLength: inputText.length, inputPreview: inputText.slice(0, 160) }));
 
     try {
       const payload: any = {
@@ -307,12 +312,15 @@ export const VerifierView: React.FC = () => {
           throw new Error(data?.error || `فشل خادم التحقق (HTTP ${res.status}).`);
         }
 
+        console.log('[BASEERA][CLIENT][VERIFY_RESPONSE]', JSON.stringify({ ok: res.ok, status: res.status, serverVersion: res.headers.get('X-Baseera-Server-Version'), reportPresent: Boolean(data?.report), overallStatus: data?.report?.overall_status, summary: data?.report?.summary_ar, verifications: data?.report?.verifications?.map((v: any) => ({ type: v?.item?.type, text: v?.item?.text?.slice(0, 120), status: v?.status, citationUrl: v?.citation?.url || null, aiMatch: v?.ai_match || null })) }));
+
         if (data?.report) {
           fetchedReport = data.report;
         } else {
           throw new Error('لم يُرجع خادم التحقق تقريرًا صالحًا.');
         }
       } catch (networkErr: any) {
+        console.error('[BASEERA][CLIENT][VERIFY_NETWORK_ERROR]', networkErr);
         backendUnavailable = true;
         console.error('Backend verification unavailable:', networkErr);
       }
