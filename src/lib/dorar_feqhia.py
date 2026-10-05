@@ -31,6 +31,9 @@ GENERIC_STOP_WORDS = {
     "ما", "هو", "هي", "في", "من", "على", "عن", "الى", "إلى", "مع", "بعد",
     "قبل", "ان", "إن", "هل", "لا", "أن", "يكون", "تكون", "الشرع", "شرع",
     "الشرعي", "الشريعة", "الإسلام", "الإسلامي", "الفقه", "الدين", "رأي",
+    "حول", "آراء", "الآراء", "تبعات", "التبعات", "أثر", "الآثار", "قول",
+    "الأقوال", "مسألة", "المسألة", "أمر", "الأمر", "بيان", "المراد", "معنى",
+    "بين", "أو", "ثم", "إذا", "هذا", "هذه", "ذلك", "تلك", "كل", "جميع",
 }
 
 INTENT_PATTERNS = [
@@ -139,17 +142,21 @@ def title_intent_fit(title, intent, subject_tokens):
         return 0
 
     if intent == "ruling":
-        # Critical distinction:
-        # "حكم مشروعية الختان وفوائده" is a wisdom/benefits section, not the
-        # legal-ruling section "حكم الختان".
-        if re.search(r"حكم\s+مشروعيه|حكم\s+فوائد|الحكمه|حكم\s+فوائده|لمشروعيه|حكم\s+عظيمه", t):
+        # Distinguish wisdom/philosophy sections from actual legal rulings
+        if re.search(r"(?:حكمه|حكمة)\s+مشروعيه|حكم\s+فوائد|الحكمه|حكم\s+فوائده|لمشروعيه|حكم\s+عظيمه", t):
             return -120
         has_subject = bool(subject_tokens and any(token in t for token in subject_tokens))
         if not has_subject:
             return -150
+
+        # An article answering a legal ruling ("ما حكم...") MUST contain a ruling indicator in its title
+        has_ruling_word = bool(re.search(r"(?:^|[\s:؛-])(?:حكم|وحكمه|وحكمها|احكام|تحريم|وجوب|كراهه|جواز|اباحه|مشروعيه)\b", t))
+        if not has_ruling_word and not re.search(r"^(?:المطلب|الفرع|المبحث)\s+\w+:\s*حكم", t):
+            return -120
+
         score = 80
-        # Only reward "حكم" if it indicates a legal ruling, not phrases like "لا يرفع حكما"
-        if re.search(r"(?:^|[\s:؛-])(?:حكم|وحكمه|وحكمها|احكام)\b", t) and not re.search(r"(?:لا\s+يرفع|يرفع|يغير|تغير)\s+حكما", t):
+        # Reward explicit ruling indicator (avoiding phrases like "لا يرفع حكما")
+        if has_ruling_word and not re.search(r"(?:لا\s+يرفع|يرفع|يغير|تغير)\s+حكما", t):
             score += 80
         exact_phrase = "حكم " + " ".join(subject_tokens[:2])
         if len(subject_tokens) >= 1 and exact_phrase in t:

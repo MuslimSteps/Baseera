@@ -42,7 +42,7 @@ export async function generateSourceSearchQueriesWithAI(
   const instructions = {
     quran: 'تحليل النص للبحث في المصدر القرآني المعتمد فقط. استخرج عبارات قصيرة مميزة من النص أو المعنى المطلوب، دون تحديد سورة أو آية من معرفتك ودون إنشاء نص قرآني.',
     hadith: 'تحليل النص للبحث في الموسوعة الحديثية المعتمدة فقط. استخرج عبارات قصيرة مميزة من المتن أو المعنى، دون إنشاء حديث أو تخريج أو حكم.',
-    fiqh: 'تحليل السؤال لتحسين البحث في الموسوعة الفقهية المعتمدة فقط. استخرج المفهوم الفقهي وعبارات بحث قصيرة، دون إصدار حكم أو ترجيح.',
+    fiqh: 'تحليل السؤال لاستخراج صلب موضوع المسألة الفقهية وعبارات بحث دقيقة للبحث في الموسوعة الفقهية. اكتب فقط أسماء الأبواب أو المسائل الشرعية المباشرة دون حشو (مثل: "حكم الكذب"، "تحريم الكذب"، "شهادة الزور"، "الكذب في اليمين"). ممنوع منعاً باتاً استخدام كلمات الحشو مثل "حول" أو "الآراء" أو "التبعات" أو "في الفقه".',
     terminology: 'تحليل المصطلح وسياقه لتحسين البحث في مصدر المصطلحات المعتمد فقط. استخرج صيغ بحث قصيرة محتملة دون إنشاء تعريف.'
   }[domain];
 
@@ -69,7 +69,7 @@ ${question}
 أعد JSON فقط:
 {"queries":["عبارة بحث 1","عبارة بحث 2","عبارة بحث 3","عبارة بحث 4","عبارة بحث 5"]}
 
-اجعل العبارات قصيرة ومحددة ومختلفة في الصياغة، ولا تكرر المدخل حرفيًا إذا كانت صياغة أوضح أنسب للبحث.`
+اجعل العبارات قصيرة ومحددة ومختلفة في الصياغة، ومقتصرة على صلب الموضوع، ولا تكرر المدخل حرفيًا إذا كانت صياغة أوضح أنسب للبحث.`
     }],
     {
       model: GROQ_TEXT_MODEL,
@@ -86,8 +86,9 @@ ${question}
     return [...new Set(
       parsed.queries
         .filter((q): q is string => typeof q === 'string')
-        .map(q => q.trim())
+        .map(q => q.replace(/[«»"“؟?.,!؛،]/g, ' ').replace(/\s+/g, ' ').trim())
         .filter(q => q.length >= 2)
+        .filter(q => !/\b(?:حول|الآراء|التبعات|الآثار المترتبة)\b/.test(q))
     )].slice(0, 5);
   } catch {
     return [];
@@ -148,6 +149,80 @@ export async function generateFiqhSearchQueriesWithAI(question: string): Promise
   return generateSourceSearchQueriesWithAI('fiqh', question);
 }
 
+export interface QuestionDecomposition {
+  core_subject: string;
+  subject_tokens: string[];
+  intent: 'ruling' | 'definition' | 'conditions' | 'consensus' | 'evidence' | 'general';
+  search_queries: string[];
+}
+
+export async function understandQuestionWithAI(
+  question: string
+): Promise<QuestionDecomposition | null> {
+  const apiKey = getGroqKey();
+  if (!apiKey || !question.trim()) return null;
+
+  try {
+    const raw = await groqChat(
+      [{
+        role: 'user',
+        content: `أنت محلل أسئلة شرعية في منصة «بصيرة».
+حلل السؤال التالي لاستخراج الموضوع الفقهي/الشرعي بدقة بالغة وبناء استعلامات بحث نقية ومباشرة لموسوعة الدرر السنية.
+
+القواعد الإلزامية:
+1. استخرج الموضوع الرئيسي المجرد (مثل: "الكذب"، "اللغو"، "الختان"، "صلاة الاستسقاء").
+2. استخرج جذور/كلمات الموضوع الأساسية بدون أل التعريف وبدون حشو.
+3. حدد القصد (حكم شرعي: ruling، إجماع: consensus، تعريف: definition، شروط: conditions).
+4. اكتب 3-5 استعلامات بحث قصيرة ونقية جداً للبحث في الدرر السنية. ممنوع منعاً باتاً كلمات الحشو مثل (حول، الآراء، التبعات، في الفقه، أقوال العلماء).
+
+السؤال:
+<<<
+${question}
+>>>
+
+أعد JSON فقط بهذا الشكل:
+{
+  "core_subject": "الموضوع المجرد",
+  "subject_tokens": ["جذر1", "جذر2"],
+  "intent": "ruling",
+  "search_queries": ["حكم كذا", "تحريم كذا", "كذا"]
+}`
+      }],
+      {
+        model: GROQ_TEXT_MODEL,
+        temperature: 0.1,
+        maxTokens: 512,
+        json: true,
+        timeoutMs: 6000
+      }
+    );
+
+    const parsed = JSON.parse(String(raw));
+    if (parsed && typeof parsed.core_subject === 'string') {
+      const rawTokens = parsed.subject_tokens || parsed.tokens || [parsed.core_subject];
+      const subjectTokens = Array.isArray(rawTokens)
+        ? rawTokens.filter((t: any): t is string => typeof t === 'string' && t.length >= 2)
+        : [];
+
+      const rawQueries = parsed.search_queries || parsed.search_quests || parsed.queries || [];
+      const queries = Array.isArray(rawQueries)
+        ? rawQueries.filter((q: any): q is string => typeof q === 'string' && q.length >= 2)
+        : [];
+
+      return {
+        core_subject: parsed.core_subject.trim(),
+        subject_tokens: subjectTokens.length > 0 ? subjectTokens : [parsed.core_subject.trim()],
+        intent: parsed.intent || 'ruling',
+        search_queries: queries.length > 0 ? queries : [parsed.core_subject.trim()]
+      };
+    }
+  } catch (err: any) {
+    console.warn('[BASEERA][AI][UNDERSTAND_QUESTION][ERROR]', err?.message);
+  }
+
+  return null;
+}
+
 export async function rankCandidatesWithAI(
   kind: 'quran' | 'hadith' | 'fiqh' | 'terminology',
   inputText: string,
@@ -177,7 +252,7 @@ export async function rankCandidatesWithAI(
 4) لا تختر مرشحاً إلا من القائمة المرسلة حرفياً بالمعرّف id.
 5) في القرآن: تعامل مع اختلاف التشكيل، أخطاء OCR، حذف/تبديل كلمة، أو اقتباس جزء من الآية؛ المطلوب اكتشاف الآية المرجعية المحتملة فقط.
 7) في الفقه: اختر المرشح الذي يعالج المسألة الفقهية المستفتى عنها كـ«موضوع رئيسي ومباشر» (مثلاً: السؤال عن حكم اللغو يتناول لغو اليمين وصوره وحكمه، وليس حكمة زكاة الفطر أو الحج أو النكاح لمجرد ورود لفظ عارض).
-8) إذا كانت المرشحات غير مرتبطة بصلب النص، أعد candidate_id = null.
+8) إذا كانت المرشحات تتناول موضوعاً آخر مختلفاً عن المسألة (مثل صلاة الاستسقاء أو زكاة الفطر أو شروط اللعان لسؤال عن الكذب)، أعد candidate_id = null فوراً. ممنوع منعاً باتاً اختيار أي مرشح لا يتطابق موضوعه مع صلب السؤال.
 9) «altered» تعني أن المرشح يبدو الأصل المرجعي للنص المدخل مع وجود تغيير/استبدال في اللفظ.
 10) «partial» تعني أن المدخل اقتباس من جزء المرشح.
 11) نتيجة الذكاء الاصطناعي ليست حكماً نهائياً؛ سيجري التحقق آلياً من النص المصدر بعد ذلك.

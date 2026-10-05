@@ -226,7 +226,39 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
   // still verified against the live approved source before being accepted.
 
 
-  // 4. Fiqh Question patterns
+  // 4. Tafsir Question patterns
+  const isTafsirQuestionText =
+    /(?:^|\s)(?:تفسير|ما\s*تفسير|معنى\s*الآية|معنى\s*قوله\s*تعالى|تأويل|بيان\s*الآية)(?:\s|$)/i.test(text) ||
+    text.startsWith('تفسير ');
+
+  if (isTafsirQuestionText) {
+    items.push({
+      type: 'tafsir_question',
+      text: text,
+      context: text,
+      language: 'ar',
+      location_in_input: 'full question',
+      confidence: 0.96
+    });
+  }
+
+  // 5. Aqeedah Question patterns
+  const isAqeedahQuestionText =
+    /(?:^|\s)(?:توحيد|أركان\s*الإيمان|عقيدة|العقيدة|صفات\s*الله|أسماء\s*الله|القضاء\s*والقدر|اليوم\s*الآخر|أشراط\s*الساعة)(?:\s|$)/i.test(text) ||
+    text.includes('توحيد الألوهية') || text.includes('توحيد الربوبية') || text.includes('توحيد الأسماء والصفات');
+
+  if (isAqeedahQuestionText) {
+    items.push({
+      type: 'aqeedah_question',
+      text: text,
+      context: text,
+      language: 'ar',
+      location_in_input: 'full question',
+      confidence: 0.95
+    });
+  }
+
+  // 6. Fiqh Question patterns
   // High-consequence religious/legal terms are routed to the fiqh safety path
   // even when the user omits an explicit phrase such as "ما حكم".
   const isSensitiveFiqhTerm =
@@ -241,7 +273,7 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
     text.includes('حكم ') ||
     isSensitiveFiqhTerm;
 
-  if (isFiqhQuestionText) {
+  if (isFiqhQuestionText && !isTafsirQuestionText && !isAqeedahQuestionText) {
     // Only add if not already extracting an ayah or hadith solely
     items.push({
       type: 'fiqh_question',
@@ -253,7 +285,27 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
     });
   }
 
-  // 5. Fallback: If no items detected at all, treat the entire string as candidate claim
+  // 7. Standalone Islamic Terminology (e.g. "الاستصحاب", "القياس", "الإجماع")
+  const isSingleIslamicTerm =
+    items.length === 0 &&
+    /^[\u0621-\u064A\s]{3,40}$/.test(text) &&
+    text.split(/\s+/).length <= 3 &&
+    !isFiqhQuestionText &&
+    !isTafsirQuestionText &&
+    !isAqeedahQuestionText;
+
+  if (isSingleIslamicTerm) {
+    items.push({
+      type: 'term',
+      text: text,
+      context: text,
+      language: 'ar',
+      location_in_input: 'standalone term',
+      confidence: 0.88
+    });
+  }
+
+  // 8. Fallback: If no items detected at all, treat the entire string as candidate claim
   if (items.length === 0 && text.length > 3) {
     let guessedType: ItemType = 'claim';
     if (text.includes('سورة') || text.includes('آية') || text.includes('تعالى') || text.includes('المصحف')) guessedType = 'ayah';

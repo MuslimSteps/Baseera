@@ -29,7 +29,7 @@ import { generateDawahContent, formatContentAsText, generateInfographicSvg, Dawa
 import { ExtractedItem } from './src/types/baseera.ts';
 import { fetchRemoteSafely, readTextWithLimit, readBytesWithLimit } from './src/lib/safeRemoteFetch.ts';
 import { getQuranCandidatesForAI, buildQuranDecision, QuranCandidate } from './src/lib/quranVerifier.ts';
-import { rankCandidatesWithAI, generateFiqhSearchQueriesWithAI, generateSourceSearchQueriesWithAI, generateQuranReferenceCandidatesWithAI } from './src/lib/aiMatcher.ts';
+import { rankCandidatesWithAI, generateFiqhSearchQueriesWithAI, generateSourceSearchQueriesWithAI, generateQuranReferenceCandidatesWithAI, understandQuestionWithAI } from './src/lib/aiMatcher.ts';
 import { groqChat, groqVisionText, groqTranscribe, GROQ_TEXT_MODEL, GROQ_VISION_MODEL } from './src/lib/groqClient.ts';
 
 dotenv.config();
@@ -494,6 +494,28 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           url: selected.row.url
         };
       } else {
+        // Dynamic fallback check to Dorar Aqeedah Encyclopedia for theological/creed terms
+        try {
+          const aqeedahFound = await searchDorarAqeedahLive(queryToSearch);
+          if (aqeedahFound?.found) {
+            v.status = 'NEEDS_REVIEW';
+            v.status_label_ar = 'مادة عقدية موثقة من الموسوعة العقدية (الدرر السنية)';
+            v.status_label_en = 'Approved Aqeedah Source Found — Review Required';
+            v.reason = `تم العثور على مادة مصدرية موثقة في الموسوعة العقدية بالدرر السنية («${aqeedahFound.title}»). يُعرض المحتوى نقلاً من المصدر المعتمد.`;
+            v.canonical_text = aqeedahFound.text || aqeedahFound.title;
+            v.decision_level = 'B';
+            v.citation = {
+              source_id: 'dorar-aqeedah',
+              source_name: 'الموسوعة العقدية — الدرر السنية',
+              authority: 'منصة الدرر السنية',
+              book: aqeedahFound.title,
+              url: aqeedahFound.url
+            };
+            delete r._needs_live_search;
+            return;
+          }
+        } catch {}
+
         v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
         v.status_label_ar = 'لم يُعثر على المصطلح في مصدر الجمهرة المفحوص';
         v.status_label_en = 'Term Not Found in Checked Jamhara Source';
@@ -514,101 +536,89 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       console.log('[BASEERA][FIQH][ENTER]', JSON.stringify({ requestId: (v as any)._requestId || null, query: queryToSearch, aiEnabled }));
       // ── FIQH PATH: Dorar Fiqh Encyclopedia (dorar.net/feqhia) ─────────────────
       const fiqhSearchUrl = r._fiqh_url || buildDorarFiqhUrl(queryToSearch);
-      const contentWords: string[] = [queryToSearch];
-      
-      // Step 1: Retrieve from the approved Dorar Fiqh Encyclopedia.
-      // If the literal question is too broad for the source search, Groq
-      // generates search concepts only; it never generates a ruling.
-      let fiqhResult = await searchDorarFiqhLive(queryToSearch);
-      console.log('[BASEERA][FIQH][INITIAL_SOURCE_RESULT]', JSON.stringify({ query: queryToSearch, found: Boolean(fiqhResult?.found), title: fiqhResult?.title || null, url: fiqhResult?.url || null, resultCount: fiqhResult?.allResults?.length || 0 }));
 
-      if (aiEnabled) {
-        try {
-          const aiQueries = await generateFiqhSearchQueriesWithAI(queryToSearch);
-          console.log('[BASEERA][FIQH][AI_QUERIES]', JSON.stringify({ query: queryToSearch, aiEnabled, aiQueries }));
-          const collected = new Map<string, { title: string; text: string; url: string }>();
+      // Step 0: Dynamic Question Understanding via AI (extracts true subject and queries)
+      const decomp = aiEnabled ? await understandQuestionWithAI(queryToSearch) : null;
+      const coreSubject = decomp?.core_subject || queryToSearch.replace(/^(?:ما\s+(?:هو\s+)?حكم|هل\s+يجوز|ما\s+حكم|حكم)\s+/, '').trim();
+      const rawTokens = decomp?.subject_tokens?.length ? decomp.subject_tokens : [coreSubject];
+      const subjectTokens = rawTokens
+        .map(t => normalizeArabic(t).replace(/^ال/, '').trim())
+        .filter(t => t.length >= 2);
 
-          const addResults = (result: any) => {
-            if (!result?.found) return;
-            for (const row of result.allResults || []) {
-              if (row.answerable === false) continue;
-              if (typeof row.score === 'number' && row.score < 50) continue;
-              const key = row.url || `${row.title}::${row.text?.slice(0, 160) || ''}`;
-              if (!collected.has(key)) {
-                collected.set(key, {
-                  title: row.title || result.title,
-                  text: row.text || '',
-                  url: row.url || result.url
-                });
-              }
-            }
-            if ((result.title || result.text) && (result.answerable !== false)) {
-              const key = result.url || `${result.title}::${result.text?.slice(0, 160) || ''}`;
-              if (!collected.has(key)) {
-                collected.set(key, {
-                  title: result.title,
-                  text: result.text || '',
-                  url: result.url
-                });
-              }
-            }
-            if (!fiqhResult) fiqhResult = result;
-          };
+      const generatedQueries = decomp?.search_queries?.length
+        ? decomp.search_queries
+        : (aiEnabled ? await generateFiqhSearchQueriesWithAI(queryToSearch) : []);
+      const searchQueries = [...new Set([queryToSearch, `حكم ${coreSubject}`, ...generatedQueries])]
+        .filter(q => q.length >= 2)
+        .slice(0, 5);
 
-          addResults(fiqhResult);
-          for (const aiQuery of aiQueries) {
-            if (aiQuery === queryToSearch) continue;
-            const candidateResult = await searchDorarFiqhLive(aiQuery);
-            addResults(candidateResult);
+      // Strict Topic Guard: ensures candidate title belongs to the requested subject
+      const isCandidateTopicMatch = (row: { title?: string; text?: string; url?: string }): boolean => {
+        if (!row?.title) return false;
+        const normTitle = normalizeArabic(row.title);
+        return subjectTokens.some(tok => normTitle.includes(tok));
+      };
+
+      // Step 1: Retrieve from approved Dorar Fiqh Encyclopedia with strict topic guard
+      let fiqhResult: any = null;
+      const collected = new Map<string, { title: string; text: string; url: string }>();
+
+      const addResults = (result: any) => {
+        if (!result?.found) return;
+        for (const row of result.allResults || []) {
+          if (row.answerable === false) continue;
+          if (typeof row.score === 'number' && row.score < 50) continue;
+          if (!isCandidateTopicMatch(row)) continue;
+          const key = row.url || `${row.title}::${row.text?.slice(0, 160) || ''}`;
+          if (!collected.has(key)) {
+            collected.set(key, {
+              title: row.title || result.title,
+              text: row.text || '',
+              url: row.url || result.url
+            });
           }
+        }
+        if ((result.title || result.text) && (result.answerable !== false) && isCandidateTopicMatch(result)) {
+          const key = result.url || `${result.title}::${result.text?.slice(0, 160) || ''}`;
+          if (!collected.has(key)) {
+            collected.set(key, {
+              title: result.title,
+              text: result.text || '',
+              url: result.url
+            });
+          }
+        }
+      };
 
-          const candidateRows = Array.from(collected.values()).slice(0, 16);
-          console.log('[BASEERA][FIQH][CANDIDATES]', JSON.stringify({ query: queryToSearch, count: candidateRows.length, candidates: candidateRows.map(row => ({ title: row.title, url: row.url })) }));
-          if (candidateRows.length > 0) {
+      const initialResult = await searchDorarFiqhLive(queryToSearch);
+      addResults(initialResult);
+
+      for (const aiQuery of searchQueries) {
+        if (aiQuery === queryToSearch) continue;
+        const candidateResult = await searchDorarFiqhLive(aiQuery);
+        addResults(candidateResult);
+      }
+
+      const candidateRows = Array.from(collected.values()).slice(0, 16);
+      console.log('[BASEERA][FIQH][CANDIDATES]', JSON.stringify({ query: queryToSearch, count: candidateRows.length, candidates: candidateRows.map(row => ({ title: row.title, url: row.url })) }));
+
+      if (candidateRows.length > 0) {
+        let selected = candidateRows[0];
+        if (aiEnabled && candidateRows.length > 1) {
+          try {
             const aiCandidates = candidateRows.map((row, index) => ({
               id: `fiqh-${index}`,
               source: 'fiqh-madhahib-dorar',
               title: row.title,
               text: row.text
             }));
-
             const ai = await rankCandidatesWithAI('fiqh', queryToSearch, aiCandidates);
             console.log('[BASEERA][FIQH][AI_RANK_RESULT]', JSON.stringify({ query: queryToSearch, ai }));
             if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
               const selectedIndex = Number(ai.candidate_id.replace('fiqh-', ''));
-              const selected = candidateRows[selectedIndex];
-              if (selected) {
-                const existing = fiqhResult;
-                let fullDetailedText = (existing?.detailedRuling && existing?.url === selected.url)
-                  ? existing.detailedRuling
-                  : null;
-
-                if (!fullDetailedText && selected.url) {
-                  try {
-                    fullDetailedText = await fetchDorarFiqhArticleLive(selected.url);
-                  } catch (e: any) {
-                    console.warn('fetchDorarFiqhArticleLive failed:', e?.message);
-                  }
-                }
-
-                fiqhResult = {
-                  found: true,
-                  title: selected.title,
-                  text: selected.text,
-                  detailedRuling: fullDetailedText || existing?.detailedRuling || selected.text,
-                  url: selected.url,
-                  source: 'الموسوعة الفقهية المقارنة — الدرر السنية',
-                  allResults: candidateRows,
-                  ai_match: {
-                    provider: 'groq',
-                    candidate_id: ai.candidate_id,
-                    relation: ai.relation,
-                    confidence: ai.confidence
-                  }
-                } as any;
-                if (existing && !(fiqhResult as any).allResults.length) {
-                  (fiqhResult as any).allResults = existing.allResults;
-                }
+              const candidate = candidateRows[selectedIndex];
+              if (candidate && isCandidateTopicMatch(candidate)) {
+                selected = candidate;
                 v.ai_match = {
                   provider: 'groq',
                   candidate_id: ai.candidate_id,
@@ -617,13 +627,34 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
                 };
               }
             }
+          } catch (aiErr: any) {
+            console.warn('[BASEERA][FIQH][AI_RANK_ERROR]', aiErr?.message);
           }
-        } catch (aiErr: any) {
-          console.warn('Groq fiqh search/rerank failed; keeping source search result:', aiErr.message);
+        }
+
+        if (selected && isCandidateTopicMatch(selected)) {
+          let fullDetailedText: string | null = null;
+          if (selected.url) {
+            try {
+              fullDetailedText = await fetchDorarFiqhArticleLive(selected.url);
+            } catch (e: any) {
+              console.warn('fetchDorarFiqhArticleLive failed:', e?.message);
+            }
+          }
+
+          fiqhResult = {
+            found: true,
+            title: selected.title,
+            text: selected.text,
+            detailedRuling: fullDetailedText || selected.text,
+            url: selected.url,
+            source: 'الموسوعة الفقهية المقارنة — الدرر السنية',
+            allResults: candidateRows
+          };
         }
       }
 
-      // Ensure we have full untruncated text for the selected article
+      // Ensure full untruncated text for selected fiqh article
       if (fiqhResult?.found && fiqhResult?.url && (!fiqhResult.detailedRuling || fiqhResult.detailedRuling.length < 80)) {
         try {
           const articleFull = await fetchDorarFiqhArticleLive(fiqhResult.url);
@@ -642,8 +673,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       if (fiqhResult?.found) {
         const sensitive = isSensitiveFiqhQuestion(queryToSearch);
 
-        // Retrieving a source is not the same thing as Baseera issuing a ruling.
-        // High-consequence fiqh questions are referral-only.
+        // High-consequence fiqh questions are referral-only
         if (sensitive) {
           v.status = 'REFER_TO_SPECIALIST';
           v.status_label_ar = 'إحالة إلى مختص — وُجد مصدر فقهي معتمد';
@@ -668,7 +698,6 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           let hasConsensusInSource = /(?:أجمع العلماء|أجمع أهل العلم|اتفاق أهل العلم|اتفاق العلماء|باتفاق العلماء|باتفاق الأئمة|بالإجماع|الدليل من الإجماع|نقل الإجماع|نقل الاتفاق|حكاية الإجماع|لا خلاف بين العلماء|أجمع المسلمون|إجماع أهل العلم)/i.test(fullTextForDispute);
           let hasDisputeIndicators = /(?:خلاف|اختلف|واختلفوا|القول الأول|القول الثاني|مذهب الحنفية|مذهب الشافعية|مذهب المالكية|مذهب الحنابلة|جمهور|ورواية|وفي قول|طائفة من السلف)/.test(fullTextForDispute);
 
-          // If explicit opposing opinions exist (القول الأول / القول الثاني), it is disputed by definition
           if (/(?:القول الأول[\s\S]*?القول الثاني|اختلَفَ العُلَماءُ|اختلف العلماء)/i.test(fullTextForDispute)) {
             hasDisputeIndicators = true;
           }
@@ -735,97 +764,73 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           }
         }
       } else {
-        // Step 2: Feqhia has no direct article -> check Dorar Hadith API for supporting evidence
-        const wordsForSearch = contentWords.length > 0
-          ? contentWords.slice(0, 3).join(' ')
-          : cleanSearchQuery(queryToSearch);
+        // Step 2: Cross-Source Fallback to Dorar Hadith API (dorar.net/hadith)
+        console.log('[BASEERA][FIQH][FALLBACK_TO_HADITH]', JSON.stringify({ query: queryToSearch, coreSubject, subjectTokens }));
+        const hadithQueries = [...new Set([
+          `تحريم ${coreSubject}`,
+          coreSubject,
+          `حكم ${coreSubject}`,
+          ...searchQueries
+        ])].filter(q => q.length >= 2).slice(0, 5);
 
-        const hadithSearch = await searchDorarWithSmartQueries(wordsForSearch || queryToSearch);
-
-        if (hadithSearch.topResult) {
-          const top = hadithSearch.topResult;
-          const normH = (top.text || '')
-            .replace(/[\u064B-\u065F\u0670]/g, '')
-            .replace(/[إأآا]/g, 'ا')
-            .replace(/ى/g, 'ي')
-            .replace(/ة/g, 'ه');
-
-          // Strict match: Hadith MUST contain the primary content word
-          const hasConfirmedWordMatch = contentWords.some(w => {
-            const cleanW = w.replace(/^ال/, '').replace(/[إأآا]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
-            return cleanW.length >= 3 && normH.includes(cleanW);
+        let topHadith: any = null;
+        for (const hq of hadithQueries) {
+          const hadithRows = await searchDorarApiLive(hq);
+          const authenticRows = hadithRows.filter(r => {
+            const normH = normalizeArabic(r.text);
+            const matchesSubject = subjectTokens.some(tok => normH.includes(tok));
+            return matchesSubject && (r.gradeCategory === 'sahih' || r.gradeCategory === 'hasan');
           });
+          if (authenticRows.length > 0) {
+            topHadith = authenticRows[0];
+            break;
+          }
+        }
 
-          if (hasConfirmedWordMatch) {
-            if (top.isDisputed || top.gradeCategory === 'disputed') {
-              v.status = 'NEEDS_REVIEW';
-              v.status_label_ar = 'مسألة فقهية خلافية — الحديث الوارد فيها مختلف في صحته بين الأئمة';
-              v.status_label_en = 'Disputed Fiqh Matter — Supporting Hadith is Disputed';
-              v.reason = `المسألة محل اختلاف فقهي بين أئمة المذاهب؛ لاستنادها إلى حديث «${top.text}». ${top.disputeDetails || 'والحديث مختلف في ثبوته وصحته بين أئمة الحديث: صححه بعضهم واستنكره آخرون'}. المصدر: ${top.book} (${top.numberOrPage}).`;
-              v.canonical_text = top.text;
-              v.decision_level = 'C';
-              v.citation = {
-                source_id: 'dorar-hadith',
-                source_name: 'الموسوعة الحديثية — الدرر السنية (دليل المسألة الفقهية)',
-                authority: 'مؤسسة الدرر السنية للإشراف العلمي',
-                book: `${top.book} (${top.numberOrPage})`,
-                grade: top.grade,
-                url: `https://dorar.net/hadith/search?q=${encodeURIComponent(hadithSearch.queryUsed)}`
-              };
-            } else if (top.gradeCategory === 'sahih' || top.gradeCategory === 'hasan') {
-              v.status = 'NEEDS_REVIEW';
-              v.status_label_ar = 'مسألة فقهية لها دليل حديثي موثق — لا ترجيح آلي';
-              v.status_label_en = 'Fiqh Ruling — Established by Authentic Sunnah (Dorar.net)';
-              v.reason = `المسألة مستندة إلى الدليل الصريح من السنة النبوية المطهرة في الموسوعة الحديثية: «${top.text}». الراوي: ${top.rawi || 'الصحابة الكرام'}، المحدث: ${top.muhaddith || ''}، المصدر: ${top.book} (${top.numberOrPage})، خلاصة حكم المحدث: ${top.grade}.`;
-              v.canonical_text = top.text;
-              v.decision_level = 'B';
-              v.citation = {
-                source_id: 'dorar-hadith',
-                source_name: 'الموسوعة الحديثية — الدرر السنية (دليل المسألة الفقهية)',
-                authority: 'مؤسسة الدرر السنية للإشراف العلمي',
-                book: `${top.book} (${top.numberOrPage})`,
-                grade: top.grade,
-                url: `https://dorar.net/hadith/search?q=${encodeURIComponent(hadithSearch.queryUsed)}`
-              };
-            } else {
-              v.status = 'NEEDS_REVIEW';
-              v.status_label_ar = 'مسألة فقهية — الحديث الوارد في الموضوع ضعيف أو لا يصح';
-              v.status_label_en = 'Fiqh Question — Supporting Hadith is Weak';
-              v.reason = `وُجد حديث متعلق بالمسألة في الموسوعة الحديثية لكنه ${top.grade}، ولا يصح الاحتجاج به مستقلاً. الراوي: ${top.rawi || ''}، المصدر: ${top.book}.`;
-              v.canonical_text = top.text;
-              v.decision_level = 'C';
-              v.citation = {
-                source_id: 'dorar-hadith',
-                source_name: 'الموسوعة الحديثية — الدرر السنية',
-                authority: 'مؤسسة الدرر السنية للإشراف العلمي',
-                book: `${top.book} (${top.numberOrPage})`,
-                grade: top.grade,
-                url: `https://dorar.net/hadith/search?q=${encodeURIComponent(hadithSearch.queryUsed)}`
-              };
-            }
+        if (!topHadith) {
+          const fallbackRows = await searchDorarApiLive(coreSubject);
+          const matching = fallbackRows.find(r => {
+            const normH = normalizeArabic(r.text);
+            return subjectTokens.some(tok => normH.includes(tok));
+          });
+          if (matching) topHadith = matching;
+        }
+
+        if (topHadith) {
+          const top = topHadith;
+          if (top.gradeCategory === 'sahih' || top.gradeCategory === 'hasan') {
+            v.status = 'NEEDS_REVIEW';
+            v.status_label_ar = 'مسألة مستندة إلى الدليل الصريح من السنة (الدرر السنية)';
+            v.status_label_en = 'Documented Islamic Ruling — Authentic Sunnah (Dorar.net)';
+            v.reason = `المسألة مستندة إلى الدليل الصريح من السنة النبوية المطهرة في الموسوعة الحديثية: «${top.text}». الراوي: ${top.rawi || 'الصحابة الكرام'}، المحدث: ${top.muhaddith || ''}، المصدر: ${top.book} (${top.numberOrPage})، خلاصة حكم المحدث: ${top.grade}. راجع نص الحديث وتخريجه من المصدر المعتمد أدناه.`;
+            v.canonical_text = top.text;
+            v.decision_level = 'B';
+            v.citation = {
+              source_id: 'dorar-hadith',
+              source_name: 'الموسوعة الحديثية — الدرر السنية (دليل المسألة الشرعية)',
+              authority: 'مؤسسة الدرر السنية للإشراف العلمي',
+              book: `${top.book} (${top.numberOrPage})`,
+              grade: top.grade,
+              url: `https://dorar.net/hadith/search?q=${encodeURIComponent(coreSubject)}`
+            };
           } else {
-            // Abstain honestly without irrelevant hadiths
-            v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
-            v.status_label_ar = claimsConsensus
-              ? 'لم يُعثر على توثيق للمسألة (امتناع شرعي عن إثبات الإجماع)'
-              : 'لم يُعثر عليه في المراجع المفحوصة (امتناع شرعي)';
-            v.status_label_en = claimsConsensus
-              ? 'Not Found in Checked Sources (Abstention on Consensus)'
-              : 'Not Found in Checked Sources (Abstention)';
-            v.reason = claimsConsensus
-              ? 'لم يُعثر على توثيق لهذه المسألة في الموسوعة الفقهية المقارنة بالدرر السنية؛ وتلتزم منظومة «بصيرة» بالامتناع الشرعي التام عن إثبات دعوى الإجماع أو نفيها أو الفتوى لعدم ورود نص موثق في المصادر المعتمدة.'
-              : 'لم يُعثر على نص قطعي أو حديث صريح مطابق لهذه المسألة في المصادر المعتمدة المفحوصة (الموسوعة الفقهية والحديثية). تلتزم منظومة «بصيرة» بالامتناع الصارم عن إصدار أي حكم شرعي أو عزو أحاديث غير مطابقة منعاً للهلوسة والخطأ في دين الله. يمكنك البحث في الموسوعة الفقهية المقارنة بالدرر السنية عبر الرابط المرفق.';
+            v.status = 'NEEDS_REVIEW';
+            v.status_label_ar = 'مسألة شرعية — الحديث الوارد فيها ضعيف أو لا يصح';
+            v.status_label_en = 'Supporting Hadith is Weak';
+            v.reason = `وُجد حديث متعلق بالمسألة في الموسوعة الحديثية لكنه ${top.grade}، ولا يصح الاحتجاج به مستقلاً. الراوي: ${top.rawi || ''}، المصدر: ${top.book}.`;
+            v.canonical_text = top.text;
             v.decision_level = 'C';
             v.citation = {
-              source_id: 'fiqh-madhahib-dorar',
-              source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
-              authority: 'المذاهب الأربعة — مؤسسة الدرر السنية',
-              book: 'الموسوعة الفقهية المقارنة',
-              url: fiqhSearchUrl
+              source_id: 'dorar-hadith',
+              source_name: 'الموسوعة الحديثية — الدرر السنية',
+              authority: 'مؤسسة الدرر السنية للإشراف العلمي',
+              book: `${top.book} (${top.numberOrPage})`,
+              grade: top.grade,
+              url: `https://dorar.net/hadith/search?q=${encodeURIComponent(coreSubject)}`
             };
           }
         } else {
-          // Both failed
+          // Both Fiqh and Hadith yielded no candidate matching the subject -> Fail closed honestly
           v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
           v.status_label_ar = claimsConsensus
             ? 'لم يُعثر على توثيق للمسألة (امتناع شرعي عن إثبات الإجماع)'
@@ -835,15 +840,14 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
             : 'Not Found in Checked Sources (Abstention)';
           v.reason = claimsConsensus
             ? 'لم يُعثر على توثيق لهذه المسألة في الموسوعة الفقهية المقارنة بالدرر السنية؛ وتلتزم منظومة «بصيرة» بالامتناع الشرعي التام عن إثبات دعوى الإجماع أو نفيها أو الفتوى لعدم ورود نص موثق في المصادر المعتمدة.'
-            : 'لم يُعثر على هذه المسألة في المراجع المفحوصة (الموسوعة الفقهية والحديثية بالدرر السنية). تلتزم المنظومة بالامتناع القطعي عن إصدار أي حكم فقهي غير موثق من المصادر المعتمدة.';
+            : 'لم يُعثر على نص قطعي أو حديث صريح مطابق لهذه المسألة في المصادر المعتمدة المفحوصة بالدرر السنية (الموسوعة الفقهية والحديثية). تلتزم منظومة «بصيرة» بالامتناع الصارم عن إصدار أي حكم شرعي أو عزو مواد غير مطابقة منعاً للهلوسة والخطأ في دين الله. يمكنك البحث في الموسوعة الفقهية المقارنة بالدرر السنية عبر الرابط المرفق.';
           v.decision_level = 'C';
           v.citation = {
             source_id: 'fiqh-madhahib-dorar',
             source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
             authority: 'المذاهب الأربعة — مؤسسة الدرر السنية',
             book: 'الموسوعة الفقهية المقارنة',
-            url: fiqhSearchUrl
-          };
+            };
         }
       }
     } else {
@@ -1192,11 +1196,11 @@ ${extractedText}
 {
   "items": [
     {
-      "type": "ayah | hadith | term | fiqh_question | claim",
-      "text": "النص المستخرج حرفياً من المدخل",
-      "context": "السياق الحرفي الموجود في المدخل",
-      "language": "ar | en | fr",
-      "claimed_source": "العزو المذكور في المدخل إن وجد"
+      "type": "ayah | hadith | term | fiqh_question | tafsir_question | aqeedah_question | claim",
+      "text": "<النص أو السؤال المقتبس حرفياً من المدخل>",
+      "context": "<السياق الحرفي الموجود في المدخل إن وجد>",
+      "language": "ar",
+      "claimed_source": "<العزو المذكور في المدخل إن وجد>"
     }
   ]
 }`
@@ -1292,12 +1296,17 @@ ${extractedText}
       }
     }
 
-    // Prioritize hadith / primary narrative first
-    extractedItems.sort((a, b) => {
-      if (a.type === 'hadith' && b.type === 'ayah') return -1;
-      if (a.type === 'ayah' && b.type === 'hadith') return 1;
-      return 0;
-    });
+    // Prioritize specific religious questions and primary evidence first
+    const typePriority: Record<string, number> = {
+      ayah: 1,
+      hadith: 2,
+      fiqh_question: 3,
+      tafsir_question: 4,
+      aqeedah_question: 5,
+      term: 6,
+      claim: 7
+    };
+    extractedItems.sort((a, b) => (typePriority[a.type] || 99) - (typePriority[b.type] || 99));
 
     // AI semantic matching is advisory: it can propose the most likely source
     // candidate, but the canonical verifier below remains the final authority.

@@ -277,6 +277,32 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
               </div>
             )}
 
+            {/* مفتاح ألوان وحالات المطابقة المعتمد في بصيرة */}
+            <div className="rounded-xl border border-line bg-surface/60 p-3.5 text-xs">
+              <div className="font-bold text-ink mb-2.5 flex items-center justify-between">
+                <span>مفتاح ألوان وحالات المطابقة:</span>
+                <span className="text-[11px] font-normal text-muted">الحالة الحالية: <strong className="text-ink">{cleanLabel(result.status_label_ar) || tone.label}</strong></span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                <div className={`p-2 rounded-lg border flex items-center gap-1.5 font-semibold ${isMatched ? 'bg-emerald-100 border-emerald-400 text-emerald-900 ring-2 ring-emerald-500/30' : 'bg-emerald-50/60 border-emerald-200 text-emerald-800'}`}>
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0" />
+                  <span>مطابق للمصدر</span>
+                </div>
+                <div className={`p-2 rounded-lg border flex items-center gap-1.5 font-semibold ${isAlteredQuran ? 'bg-rose-100 border-rose-400 text-rose-900 ring-2 ring-rose-500/30' : 'bg-rose-50/60 border-rose-200 text-rose-800'}`}>
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-600 shrink-0" />
+                  <span>غير مطابق / مبدّل</span>
+                </div>
+                <div className={`p-2 rounded-lg border flex items-center gap-1.5 font-semibold ${isReview ? 'bg-amber-100 border-amber-400 text-amber-900 ring-2 ring-amber-500/30' : 'bg-amber-50/60 border-amber-200 text-amber-800'}`}>
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-600 shrink-0" />
+                  <span>يحتاج مراجعة / خلافي</span>
+                </div>
+                <div className={`p-2 rounded-lg border flex items-center gap-1.5 font-semibold ${isNotFound ? 'bg-slate-200 border-slate-400 text-slate-900 ring-2 ring-slate-500/30' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0" />
+                  <span>لم يُعثر عليه (امتناع)</span>
+                </div>
+              </div>
+            </div>
+
             {result.abstention_note && (
               <div className="notice-box">
                 <Info className="h-4 w-4 shrink-0" />

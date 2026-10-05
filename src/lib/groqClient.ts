@@ -31,10 +31,19 @@ async function groqRequest(path: string, init: RequestInit): Promise<Response> {
     ...(init.headers as Record<string, string> || {})
   };
 
-  const response = await fetch(`${GROQ_API_URL}${path}`, {
+  let response = await fetch(`${GROQ_API_URL}${path}`, {
     ...init,
     headers
   });
+
+  if (response.status === 429) {
+    console.warn('[BASEERA][GROQ][RATE_LIMIT_WAIT] Retrying after 800ms...');
+    await new Promise(r => setTimeout(r, 800));
+    response = await fetch(`${GROQ_API_URL}${path}`, {
+      ...init,
+      headers
+    });
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
@@ -71,16 +80,34 @@ export async function groqChat(
       body.reasoning_effort = options.reasoningEffort;
     }
 
-    const response = await groqRequest('/chat/completions', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const data = await response.json() as any;
-    const content = String(data?.choices?.[0]?.message?.content || '').trim();
-    console.log('[BASEERA][GROQ][RESPONSE]', JSON.stringify({ model: body.model, contentLength: content.length, preview: content.slice(0, 300) }));
-    return content;
+    try {
+      const response = await groqRequest('/chat/completions', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json() as any;
+      const content = String(data?.choices?.[0]?.message?.content || '').trim();
+      console.log('[BASEERA][GROQ][RESPONSE]', JSON.stringify({ model: body.model, contentLength: content.length, preview: content.slice(0, 300) }));
+      return content;
+    } catch (chatErr: any) {
+      if (modelToUse !== 'llama-3.1-8b-instant' && (String(chatErr?.message).includes('429') || String(chatErr?.message).includes('rate_limit'))) {
+        console.warn('[BASEERA][GROQ][FALLBACK_TO_LLAMA] Falling back to llama-3.1-8b-instant due to rate limit');
+        body.model = 'llama-3.1-8b-instant';
+        const fallbackResponse = await groqRequest('/chat/completions', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const fallbackData = await fallbackResponse.json() as any;
+        const fallbackContent = String(fallbackData?.choices?.[0]?.message?.content || '').trim();
+        console.log('[BASEERA][GROQ][RESPONSE][FALLBACK]', JSON.stringify({ model: body.model, contentLength: fallbackContent.length, preview: fallbackContent.slice(0, 300) }));
+        return fallbackContent;
+      }
+      throw chatErr;
+    }
   } finally {
     clearTimeout(timeout);
   }
