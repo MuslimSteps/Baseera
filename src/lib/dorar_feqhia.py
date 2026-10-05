@@ -506,6 +506,11 @@ def run_self_test():
     subject = extract_subject_tokens("ما حكم الختان؟", intent)
     assert subject == ["ختان"], subject
 
+    wudu_intent = infer_intent("ما حكم الوضوء؟")
+    assert wudu_intent == "ruling", wudu_intent
+    wudu_subject = extract_subject_tokens("ما حكم الوضوء؟", wudu_intent)
+    assert "وضوء" in wudu_subject, wudu_subject
+
     ruling_score, ruling_ok, *_ = score_candidate(
         "المبحث الرابع: حكم الختان",
         "حكم الختان",
