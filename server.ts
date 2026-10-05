@@ -17,7 +17,7 @@ import { isSensitiveFiqhQuestion } from './src/lib/fiqhEngine.ts';
 import { enforceApprovedCitations, isApprovedCitation } from './src/lib/sourcePolicy.ts';
 import { enforceDecisionPolicy } from './src/lib/decisionPolicy.ts';
 import { isGroundedInInput } from './src/lib/inputGrounding.ts';
-import { getAvailableTranslationLanguages, getAyahTranslations, getHafsAyah } from './src/lib/quranpediaClient.ts';
+import { getAvailableTranslationLanguages, getAyahTranslations, getHafsAyah, findExactHafsAyahLocal, searchHafsAyahsLocal, getHafsSurahName, buildQuranpediaAyahUrl } from './src/lib/quranpediaClient.ts';
 import { searchDorarAqeedahLive, searchDorarTafsirLive } from './src/lib/dorarEncyclopediaClient.ts';
 import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from './src/lib/dorarQueryUtils.ts';
 import { buildJamharaSearchUrl, searchJamharaLive } from './src/lib/jamharaClient.ts';
@@ -180,11 +180,42 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
     if (v.item.type === 'ayah') {
       let candidates: QuranCandidate[] = [];
       let sourceFetchFailed = false;
+
+      // HARD SOURCE-FIRST PATH:
+      // Resolve exact/normalized text directly against the bundled Hafs
+      // source snapshot before touching remote search or AI. This guarantees
+      // that a valid Quran verse is not reported as "not found" merely because
+      // Quranpedia's web search endpoint is unavailable or returns HTML without
+      // machine-readable verse references.
       try {
-        candidates = await getQuranCandidatesForAI(v.item, 12);
+        const exactLocal = findExactHafsAyahLocal(queryToSearch);
+        const localMatches = exactLocal ? [exactLocal] : searchHafsAyahsLocal(queryToSearch, 12);
+        candidates = localMatches.map(ayah => {
+          const surahNumber = Number(ayah.surah);
+          const ayahNumber = Number(ayah.number);
+          const surahName = getHafsSurahName(surahNumber);
+          return {
+            id: `quran-${surahNumber}-${ayahNumber}`,
+            source: 'quran-uthmani' as const,
+            title: `سورة ${surahName} — الآية ${ayahNumber}`,
+            text: ayah.text,
+            surah_number: surahNumber,
+            ayah_number: ayahNumber,
+            surah_name_ar: surahName,
+            text_uthmani: ayah.text
+          };
+        });
       } catch (error: any) {
-        sourceFetchFailed = true;
-        console.warn('[BASEERA][QURAN][DISCOVERY_UNAVAILABLE]', error?.message || String(error));
+        console.warn('[BASEERA][QURAN][LOCAL_DISCOVERY_ERROR]', error?.message || String(error));
+      }
+
+      if (candidates.length === 0) {
+        try {
+          candidates = await getQuranCandidatesForAI(v.item, 12);
+        } catch (error: any) {
+          sourceFetchFailed = true;
+          console.warn('[BASEERA][QURAN][DISCOVERY_UNAVAILABLE]', error?.message || String(error));
+        }
       }
 
       // Search is only candidate discovery. When discovery is unavailable or
@@ -240,7 +271,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       }
 
       if (selected) {
-        // Populate the canonical surah name from the live candidate set where possible.
+        // Populate the canonical surah name from the source candidate; citations use the canonical verse URL.
         // The final decision is based only on the source-returned canonical text.
         const quranDecision = buildQuranDecision(v.item, selected);
         if (quranDecision.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') {
@@ -273,7 +304,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
             source_id: 'quran-uthmani',
             source_name: 'المصحف الشريف — النص الحفصي المعتمد',
             authority: 'مجمع الملك فهد / Quranpedia',
-            url: `https://quranpedia.net/search?query=${encodeURIComponent(queryToSearch)}`
+            url: 'https://quranpedia.net/'
           };
         }
         delete r._needs_live_search;
