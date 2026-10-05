@@ -27,7 +27,7 @@ User Input (Text / URL / Image OCR / Audio STT)
                      ↓
            Input Normalization Layer
                      ↓
-           AI Extraction Layer (Gemini)
+           AI Extraction Layer (Groq)
                      ↓
        Canonical Source Retrieval & Matcher
     (Quran | Quranpedia Translations | Dorar Tafsir | Dorar Aqeedah |
