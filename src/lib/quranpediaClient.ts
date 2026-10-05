@@ -91,6 +91,29 @@ export function getHafsSurahName(surah: number): string {
   return localSource.surahs.find(s => s.number === surah)?.name || `سورة ${surah}`;
 }
 
+export function findExactHafsAyahLocal(query: string): QuranMushafAyah | null {
+  const input = String(query || '').trim();
+  if (!input) return null;
+
+  const strictTarget = normalizeArabicStrict(input);
+  const looseTarget = normalizeArabic(input);
+  if (!strictTarget && !looseTarget) return null;
+
+  for (const surah of localSource.surahs) {
+    for (const ayah of surah.ayahs) {
+      const sourceText = ayah.search || ayah.text;
+      if (
+        (strictTarget && normalizeArabicStrict(sourceText) === strictTarget) ||
+        (looseTarget && normalizeArabic(sourceText) === looseTarget)
+      ) {
+        return localToAyah(surah, ayah);
+      }
+    }
+  }
+
+  return null;
+}
+
 export function searchHafsAyahsLocal(query: string, limit = 12): QuranMushafAyah[] {
   const targetStrict = normalizeArabicStrict(String(query || '')).trim();
   const targetLoose = normalizeArabic(String(query || '')).trim();
@@ -190,6 +213,10 @@ async function fetchAyahSearchHtml(url: string): Promise<string | null> {
 }
 
 export async function searchHafsAyahsLive(query: string, limit = 12): Promise<QuranMushafAyah[]> {
+  // Deterministic exact match must always win before any network search.
+  const exactLocal = findExactHafsAyahLocal(query);
+  if (exactLocal) return [exactLocal];
+
   const localMatches = searchHafsAyahsLocal(query, limit);
   if (localMatches.length > 0) return localMatches;
 
