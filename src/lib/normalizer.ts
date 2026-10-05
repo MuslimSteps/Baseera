@@ -81,57 +81,122 @@ export function computeWordDiff(inputStr: string, canonicalStr: string): {
   similarityScore: number;
   hasDiscrepancy: boolean;
 } {
-  const inputWords = tokenize(inputStr);
-  const canonWords = tokenize(canonicalStr);
+  const looseTokens = (text: string) => normalizeArabic(text).split(/\s+/).filter(Boolean);
+  const strictTokens = (text: string) => normalizeArabicStrict(text).split(/\s+/).filter(Boolean);
+
+  const inputLoose = looseTokens(inputStr);
+  const canonicalLoose = looseTokens(canonicalStr);
+  const inputWords = strictTokens(inputStr);
+  const canonWords = strictTokens(canonicalStr);
 
   if (inputWords.length === 0 || canonWords.length === 0) {
-    return {
-      diff: [],
-      similarityScore: 0,
-      hasDiscrepancy: true
-    };
+    return { diff: [], similarityScore: 0, hasDiscrepancy: true };
   }
 
-  // Simple alignment comparison
-  const diff: DiffItem[] = [];
-  let matches = 0;
-  const maxLen = Math.max(inputWords.length, canonWords.length);
+  const strictInput = normalizeArabicStrict(inputStr);
+  const strictCanonical = normalizeArabicStrict(canonicalStr);
+  const exact = strictInput === strictCanonical;
+  const strictSubstring = !exact && strictCanonical.includes(strictInput) && inputWords.length >= 2;
 
-  // Check overlap
-  const inputSet = new Set(inputWords);
-  const canonSet = new Set(canonWords);
+  // Find the best local window so a partial quotation is compared with the
+  // corresponding words in the source, rather than with the beginning of
+  // the full verse. This prevents false "altered" reports for valid excerpts.
+  let best = {
+    start: 0,
+    end: Math.min(canonWords.length, inputWords.length),
+    distance: Number.POSITIVE_INFINITY,
+    score: 0
+  };
 
-  const normIn = normalizeArabic(inputStr);
-  const normCan = normalizeArabic(canonicalStr);
-  const isExactSubstring = normCan.includes(normIn) && inputWords.length >= 2;
+  const minLen = Math.max(1, inputWords.length - 2);
+  const maxLen = Math.min(canonWords.length, inputWords.length + 2);
 
-  canonWords.forEach((cWord, idx) => {
-    const inWord = inputWords[idx];
-    if (inWord === cWord) {
-      diff.push({ type: 'equal', word: cWord });
-      matches++;
-    } else if (inWord && canonSet.has(inWord)) {
-      diff.push({ type: 'changed', word: inWord, expected: cWord });
-    } else if (!inWord) {
-      if (!isExactSubstring) {
-        diff.push({ type: 'missing', word: cWord });
+  for (let len = minLen; len <= maxLen; len++) {
+    for (let start = 0; start + len <= canonWords.length; start++) {
+      const a = inputLoose;
+      const b = canonicalLoose.slice(start, start + len);
+      const m = a.length;
+      const n = b.length;
+      const dp = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
+
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+          dp[i][j] = Math.min(
+            dp[i - 1][j] + 1,
+            dp[i][j - 1] + 1,
+            dp[i - 1][j - 1] + cost
+          );
+        }
       }
-    } else {
-      diff.push({ type: 'changed', word: inWord, expected: cWord });
-    }
-  });
 
-  // Calculate Jaccard word similarity
-  let intersection = 0;
-  inputSet.forEach(w => {
-    if (canonSet.has(w)) intersection++;
-  });
-  const union = new Set([...inputWords, ...canonWords]).size;
-  const similarityScore = union > 0 ? intersection / union : 0;
+      const distance = dp[m][n];
+      const score = 1 - distance / Math.max(m, n);
+      const preferred = score > best.score ||
+        (score === best.score && Math.abs(len - inputWords.length) < Math.abs((best.end - best.start) - inputWords.length));
+
+      if (preferred) {
+        best = { start, end: start + len, distance, score };
+      }
+    }
+  }
+
+  // Align the user text against the best source window with edit operations.
+  // Outside words of a longer source verse are intentionally omitted from the
+  // diff because they are not errors; they are simply not part of the quote.
+  const canonWindow = canonWords.slice(best.start, best.end);
+  const m = inputWords.length;
+  const n = canonWindow.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = inputWords[i - 1] === canonWindow[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+
+  const aligned: DiffItem[] = [];
+  let i = m;
+  let j = n;
+  while (i > 0 || j > 0) {
+    if (
+      i > 0 &&
+      j > 0 &&
+      dp[i][j] === dp[i - 1][j - 1] + (inputWords[i - 1] === canonWindow[j - 1] ? 0 : 1)
+    ) {
+      if (inputWords[i - 1] === canonWindow[j - 1]) {
+        aligned.unshift({ type: 'equal', word: inputWords[i - 1] });
+      } else {
+        aligned.unshift({ type: 'changed', word: inputWords[i - 1], expected: canonWindow[j - 1] });
+      }
+      i--;
+      j--;
+    } else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
+      aligned.unshift({ type: 'added', word: inputWords[i - 1] });
+      i--;
+    } else {
+      aligned.unshift({ type: 'missing', word: canonWindow[j - 1] });
+      j--;
+    }
+  }
+
+  const strictExact = exact || strictSubstring;
+  const similarityScore = strictExact ? 1 : Number((1 - dp[m][n] / Math.max(m, n)).toFixed(3));
 
   return {
-    diff,
-    similarityScore: isExactSubstring ? 1.0 : Number(similarityScore.toFixed(3)),
-    hasDiscrepancy: isExactSubstring ? false : (similarityScore < 0.99 || inputWords.join(' ') !== canonWords.join(' '))
+    diff: aligned,
+    similarityScore,
+    hasDiscrepancy: !strictExact
   };
 }

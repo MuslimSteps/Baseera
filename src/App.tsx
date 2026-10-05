@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   ArrowLeft,
-  CircleHelp
+  CircleHelp,
+  ChevronDown
 } from 'lucide-react';
 
 import { LandingPageView } from './components/LandingPageView.tsx';
@@ -50,11 +51,11 @@ const NAV_ITEMS: Array<{
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId | 'home'>('home');
   const [mobileOpen, setMobileOpen] = useState(false);
-
+ 
   const go = (tab: TabId | 'home') => {
     setActiveTab(tab);
     setMobileOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const activeLabel =
@@ -78,8 +79,7 @@ export default function App() {
               </span>
               <span className="min-w-0 text-right">
                 <span className="block truncate font-display text-[20px] font-bold leading-none tracking-tight">بصيرة</span>
-                <span className="mt-1 hidden text-[11px] font-medium text-muted sm:block">تحقق. افهم. انشر بثقة.</span>
-              </span>
+               </span>
             </button>
 
             <div className="hidden h-8 w-px bg-line lg:block" aria-hidden="true" />
@@ -93,7 +93,7 @@ export default function App() {
               >
                 الرئيسية
               </button>
-              {NAV_ITEMS.map(item => (
+              {NAV_ITEMS.filter(item => ['verifier','dawah','extension','sources'].includes(item.id)).map(item => (
                 <button
                   key={item.id}
                   type="button"
@@ -101,19 +101,13 @@ export default function App() {
                   className={`nav-link ${activeTab === item.id ? 'nav-link-active' : ''}`}
                   aria-current={activeTab === item.id ? 'page' : undefined}
                 >
-                  <span className="nav-link-icon" aria-hidden="true">{item.icon}</span>
                   {item.label}
                 </button>
               ))}
             </nav>
 
             <div className="mr-auto flex items-center gap-2">
-              <span className="hidden items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted xl:flex">
-                <span className="h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
-                المراجع تُفحص عند الطلب
-              </span>
-
-              <button
+               {activeTab !== 'verifier' && <button
                 type="button"
                 onClick={() => go('verifier')}
                 className="btn btn-primary min-h-11 px-4 sm:px-5"
@@ -121,7 +115,7 @@ export default function App() {
                 <ShieldCheck className="h-4 w-4" />
                 <span className="hidden sm:inline">ابدأ الفحص</span>
                 <span className="sm:hidden">فحص</span>
-              </button>
+              </button>}
 
               <button
                 type="button"
@@ -163,7 +157,7 @@ export default function App() {
         </div>
       </header>
 
-      {activeTab !== 'home' && (
+      {activeTab !== 'home' && activeTab !== 'verifier' && (
         <div className="mx-auto flex max-w-[1380px] items-center gap-2 px-4 pb-3 pt-4 text-xs text-muted sm:px-6 lg:px-8">
           <button type="button" onClick={() => go('home')} className="breadcrumb-link">
             الرئيسية
@@ -184,45 +178,19 @@ export default function App() {
       </main>
 
       <footer className="border-t border-line bg-surface">
-        <div className="mx-auto grid max-w-[1380px] gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_auto] lg:px-8">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="brand-mark brand-mark-small" aria-hidden="true">
-                <ShieldCheck className="h-4 w-4" />
-              </span>
-              <div>
-                <div className="font-display text-base font-bold">بصيرة</div>
-                <div className="text-xs text-muted">أداة للتحقق من المحتوى الإسلامي قبل نشره.</div>
-              </div>
-            </div>
-            <p className="mt-4 max-w-2xl text-xs leading-6 text-muted">
-              تفهم بصيرة النص بمساعدة الذكاء الاصطناعي، ثم تربط النتيجة بالمراجع المعتمدة.
-              دورها ليس إصدار فتوى من المعرفة العامة للنموذج، بل مساعدة المستخدم على الوصول إلى الأصل والتحقق منه.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-start gap-6 text-xs text-muted lg:justify-end">
+        <div className="mx-auto flex max-w-[980px] flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-center gap-3">
+            <span className="brand-mark brand-mark-small" aria-hidden="true">
+              <ShieldCheck className="h-4 w-4" />
+            </span>
             <div>
-              <div className="mb-2 font-semibold text-ink">للمستخدم</div>
-              <button type="button" className="footer-link" onClick={() => go('verifier')}>فحص نص</button>
-              <button type="button" className="footer-link" onClick={() => go('dawah')}>إعداد محتوى</button>
-            </div>
-            <div>
-              <div className="mb-2 font-semibold text-ink">للمهتمين</div>
-              <button type="button" className="footer-link" onClick={() => go('sources')}>المراجع</button>
-              <button type="button" className="footer-link" onClick={() => go('governance')}>الحوكمة</button>
-            </div>
-            <div>
-              <div className="mb-2 font-semibold text-ink">المنهج</div>
-              <button type="button" className="footer-link" onClick={() => go('benchmark')}>قياس الجودة</button>
-              <button type="button" className="footer-link" onClick={() => go('extension')}>إضافة المتصفح</button>
+              <div className="font-display text-base font-bold">بصيرة</div>
+              <div className="text-xs text-muted">تحقق من المحتوى وارجع إلى المصدر.</div>
             </div>
           </div>
-        </div>
-        <div className="border-t border-line/80">
-          <div className="mx-auto flex max-w-[1380px] items-center gap-2 px-4 py-4 text-[11px] text-faint sm:px-6 lg:px-8">
-            <CircleHelp className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>في المسائل الشخصية أو الحساسة، راجع أهل الاختصاص. بصيرة لا تستبدل الحكم الشرعي المؤهل.</span>
-          </div>
+          <button type="button" className="footer-link !min-h-9 !py-1" onClick={() => go('sources')}>
+            المراجع المعتمدة
+          </button>
         </div>
       </footer>
     </div>

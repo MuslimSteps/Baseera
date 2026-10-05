@@ -12,7 +12,7 @@
 
 import { computeWordDiff, normalizeArabic, normalizeArabicStrict } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
-import { getHafsMushaf, getHafsAyah, QuranMushafAyah } from './quranpediaClient.ts';
+import { getHafsMushaf, getHafsAyah, searchHafsAyahsLive, QuranMushafAyah } from './quranpediaClient.ts';
 
 export type QuranCandidate = {
   id: string;
@@ -112,40 +112,62 @@ function candidateScore(input: string, canonical: string): number {
 }
 
 export async function getQuranCandidatesForAI(item: ExtractedItem, limit = 12): Promise<QuranCandidate[]> {
-  const mushaf = await getHafsMushaf();
   const normalizedInput = normalizeArabic(item.text);
-  const claimedSurah = findSurah(mushaf, item.claimed_surah);
 
-  const pool = claimedSurah
-    ? claimedSurah.ayahs
-    : mushaf.surahs.flatMap(s => s.ayahs);
+  // Fast path: live source search discovers only relevant ayah references.
+  // This avoids requiring the full Quran corpus to be downloaded for each check.
+  try {
+    const liveRows = await searchHafsAyahsLive(item.text, limit);
+    if (liveRows.length > 0) {
+      const mushaf = await getHafsMushaf().catch(() => null);
+      return liveRows.map(ayah => {
+        const surah = mushaf?.surahs.find(s => Number(s.id) === Number(ayah.surah));
+        const surahName = cleanSurahDisplayName(surah?.name || `سورة ${ayah.surah}`);
+        return {
+          id: `quran-${ayah.surah}-${ayah.number}`,
+          source: 'quran-uthmani' as const,
+          title: `سورة ${surahName} — الآية ${ayah.number}`,
+          text: ayah.text,
+          surah_number: Number(ayah.surah),
+          ayah_number: Number(ayah.number),
+          surah_name_ar: surahName,
+          text_uthmani: ayah.text
+        };
+      });
+    }
+  } catch (error) {
+    console.warn('[BASEERA][QURAN][LIVE_SEARCH_ERROR]', error);
+  }
 
-  const scored = pool.map(ayah => ({
-    ayah,
-    score: candidateScore(item.text, ayah.text)
-  }));
+  // Secondary path for inputs with an explicit surah citation.
+  try {
+    const mushaf = await getHafsMushaf();
+    const claimedSurah = findSurah(mushaf, item.claimed_surah);
+    if (!claimedSurah) return [];
 
-  scored.sort((a, b) => b.score - a.score);
+    return claimedSurah.ayahs
+      .map(ayah => ({ ayah, score: candidateScore(item.text, ayah.text) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(x => {
+        const surahName = cleanSurahDisplayName(claimedSurah.name);
+        return {
+          id: `quran-${x.ayah.surah}-${x.ayah.number}`,
+          source: 'quran-uthmani' as const,
+          title: `سورة ${surahName} — الآية ${x.ayah.number}`,
+          text: x.ayah.text,
+          surah_number: Number(x.ayah.surah),
+          ayah_number: Number(x.ayah.number),
+          surah_name_ar: surahName,
+          text_uthmani: x.ayah.text
+        };
+      });
+  } catch (error) {
+    console.warn('[BASEERA][QURAN][FULL_MUSHAF_FALLBACK]', error);
+  }
 
-  return scored
-    .filter(x => x.score >= 0.08 || normalizeArabic(x.ayah.text).includes(normalizedInput))
-    .slice(0, limit)
-    .map(x => {
-      const surah = mushaf.surahs.find(s => Number(s.id) === Number(x.ayah.surah));
-      const surahName = cleanSurahDisplayName(surah?.name || '');
-      return {
-        id: `quran-${x.ayah.surah}-${x.ayah.number}`,
-        source: 'quran-uthmani',
-        title: `سورة ${surahName} — الآية ${x.ayah.number}`,
-        text: x.ayah.text,
-        surah_number: Number(x.ayah.surah),
-        ayah_number: Number(x.ayah.number),
-        surah_name_ar: surahName,
-        text_uthmani: x.ayah.text
-      };
-    });
+  return [];
 }
-
 export async function getQuranCandidatesFromReferences(
   references: Array<{ surah: number; ayah: number }>
 ): Promise<QuranCandidate[]> {
@@ -200,7 +222,12 @@ export function buildQuranDecision(
   candidate: QuranCandidate
 ): VerificationResult {
   const quality = matchQuality(item.text, candidate.text);
-  const diff = computeWordDiff(item.text, candidate.text).diff;
+  const diffResult = computeWordDiff(item.text, candidate.text);
+  const diff = diffResult.diff;
+  const inputStrict = normalizeArabicStrict(item.text);
+  const canonicalStrict = normalizeArabicStrict(candidate.text);
+  const inputLooseWords = normalizeArabic(item.text).split(/\s+/).filter(Boolean);
+  const canonicalLooseWords = normalizeArabic(candidate.text).split(/\s+/).filter(Boolean);
 
   if (!quality.exact && quality.score < 0.72) {
     return {
@@ -209,7 +236,7 @@ export function buildQuranDecision(
       status: 'NOT_FOUND_IN_CHECKED_SOURCES',
       status_label_ar: 'لم تثبت مطابقة قرآنية كافية',
       status_label_en: 'No Sufficient Quranic Match',
-      reason: 'استُرجعت آيات من المصدر المعتمد، لكن لم تثبت مطابقة نصية كافية للمدخل؛ لذلك لا تُنسب الآية إليه.',
+      reason: 'لم يثبت تطابق كافٍ مع نص قرآني في المصدر المعتمد.',
       citation: {
         source_id: 'quran-uthmani',
         source_name: 'المصحف الشريف — النص الحفصي المعتمد',
@@ -227,67 +254,39 @@ export function buildQuranDecision(
     };
   }
 
-  if (!quality.exact) {
-    const changed = diff.filter(d => d.type === 'changed');
-    const findingType = changed.length > 0 ? 'altered_quran_text' : 'partial_quran_quote';
+  let surahMismatch = false;
+  if (item.claimed_surah) {
+    const claimedSurah = normalizeArabic(item.claimed_surah).replace(/^سوره?\s+/, '').trim();
+    const actualSurah = normalizeArabic(candidate.surah_name_ar).replace(/^سوره?\s+/, '').trim();
+    surahMismatch =
+      !actualSurah.includes(claimedSurah.replace(/^ال/, '')) &&
+      !claimedSurah.includes(actualSurah.replace(/^ال/, ''));
+  }
 
-    let surahMismatch = false;
-    if (item.claimed_surah) {
-      const claimedSurah = normalizeArabic(item.claimed_surah).replace(/^سوره?\s+/, '').trim();
-      const actualSurah = normalizeArabic(candidate.surah_name_ar).replace(/^سوره?\s+/, '').trim();
-      if (!actualSurah.includes(claimedSurah.replace(/^ال/, '')) && !claimedSurah.includes(actualSurah.replace(/^ال/, ''))) {
-        surahMismatch = true;
-      }
-    }
-    const ayahMismatch = Boolean(item.claimed_ayah && item.claimed_ayah !== candidate.ayah_number);
+  const ayahMismatch = Boolean(item.claimed_ayah && item.claimed_ayah !== candidate.ayah_number);
+  const isPartialQuote =
+    inputLooseWords.length < canonicalLooseWords.length &&
+    (canonicalStrict.includes(inputStrict) || quality.score >= 0.72);
 
-    if (changed.length === 0 && !surahMismatch && !ayahMismatch) {
-      return {
-        id: candidate.id,
-        item,
-        status: 'MATCHED',
-        finding_type: 'partial_quran_quote',
-        status_label_ar: 'مطابقة تامة للنص القرآني المعتمد (اقتباس صحيح)',
-        status_label_en: 'Verified Quranic Match (Partial Quotation)',
-        reason: 'النص المدخل يطابق موضع الآية الكريمة من المصحف الشريف بالرسم العثماني دون أي تحريف أو تبديل في الألفاظ.',
-        citation: {
-          source_id: 'quran-uthmani',
-          source_name: 'المصحف الشريف — النص الحفصي المعتمد',
-          authority: 'مجمع الملك فهد / Quranpedia',
-          book: `سورة ${candidate.surah_name_ar}`,
-          number_or_page: `الآية: ${candidate.ayah_number}`,
-          url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
-        },
-        canonical_text: candidate.text_uthmani,
-        canonical_surah: candidate.surah_name_ar,
-        canonical_ayah_number: candidate.ayah_number,
-        diff,
-        decision_level: 'A'
-      };
-    }
+  const citation = {
+    source_id: 'quran-uthmani',
+    source_name: 'المصحف الشريف — النص الحفصي المعتمد',
+    authority: 'مجمع الملك فهد / Quranpedia',
+    book: `سورة ${candidate.surah_name_ar}`,
+    number_or_page: `الآية: ${candidate.ayah_number}`,
+    url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
+  };
 
+  if (quality.exact && !surahMismatch && !ayahMismatch) {
     return {
       id: candidate.id,
       item,
-      status: 'NEEDS_REVIEW',
-      finding_type: findingType,
-      status_label_ar: changed.length > 0
-        ? 'تحريف في اللفظ القرآني — يختلف المدخل عن النص المعتمد'
-        : 'اقتباس جزئي من الآية — ليس النص كاملاً',
-      status_label_en: changed.length > 0
-        ? 'Altered Quranic Wording'
-        : 'Partial Quranic Quotation',
-      reason: changed.length > 0
-        ? 'المصدر المعتمد يبين اختلافًا لفظيًا بين المدخل والآية؛ لا يُعرض المدخل كنص قرآني مطابق.'
-        : 'المصدر المعتمد يبين أن المدخل جزء من الآية وليس النص الكامل.',
-      citation: {
-        source_id: 'quran-uthmani',
-        source_name: 'المصحف الشريف — النص الحفصي المعتمد',
-        authority: 'مجمع الملك فهد / Quranpedia',
-        book: `سورة ${candidate.surah_name_ar}`,
-        number_or_page: `الآية: ${candidate.ayah_number}`,
-        url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
-      },
+      status: 'MATCHED',
+      finding_type: 'partial_quran_quote',
+      status_label_ar: 'مطابق للمصدر',
+      status_label_en: 'Verified Quranic Match',
+      reason: 'النص يطابق الآية في المصحف المعتمد.',
+      citation,
       canonical_text: candidate.text_uthmani,
       canonical_surah: candidate.surah_name_ar,
       canonical_ayah_number: candidate.ayah_number,
@@ -296,31 +295,21 @@ export function buildQuranDecision(
     };
   }
 
-  if (item.claimed_surah) {
-    const claimedSurah = normalizeArabic(item.claimed_surah)
-      .replace(/^سوره?\s+/, '')
-      .trim();
-    const actualSurah = normalizeArabic(candidate.surah_name_ar)
-      .replace(/^سوره?\s+/, '')
-      .trim();
+  if (isPartialQuote) {
+    const looseQuoteMatchesSource =
+      normalizeArabic(candidate.text).includes(normalizeArabic(item.text)) &&
+      inputLooseWords.length >= 2;
 
-    if (!actualSurah.includes(claimedSurah.replace(/^ال/, '')) &&
-        !claimedSurah.includes(actualSurah.replace(/^ال/, ''))) {
+    if ((diff.every(d => d.type === 'equal') || looseQuoteMatchesSource) && !surahMismatch && !ayahMismatch) {
       return {
         id: candidate.id,
         item,
-        status: 'NEEDS_REVIEW',
-        status_label_ar: 'خطأ في عزو السورة',
-        status_label_en: 'Incorrect Surah Attribution',
-        reason: 'النص يطابق آية من المصدر المعتمد، لكن اسم السورة المذكور في المدخل لا يوافق موضع الآية.',
-        citation: {
-          source_id: 'quran-uthmani',
-          source_name: 'المصحف الشريف — النص الحفصي المعتمد',
-          authority: 'مجمع الملك فهد / Quranpedia',
-          book: `سورة ${candidate.surah_name_ar}`,
-          number_or_page: `الآية: ${candidate.ayah_number}`,
-          url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
-        },
+        status: 'MATCHED',
+        finding_type: 'partial_quran_quote',
+        status_label_ar: 'مطابق للمصدر — اقتباس جزئي',
+        status_label_en: 'Verified Partial Quranic Match',
+        reason: 'النص المدخل جزء مطابق من الآية في المصحف المعتمد.',
+        citation,
         canonical_text: candidate.text_uthmani,
         canonical_surah: candidate.surah_name_ar,
         canonical_ayah_number: candidate.ayah_number,
@@ -328,24 +317,50 @@ export function buildQuranDecision(
         decision_level: 'A'
       };
     }
+
+    return {
+      id: candidate.id,
+      item,
+      status: 'NEEDS_REVIEW',
+      finding_type: 'partial_quran_quote',
+      status_label_ar: 'يحتاج مراجعة — اختلاف في الاقتباس',
+      status_label_en: 'Partial Quranic Quote — Review Required',
+      reason: 'النص جزء من آية في المصدر المعتمد، لكن توجد ألفاظ تختلف عن النص الأصلي.',
+      citation,
+      canonical_text: candidate.text_uthmani,
+      canonical_surah: candidate.surah_name_ar,
+      canonical_ayah_number: candidate.ayah_number,
+      diff,
+      decision_level: 'A'
+    };
   }
 
-  if (item.claimed_ayah && item.claimed_ayah !== candidate.ayah_number) {
+  if (surahMismatch) {
+    return {
+      id: candidate.id,
+      item,
+      status: 'NEEDS_REVIEW',
+      status_label_ar: 'خطأ في عزو السورة',
+      status_label_en: 'Incorrect Surah Attribution',
+      reason: 'النص يطابق آية في المصدر، لكن اسم السورة المذكور لا يوافق موضعها.',
+      citation,
+      canonical_text: candidate.text_uthmani,
+      canonical_surah: candidate.surah_name_ar,
+      canonical_ayah_number: candidate.ayah_number,
+      diff,
+      decision_level: 'A'
+    };
+  }
+
+  if (ayahMismatch) {
     return {
       id: candidate.id,
       item,
       status: 'NEEDS_REVIEW',
       status_label_ar: 'خطأ في رقم الآية',
       status_label_en: 'Incorrect Verse Number',
-      reason: 'النص يطابق آية في المصدر المعتمد، لكن رقم الآية المذكور في المدخل لا يوافق الموضع المصدرّي.',
-      citation: {
-        source_id: 'quran-uthmani',
-        source_name: 'المصحف الشريف — النص الحفصي المعتمد',
-        authority: 'مجمع الملك فهد / Quranpedia',
-        book: `سورة ${candidate.surah_name_ar}`,
-        number_or_page: `الآية: ${candidate.ayah_number}`,
-        url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
-      },
+      reason: 'النص يطابق آية في المصدر، لكن رقم الآية المذكور لا يوافق موضعها.',
+      citation,
       canonical_text: candidate.text_uthmani,
       canonical_surah: candidate.surah_name_ar,
       canonical_ayah_number: candidate.ayah_number,
@@ -357,18 +372,12 @@ export function buildQuranDecision(
   return {
     id: candidate.id,
     item,
-    status: 'MATCHED',
-    status_label_ar: 'مطابقة تامة للنص القرآني المعتمد',
-    status_label_en: 'Verified Quranic Match',
-    reason: 'النص المدخل يطابق النص القرآني المسترجع من المصدر المعتمد بعد التطبيع.',
-    citation: {
-      source_id: 'quran-uthmani',
-      source_name: 'المصحف الشريف — النص الحفصي المعتمد',
-      authority: 'مجمع الملك فهد / Quranpedia',
-      book: `سورة ${candidate.surah_name_ar}`,
-      number_or_page: `الآية: ${candidate.ayah_number}`,
-      url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
-    },
+    status: 'NEEDS_REVIEW',
+    finding_type: 'altered_quran_text',
+    status_label_ar: 'يحتاج مراجعة — النص يختلف عن المصدر',
+    status_label_en: 'Quranic Text Differs From Source',
+    reason: 'يوجد اختلاف لفظي بين المدخل والنص القرآني المعتمد. راجع الأصل قبل نسبته إلى القرآن.',
+    citation,
     canonical_text: candidate.text_uthmani,
     canonical_surah: candidate.surah_name_ar,
     canonical_ayah_number: candidate.ayah_number,
@@ -376,7 +385,6 @@ export function buildQuranDecision(
     decision_level: 'A'
   };
 }
-
 /**
  * Synchronous decision entrypoint retained for the existing decision engine.
  * It only schedules source retrieval; it never uses bundled Quran knowledge.

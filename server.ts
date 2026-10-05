@@ -24,7 +24,7 @@ import { buildJamharaSearchUrl, searchJamharaLive } from './src/lib/jamharaClien
 import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
 import { normalizeArabic, normalizeArabicStrict } from './src/lib/normalizer.ts';
 import { getComparativeBenchmarkResults } from './src/lib/benchmarkRunner.ts';
-import { searchDorarApiLive, searchDorarWithSmartQueries, searchDorarFiqhLive, buildDorarFiqhUrl, cleanSearchQuery } from './src/lib/dorarClient.ts';
+import { searchDorarApiLive, searchDorarWithSmartQueries, searchDorarFiqhLive, buildDorarFiqhUrl, cleanSearchQuery, generateSearchQueries } from './src/lib/dorarClient.ts';
 import { generateDawahContent, formatContentAsText, generateInfographicSvg, DawahContentRequest } from './src/lib/dawahGenerator.ts';
 import { ExtractedItem } from './src/types/baseera.ts';
 import { fetchRemoteSafely, readTextWithLimit, readBytesWithLimit } from './src/lib/safeRemoteFetch.ts';
@@ -126,6 +126,17 @@ async function applyAISemanticMatching(items: ExtractedItem[]): Promise<void> {
 
     if (candidates.length === 0) continue;
 
+    const strictInput = normalizeArabicStrict(item.text);
+    const looseInput = normalizeArabic(item.text);
+    const hasStrongSourceMatch = candidates.some(candidate => {
+      const strictCandidate = normalizeArabicStrict(candidate.text);
+      const looseCandidate = normalizeArabic(candidate.text);
+      return strictCandidate === strictInput ||
+        (looseInput.length >= 4 && looseCandidate.includes(looseInput));
+    });
+
+    if (hasStrongSourceMatch) continue;
+
     const ai = await rankCandidatesWithAI(
       'quran',
       item.text,
@@ -180,8 +191,17 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
 
       let selected: QuranCandidate | undefined;
 
+      const strictInput = normalizeArabicStrict(queryToSearch);
+      const looseInput = normalizeArabic(queryToSearch);
+      selected = candidates.find(candidate => {
+        const strictCandidate = normalizeArabicStrict(candidate.text);
+        const looseCandidate = normalizeArabic(candidate.text);
+        return strictCandidate === strictInput ||
+          (looseInput.length >= 4 && looseCandidate.includes(looseInput));
+      });
+
       const hintId = (v.item as any).ai_match_hint?.candidate_id as string | undefined;
-      if (hintId) {
+      if (!selected && hintId) {
         selected = candidates.find(c => c.id === hintId);
       }
 
@@ -219,8 +239,83 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
         }
       }
 
-      // No sufficient Quranic evidence. Continue to the hadith path below so
-      // misattributed hadiths can still be detected.
+      // With an explicit source selection, a Quran miss stays within the
+      // Quran scope. Cross-source attribution is reserved for automatic mode.
+    }
+
+    if (v.item.type === 'hadith') {
+      const queries = [...new Set([queryToSearch, ...generateSearchQueries(queryToSearch)])].slice(0, 5);
+      const collected = new Map<string, any>();
+
+      for (const query of queries) {
+        const rows = await searchDorarApiLive(query);
+        for (const row of rows) {
+          const key = `${row.text}::${row.book}::${row.numberOrPage}`;
+          if (!collected.has(key)) collected.set(key, row);
+        }
+      }
+
+      const candidates = Array.from(collected.values());
+      const strictInput = normalizeArabicStrict(queryToSearch);
+      const looseInput = normalizeArabic(queryToSearch);
+
+      const exactCandidate = candidates.find(row => normalizeArabicStrict(row.text) === strictInput);
+      const partialCandidate = !exactCandidate
+        ? candidates.find(row => {
+            const strictCandidate = normalizeArabicStrict(row.text);
+            const looseCandidate = normalizeArabic(row.text);
+            return strictCandidate.includes(strictInput) ||
+              (looseInput.length >= 4 && looseCandidate.includes(looseInput));
+          })
+        : undefined;
+
+      let selected = exactCandidate || partialCandidate;
+
+      if (!selected && aiEnabled && candidates.length > 0) {
+        const ai = await rankCandidatesWithAI(
+          'hadith',
+          queryToSearch,
+          candidates.slice(0, 8).map((row, index) => ({
+            id: `hadith-${index}`,
+            source: 'dorar-hadith',
+            title: row.book,
+            text: row.text
+          }))
+        );
+
+        if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
+          const index = Number(ai.candidate_id.replace('hadith-', ''));
+          if (Number.isInteger(index) && candidates[index]) {
+            selected = candidates[index];
+            v.ai_match = {
+              provider: 'groq',
+              candidate_id: ai.candidate_id,
+              relation: ai.relation,
+              confidence: ai.confidence
+            };
+          }
+        }
+      }
+
+      if (selected) {
+        const decision = buildHadithDecision(v.item, selected);
+        Object.assign(v, decision);
+      } else {
+        v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
+        v.status_label_ar = 'لم يُعثر عليه';
+        v.status_label_en = 'Not Found in Checked Sources';
+        v.reason = 'لم يُعثر على تطابق موثوق في الموسوعة الحديثية المفحوصة.';
+        v.citation = {
+          source_id: 'dorar-hadith',
+          source_name: 'الموسوعة الحديثية — الدرر السنية',
+          authority: 'مؤسسة الدرر السنية للإشراف العلمي',
+          url: `https://dorar.net/hadith/search?q=${encodeURIComponent(queryToSearch)}`
+        };
+        v.decision_level = 'B';
+      }
+
+      delete r._needs_live_search;
+      return;
     }
 
     if (isTafsirQuestion || isAqeedahQuestion) {
@@ -906,7 +1001,7 @@ app.post('/api/verify', async (req, res) => {
       ]);
     };
 
-    if (aiEnabled && extractedText.length > 10) {
+    if (aiEnabled && extractedText.length > 10 && (!targetCategory || targetCategory === 'auto')) {
       try {
         const aiRaw = await groqChat(
           [{
@@ -992,21 +1087,38 @@ ${extractedText}
     // If user explicitly chose a target category (Quran, Hadith, Fiqh, Term),
     // align extracted items directly with their selection for maximum precision.
     if (targetCategory && targetCategory !== 'auto') {
-      const validTypes: Array<ExtractedItem['type']> = ['ayah', 'hadith', 'fiqh_question', 'term'];
+      const validTypes: Array<ExtractedItem['type']> = [
+        'ayah',
+        'hadith',
+        'tafsir_question',
+        'aqeedah_question',
+        'fiqh_question',
+        'term'
+      ];
       if (validTypes.includes(targetCategory as any)) {
-        if (extractedItems.length === 0) {
-          extractedItems = [{
-            type: targetCategory as ExtractedItem['type'],
-            text: extractedText,
-            context: extractedText,
-            language: 'ar',
-            confidence: 0.99
-          }];
-        } else {
-          for (const item of extractedItems) {
-            item.type = targetCategory as ExtractedItem['type'];
-          }
-        }
+        const selectedType = targetCategory as ExtractedItem['type'];
+        const scope = selectedType === 'ayah'
+          ? 'quran'
+          : selectedType === 'hadith'
+            ? 'hadith'
+            : selectedType === 'tafsir_question'
+              ? 'tafsir'
+              : selectedType === 'aqeedah_question'
+                ? 'aqeedah'
+                : selectedType === 'term'
+                  ? 'term'
+                  : 'fiqh';
+
+        // The user's explicit choice means this entire submitted payload is
+        // one verification item against one approved source.
+        extractedItems = [{
+          type: selectedType,
+          text: extractedText,
+          context: extractedText,
+          language: /[a-zA-Z]/.test(extractedText) ? 'en' : 'ar',
+          confidence: 0.99,
+          verification_scope: scope
+        } as ExtractedItem & { verification_scope: string }];
       }
     }
 
@@ -1019,26 +1131,15 @@ ${extractedText}
 
     // AI semantic matching is advisory: it can propose the most likely source
     // candidate, but the canonical verifier below remains the final authority.
-    if (aiEnabled) {
+    if (aiEnabled && (!targetCategory || targetCategory === 'auto')) {
       await applyAISemanticMatching(extractedItems);
     }
 
     // Run the deterministic/source-first verifier after AI candidate selection.
     const report = verifyExtractedItems(extractedItems, extractedText, inputType);
 
-    // Preserve AI provenance without treating its confidence as proof.
-    for (const verification of report.verifications) {
-      const hint = (verification.item as any).ai_match_hint;
-      if (hint?.candidate_id) {
-        verification.ai_match = {
-          provider: 'groq',
-          candidate_id: hint.candidate_id,
-          relation: hint.relation,
-          confidence: hint.confidence
-        };
-        verification.reason = `اقتراح المطابقة الدلالية بالذكاء الاصطناعي: ${hint.candidate_id} (ثقة النموذج ${Math.round(hint.confidence * 100)}٪). النتيجة النهائية أدناه حُسمت من المصدر المرجعي لا من النموذج.${verification.reason ? ' ' + verification.reason : ''}`;
-      }
-    }
+    // AI provenance remains available on verification.ai_match for progressive disclosure.
+
 
     // ── UNIFIED APPROVED SOURCES LIVE SEARCH ──────────────────────────────
     for (const v of report.verifications) {
