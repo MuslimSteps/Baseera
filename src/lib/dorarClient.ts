@@ -315,7 +315,7 @@ export async function searchDorarApiLive(query: string): Promise<DorarHadithResu
     const scriptPath = path.resolve(process.cwd(), 'src/lib/dorar_hadith.py');
 
     const results = await new Promise<DorarHadithResult[]>((resolve) => {
-      execFile('python', [scriptPath, cleanQ], { timeout: 10000, encoding: 'utf-8' }, (error, stdout) => {
+      execFile(process.platform === 'win32' ? 'python' : 'python3', [scriptPath, cleanQ], { timeout: 10000, encoding: 'utf-8' }, (error, stdout) => {
         if (error || !stdout) {
           return resolve([]);
         }
