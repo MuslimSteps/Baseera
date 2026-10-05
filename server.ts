@@ -31,7 +31,7 @@ import { generateDawahContent, formatContentAsText, generateInfographicSvg, Dawa
 import { ExtractedItem } from './src/types/baseera.ts';
 import { fetchRemoteSafely, readTextWithLimit, readBytesWithLimit } from './src/lib/safeRemoteFetch.ts';
 import { getQuranCandidatesForAI } from './src/lib/quranVerifier.ts';
-import { rankCandidatesWithAI } from './src/lib/aiMatcher.ts';
+import { rankCandidatesWithAI, generateFiqhSearchQueriesWithAI } from './src/lib/aiMatcher.ts';
 import { groqChat, groqVisionText, groqTranscribe, GROQ_TEXT_MODEL, GROQ_VISION_MODEL } from './src/lib/groqClient.ts';
 
 dotenv.config();
@@ -64,6 +64,18 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Groq AI is configured server-side. Secrets are never accepted from request bodies.
 const aiEnabled = Boolean(process.env.GROQ_API_KEY?.trim());
+
+// AI readiness — exposes provider/model state only; never exposes the API key.
+app.get('/api/ai-status', (_req, res) => {
+  res.json({
+    enabled: aiEnabled,
+    provider: 'groq',
+    text_model: GROQ_TEXT_MODEL,
+    vision_model: GROQ_VISION_MODEL,
+    audio_model: 'whisper-large-v3-turbo',
+    key_source: 'server_environment'
+  });
+});
 
 // 1. Source Registry API
 app.get('/api/sources', (_req, res) => {
@@ -226,8 +238,94 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       const fiqhSearchUrl = r._fiqh_url || buildDorarFiqhUrl(queryToSearch);
       const contentWords: string[] = r._content_words || generateFiqhSearchKeywords(queryToSearch);
       
-      // Step 1: Query Dorar Fiqh Encyclopedia (dorar.net/feqhia)
-      const fiqhResult = await searchDorarFiqhLive(queryToSearch);
+      // Step 1: Retrieve from the approved Dorar Fiqh Encyclopedia.
+      // If the literal question is too broad for the source search, Groq
+      // generates search concepts only; it never generates a ruling.
+      let fiqhResult = await searchDorarFiqhLive(queryToSearch);
+
+      if (aiEnabled) {
+        try {
+          const aiQueries = await generateFiqhSearchQueriesWithAI(queryToSearch);
+          const collected = new Map<string, { title: string; text: string; url: string }>();
+
+          const addResults = (result: any) => {
+            if (!result?.found) return;
+            for (const row of result.allResults || []) {
+              const key = row.url || `${row.title}::${row.text?.slice(0, 160) || ''}`;
+              if (!collected.has(key)) {
+                collected.set(key, {
+                  title: row.title || result.title,
+                  text: row.text || '',
+                  url: row.url || result.url
+                });
+              }
+            }
+            if (result.title || result.text) {
+              const key = result.url || `${result.title}::${result.text?.slice(0, 160) || ''}`;
+              if (!collected.has(key)) {
+                collected.set(key, {
+                  title: result.title,
+                  text: result.text || '',
+                  url: result.url
+                });
+              }
+            }
+            if (!fiqhResult) fiqhResult = result;
+          };
+
+          addResults(fiqhResult);
+          for (const aiQuery of aiQueries) {
+            if (aiQuery === queryToSearch) continue;
+            const candidateResult = await searchDorarFiqhLive(aiQuery);
+            addResults(candidateResult);
+          }
+
+          const candidateRows = Array.from(collected.values()).slice(0, 16);
+          if (candidateRows.length > 1) {
+            const aiCandidates = candidateRows.map((row, index) => ({
+              id: `fiqh-${index}`,
+              source: 'fiqh-madhahib-dorar',
+              title: row.title,
+              text: row.text
+            }));
+
+            const ai = await rankCandidatesWithAI('fiqh', queryToSearch, aiCandidates);
+            if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
+              const selectedIndex = Number(ai.candidate_id.replace('fiqh-', ''));
+              const selected = candidateRows[selectedIndex];
+              if (selected) {
+                const existing = fiqhResult;
+                fiqhResult = {
+                  found: true,
+                  title: selected.title,
+                  text: selected.text,
+                  detailedRuling: selected.text,
+                  url: selected.url,
+                  source: 'الموسوعة الفقهية المقارنة — الدرر السنية',
+                  allResults: candidateRows,
+                  ai_match: {
+                    provider: 'groq',
+                    candidate_id: ai.candidate_id,
+                    relation: ai.relation,
+                    confidence: ai.confidence
+                  }
+                } as any;
+                if (existing && !(fiqhResult as any).allResults.length) {
+                  (fiqhResult as any).allResults = existing.allResults;
+                }
+                v.ai_match = {
+                  provider: 'groq',
+                  candidate_id: ai.candidate_id,
+                  relation: ai.relation,
+                  confidence: ai.confidence
+                };
+              }
+            }
+          }
+        } catch (aiErr: any) {
+          console.warn('Groq fiqh search/rerank failed; keeping source search result:', aiErr.message);
+        }
+      }
 
       if (fiqhResult?.found) {
         const sensitive = isSensitiveFiqhQuestion(queryToSearch);
