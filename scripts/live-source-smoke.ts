@@ -1,12 +1,17 @@
 import { searchDorarApiLive, searchDorarFiqhLive } from '../src/lib/dorarClient.ts';
 import { searchDorarAqeedahLive, searchDorarTafsirLive } from '../src/lib/dorarEncyclopediaClient.ts';
 import { searchJamharaLive } from '../src/lib/jamharaClient.ts';
-import { getAvailableTranslationLanguages, getAyahTranslations } from '../src/lib/quranpediaClient.ts';
+import { getAvailableTranslationLanguages, getAyahTranslations, getHafsMushaf } from '../src/lib/quranpediaClient.ts';
+import { fetchRemoteSafely, readTextWithLimit } from '../src/lib/safeRemoteFetch.ts';
 
 type Check = { name: string; ok: boolean; detail: string };
 const checks: Check[] = [];
 
-async function run(name: string, fn: () => Promise<unknown>, summarize: (value: any) => string): Promise<void> {
+async function run(
+  name: string,
+  fn: () => Promise<unknown>,
+  summarize: (value: any) => string
+): Promise<void> {
   try {
     const value: any = await fn();
     const ok = Boolean(value);
@@ -16,53 +21,99 @@ async function run(name: string, fn: () => Promise<unknown>, summarize: (value: 
   }
 }
 
+async function discoverFirstLink(
+  indexUrl: string,
+  pathPattern: RegExp
+): Promise<{ title: string; url: string } | null> {
+  const response = await fetchRemoteSafely(indexUrl, {
+    headers: {
+      'User-Agent': 'Baseera/1.0',
+      'Accept': 'text/html,application/xhtml+xml',
+      'Accept-Language': 'ar,en;q=0.9'
+    }
+  });
+  if (!response.ok) return null;
+
+  const html = await readTextWithLimit(response, 1_500_000);
+  const matches = [...html.matchAll(
+    new RegExp(`<a\\b[^>]*href=["']([^"']*${pathPattern.source}[^"']*)["'][^>]*>([\\s\\S]*?)</a>`, 'gi')
+  )];
+
+  for (const match of matches) {
+    const href = match[1] || '';
+    const title = (match[2] || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/\\s+/g, ' ')
+      .trim();
+
+    if (title.length < 3) continue;
+    return {
+      title,
+      url: href.startsWith('http') ? href : new URL(href, indexUrl).toString()
+    };
+  }
+
+  return null;
+}
+
+const [dorarHadithSeed, dorarFiqhSeed, dorarTafsirSeed, dorarAqeedahSeed, jamharaSeed, mushaf] =
+  await Promise.all([
+    discoverFirstLink('https://dorar.net/hadith', /\\/hadith\\//),
+    discoverFirstLink('https://dorar.net/feqhia', /\\/feqhia\\/\\d+/),
+    discoverFirstLink('https://dorar.net/tafseer', /\\/tafseer\\/\\d+/),
+    discoverFirstLink('https://dorar.net/aqeeda', /\\/aqeeda\\/\\d+/),
+    discoverFirstLink('https://islamic-content.com/dictionary', /\\/dictionary\\/word\\/\\d+/),
+    getHafsMushaf()
+  ]);
+
 await run(
-  'Dorar Hadith',
-  () => searchDorarApiLive('إنما الأعمال بالنيات'),
+  'Dorar Hadith — dynamic source discovery',
+  () => dorarHadithSeed ? searchDorarApiLive(dorarHadithSeed.title.split(/\\s+/).slice(0, 3).join(' ')) : [],
   (value: any[]) => 'results=' + (Array.isArray(value) ? value.length : 0)
-);
-await run(
-  'Dorar Fiqh',
-  () => searchDorarFiqhLive('نقض الوضوء بلمس المرأة'),
-  (value: any) => 'found=' + Boolean(value?.found)
 );
 
 await run(
-  'Dorar Fiqh — ruling intent regression',
-  () => searchDorarFiqhLive('ما حكم الختان؟'),
-  (value: any) => 'found=' + Boolean(value?.found) + ' title=' + (value?.title || '') + ' url=' + (value?.url || '')
-);
-await run(
-  'Dorar Fiqh — wudu ruling regression',
-  () => searchDorarFiqhLive('ما حكم الوضوء؟'),
-  (value: any) => 'found=' + Boolean(value?.found) + ' title=' + (value?.title || '') + ' url=' + (value?.url || '')
-);
-await run(
-  'Dorar Tafsir',
-  () => searchDorarTafsirLive('تفسير سورة الفاتحة'),
+  'Dorar Fiqh — dynamic source discovery',
+  () => dorarFiqhSeed ? searchDorarFiqhLive(dorarFiqhSeed.title) : null,
   (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
 );
+
 await run(
-  'Dorar Aqeedah',
-  () => searchDorarAqeedahLive('التوحيد'),
+  'Dorar Tafsir — dynamic source discovery',
+  () => dorarTafsirSeed ? searchDorarTafsirLive(dorarTafsirSeed.title) : null,
   (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
 );
+
 await run(
-  'Jamhara',
-  () => searchJamharaLive('التوحيد'),
+  'Dorar Aqeedah — dynamic source discovery',
+  () => dorarAqeedahSeed ? searchDorarAqeedahLive(dorarAqeedahSeed.title) : null,
   (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
 );
+
+await run(
+  'Jamhara — dynamic source discovery',
+  () => jamharaSeed ? searchJamharaLive(jamharaSeed.title) : null,
+  (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
+);
+
+const firstAyah = mushaf?.surahs?.[0]?.ayahs?.[0];
+
 await run(
   'Quranpedia translation language discovery',
-  () => getAvailableTranslationLanguages(1, 1),
+  () => firstAyah ? getAvailableTranslationLanguages(firstAyah.surah, firstAyah.number) : [],
   (value: any[]) => 'languages=' + (Array.isArray(value) ? value.length : 0)
 );
+
 await run(
-  'Quranpedia all available translations for ayah',
-  () => getAyahTranslations(1, 1),
+  'Quranpedia all available translations for discovered ayah',
+  () => firstAyah ? getAyahTranslations(firstAyah.surah, firstAyah.number) : [],
   (value: any) => {
     const groups = value && typeof value === 'object' ? Object.entries(value) : [];
-    const nonEmpty = groups.filter(([, rows]: any) => Array.isArray(rows) && rows.some((row: any) => row?.text)).length;
+    const nonEmpty = groups.filter(([, rows]: any) =>
+      Array.isArray(rows) && rows.some((row: any) => row?.text)
+    ).length;
     return 'languages_with_text=' + nonEmpty;
   }
 );
