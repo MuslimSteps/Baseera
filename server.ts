@@ -179,21 +179,24 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
     // ── QURAN PATH: live Quranpedia source is authoritative ────────────────
     if (v.item.type === 'ayah') {
       let candidates: QuranCandidate[] = [];
-      let quranSourceUnavailable = false;
+      let sourceFetchFailed = false;
       try {
         candidates = await getQuranCandidatesForAI(v.item, 12);
       } catch (error: any) {
-        quranSourceUnavailable = true;
-        console.warn('[BASEERA][QURAN][SOURCE_UNAVAILABLE]', error?.message || String(error));
+        sourceFetchFailed = true;
+        console.warn('[BASEERA][QURAN][DISCOVERY_UNAVAILABLE]', error?.message || String(error));
       }
 
-      // For non-Arabic input (for example an English translation), AI may
-      // suggest locations, but every suggested location is fetched and
-      // validated against the live Quran source before being exposed.
+      // Search is only candidate discovery. When discovery is unavailable or
+      // returns nothing, the AI may suggest references, but every reference
+      // is fetched from the canonical Hafs endpoint before it can be accepted.
       if (candidates.length === 0 && aiEnabled) {
         const refs = await generateQuranReferenceCandidatesWithAI(queryToSearch);
         const hinted = await (await import('./src/lib/quranVerifier.ts')).getQuranCandidatesFromReferences(refs);
-        candidates = hinted;
+        if (hinted.length > 0) {
+          candidates = hinted;
+          sourceFetchFailed = false;
+        }
       }
 
       let selected: QuranCandidate | undefined;
@@ -250,11 +253,11 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       // A user-selected Quran check is hard-scoped to the Quran source.
       // Never reinterpret the same input as a hadith or another category.
       if (v.item.verification_scope === 'quran') {
-        if (quranSourceUnavailable) {
+        if (sourceFetchFailed) {
           v.status = 'NEEDS_REVIEW';
           v.status_label_ar = 'تعذر التحقق الآن';
           v.status_label_en = 'Verification Temporarily Unavailable';
-          v.reason = 'تعذر الوصول إلى المصحف المعتمد لإكمال الفحص. أعد المحاولة بعد قليل.';
+          v.reason = 'تعذر الوصول إلى المصحف المعتمد لإكمال الفحص.';
           v.citation = {
             source_id: 'quran-uthmani',
             source_name: 'المصحف الشريف — النص الحفصي المعتمد',

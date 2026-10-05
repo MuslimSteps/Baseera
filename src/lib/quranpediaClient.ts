@@ -44,35 +44,16 @@ export interface QuranMushaf {
 }
 
 let hafsMushafPromise: Promise<QuranMushaf> | null = null;
-let hafsMushafIdPromise: Promise<number> | null = null;
 
+const HAFS_MUSHAF_ID = 1;
+
+/**
+ * Quranpedia currently documents the Hafs mushaf as ID 1.
+ * Keeping this identifier fixed avoids making single-ayah verification
+ * depend on an extra metadata request to /mushafs.
+ */
 async function getHafsMushafId(): Promise<number> {
-  if (!hafsMushafIdPromise) {
-    hafsMushafIdPromise = getJson('/mushafs')
-      .then((rows: unknown) => {
-        if (!Array.isArray(rows)) {
-          throw new Error('Quranpedia returned an invalid mushaf index');
-        }
-
-        const hafs = rows.find((row: any) => {
-          const rawiName = String(row?.rawi?.full_name || row?.rawi?.name || '').toLowerCase();
-          const name = String(row?.name || '').toLowerCase();
-          return rawiName.includes('حفص') || name.includes('حفص');
-        });
-
-        const id = Number(hafs?.id);
-        if (!Number.isInteger(id) || id < 1) {
-          throw new Error('Hafs mushaf was not found in Quranpedia metadata');
-        }
-        return id;
-      })
-      .catch(error => {
-        hafsMushafIdPromise = null;
-        throw error;
-      });
-  }
-
-  return hafsMushafIdPromise;
+  return HAFS_MUSHAF_ID;
 }
 
 /**
@@ -202,6 +183,15 @@ export async function searchHafsAyahsLive(query: string, limit = 12): Promise<Qu
 
   return resolvedRows;
 }
+export async function getHafsSurah(surah: number): Promise<QuranMushafAyah[]> {
+  try {
+    const data = await getJson(`/mushafs/${HAFS_MUSHAF_ID}/${surah}`);
+    return Array.isArray(data) ? data as QuranMushafAyah[] : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getHafsAyah(surah: number, ayah: number): Promise<QuranMushafAyah | null> {
   try {
     const mushafId = await getHafsMushafId();

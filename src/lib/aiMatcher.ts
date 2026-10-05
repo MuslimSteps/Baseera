@@ -125,14 +125,6 @@ export async function generateQuranReferenceCandidatesWithAI(
       json: true,
       reasoningEffort: 'medium',
       timeoutMs: 8000
-    }],
-    {
-      model: GROQ_TEXT_MODEL,
-      temperature: 0,
-      maxTokens: 512,
-      json: true,
-      reasoningEffort: 'medium',
-      timeoutMs: 8000
     }
   );
 

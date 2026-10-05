@@ -25,7 +25,7 @@ import { searchDorarWithSmartQueries, buildDorarFiqhUrl, cleanSearchQuery } from
 import { searchJamharaLive } from './jamharaClient.ts';
 import { generateSourceSearchQueriesWithAI } from './aiMatcher.ts';
 import { groqChat, GROQ_TEXT_MODEL } from './groqClient.ts';
-import { getAyahTranslations, getHafsMushaf } from './quranpediaClient.ts';
+import { getAyahTranslations, getHafsAyah, searchHafsAyahsLive } from './quranpediaClient.ts';
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -104,48 +104,98 @@ export interface DawahContent {
 // Source Retrieval Functions
 // ──────────────────────────────────────────────────────────────
 
-async function findRelevantVerses(topic: string, limit = 4): Promise<Array<{
+async function findRelevantVerses(topic: string, limit = 3): Promise<Array<{
   text_uthmani: string;
   text_clean: string;
   surah_name_ar: string;
   ayah_number: number;
   surah_number: number;
 }>> {
-  const mushaf = await getHafsMushaf();
   const aiQueries = process.env.GROQ_API_KEY?.trim()
-    ? await generateSourceSearchQueriesWithAI('quran', topic)
+    ? await generateSourceSearchQueriesWithAI('quran', topic).catch(() => [])
     : [];
 
-  const terms = [...new Set(
-    [topic, ...aiQueries]
-      .flatMap(q => normalizeArabic(q).split(/\s+/))
-      .filter(w => w.length > 2)
-  )];
+  const queries = [...new Set([topic, ...aiQueries]
+    .map(q => normalizeArabic(q).trim())
+    .filter(q => q.length >= 2))]
+    .slice(0, 6);
 
-  const scored = mushaf.surahs.flatMap(surah =>
-    surah.ayahs.map(ayah => {
-      const normText = normalizeArabic(ayah.text);
-      const score = terms.reduce(
-        (sum, term) => sum + (normText.includes(term) ? (term.length >= 5 ? 4 : 2) : 0),
-        0
+  const rows = new Map<string, {
+    text_uthmani: string;
+    text_clean: string;
+    surah_number: number;
+    ayah_number: number;
+  }>();
+
+  for (const query of queries) {
+    try {
+      const found = await searchHafsAyahsLive(query, 8);
+      for (const ayah of found) {
+        const key = `${ayah.surah}:${ayah.number}`;
+        if (!rows.has(key)) {
+          rows.set(key, {
+            text_uthmani: ayah.text,
+            text_clean: normalizeArabic(ayah.text),
+            surah_number: Number(ayah.surah),
+            ayah_number: Number(ayah.number)
+          });
+        }
+      }
+    } catch {
+      // Try the next source-search query. No generated verse is accepted.
+    }
+  }
+
+  // Fallback: the model may suggest only reference coordinates. The source
+  // text is still fetched directly from the canonical Hafs endpoint.
+  if (rows.size === 0 && process.env.GROQ_API_KEY?.trim()) {
+    try {
+      const refs = await (await import('./aiMatcher.ts')).generateQuranReferenceCandidatesWithAI(topic);
+      const canonical = await Promise.all(
+        refs.map(ref => getHafsAyah(ref.surah, ref.ayah))
       );
-      return { surah, ayah, score };
+      for (const ayah of canonical.filter(Boolean)) {
+        const row = ayah as Awaited<ReturnType<typeof getHafsAyah>> & object;
+        const sourceRow = row as any;
+        const key = `${sourceRow.surah}:${sourceRow.number}`;
+        rows.set(key, {
+          text_uthmani: sourceRow.text,
+          text_clean: normalizeArabic(sourceRow.text),
+          surah_number: Number(sourceRow.surah),
+          ayah_number: Number(sourceRow.number)
+        });
+      }
+    } catch {
+      // Fail closed below.
+    }
+  }
+
+  if (rows.size === 0) return [];
+
+  const topicTerms = normalizeArabic(topic)
+    .split(/\s+/)
+    .filter(word => word.length >= 3);
+
+  const scored = [...rows.values()]
+    .map(row => {
+      const text = row.text_clean;
+      const exactTopicHits = topicTerms.reduce((sum, term) => sum + (text.includes(term) ? 1 : 0), 0);
+      const score = exactTopicHits;
+      return { ...row, score };
     })
-  );
+    .filter(row => topicTerms.length === 0 || row.score > 0);
 
   return scored
-    .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map(x => ({
-      text_uthmani: x.ayah.text,
-      text_clean: normalizeArabic(x.ayah.text),
-      surah_name_ar: x.surah.name,
-      ayah_number: x.ayah.number,
-      surah_number: x.ayah.surah
+    .map(row => ({
+      text_uthmani: row.text_uthmani,
+      text_clean: row.text_clean,
+      surah_name_ar: `سورة ${row.surah_number}`,
+      ayah_number: row.ayah_number,
+      surah_number: row.surah_number
     }));
 }
-
 async function findRelevantHadiths(topic: string, limit = 3): Promise<any[]> {
   const aiQueries = process.env.GROQ_API_KEY?.trim()
     ? await generateSourceSearchQueriesWithAI('hadith', topic)
@@ -192,73 +242,38 @@ async function generateEditorialNarrative(
   closingAr: string;
   translated?: string;
 }> {
-  const fallback = {
-    introAr: `الموضوع: «${topic}»\\n\\nهذه مسودة تحريرية مبنية على المواد المسترجعة من المصادر المعتمدة، وليست فتوى أو حكمًا صادرًا عن بصيرة.`,
-    applicationAr: `الإطار التطبيقي: تُراجع النقاط العملية في ضوء الأدلة المصدرية المسترجعة أعلاه، ولا تُنسب إلى المصدر أي نتيجة غير موجودة فيه.`,
-    closingAr: `خاتمة المسودة: تُراجع النصوص المصدرية والاستدلالات قبل النشر، ويُحال ما يحتاج فتوى أو ترجيحًا إلى أهل الاختصاص.`
-  };
+  const audienceHint = {
+    general: 'عموم المسلمين',
+    youth: 'الشباب والناشئة',
+    revert: 'المسلمين الجدد',
+    non_muslim: 'غير المسلمين',
+    scholar: 'طلاب العلم'
+  }[audience];
 
-  if (!process.env.GROQ_API_KEY?.trim()) return fallback;
+  // Deterministic editorial framing. No religious claims are invented here;
+  // all religious evidence is inserted separately from approved sources.
+  const introAr =
+    contentType === 'khutba_friday'
+      ? `الحمد لله، أما بعد؛ عباد الله، موضوعنا اليوم: «${topic}». وفيما يلي نصوص مصدرية موثقة يمكن بناء الحديث حولها.`
+      : `هذا المحتوى يتناول «${topic}»، مع الاعتماد على النصوص المصدرية الظاهرة أدناه.`;
 
-  try {
-    const raw = await groqChat(
-      [{
-        role: 'user',
-        content: `أنت محرر في «بصيرة». اكتب نصًا إنشائيًا فقط حول الموضوع التالي باستخدام الأدلة المصدرية المرفقة.
+  const applicationAr =
+    `لـ${audienceHint}: اقرأ النصوص المصدرية أولًا، ثم اربطها بموضوعك في حدود ما تدل عليه، وتجنب إضافة نسبة أو حكم غير وارد في المراجع المعروضة.`;
 
-قيود صارمة:
-- لا تضف آية أو حديثًا أو حكمًا أو فتوى أو معلومة دينية جديدة.
-- لا تنسب إلى القرآن أو السنة أو أي عالم شيئًا غير موجود حرفيًا في الأدلة المرفقة.
-- لا تذكر أرقام آيات أو أحاديث أو أسماء مصادر من معرفتك.
-- لا تحوّل النص إلى فتوى أو ترجيح فقهي.
-- المطلوب مجرد صياغة انتقالات تحريرية للمقدمة والتطبيق والخاتمة.
-- إذا كانت الأدلة غير كافية، قل ذلك بدل ملء الفراغ من المعرفة العامة.
-- أعطِ النص العربي، وإن كانت لغة الإخراج غير العربية فأعطِ ترجمة هذه الانتقالات فقط.
+  const closingAr =
+    contentType === 'khutba_friday'
+      ? 'نسأل الله التوفيق والسداد، ونختم هذه المسودة بعد مراجعة النصوص والمراجع قبل الإلقاء أو النشر.'
+      : 'تُراجع النصوص المصدرية والإحالات قبل النشر، وما يحتاج إلى فتوى أو ترجيح يُحال إلى أهل الاختصاص.';
 
-الموضوع: ${topic}
-نوع المحتوى: ${contentType}
-الجمهور: ${audience}
-لغة الإخراج: ${language}
+  const translated =
+    language === 'ru'
+      ? `Редакционная версия حول «${topic}». Используйте приведённые источники как основу и не добавляйте религиозные утверждения вне них. Будьте особенно внимательны к ссылкам и формулировкам.`
+      : language === 'en'
+        ? `Editorial draft about “${topic}”. Use the cited source texts as the basis and do not add religious claims beyond them. Review all references before publication.`
+        : undefined;
 
-الأدلة المصدرية المتاحة:
-${JSON.stringify(evidence.slice(0, 8), null, 2)}
-
-JSON فقط:
-{
-  "intro_ar": "...",
-  "application_ar": "...",
-  "closing_ar": "...",
-  "translated": "..."
-}`
-      }],
-      {
-        model: GROQ_TEXT_MODEL,
-        temperature: 0.2,
-        maxTokens: 1200,
-        json: true,
-        reasoningEffort: 'medium',
-        timeoutMs: 10000
-      }
-    );
-
-    const parsed = JSON.parse(String(raw)) as Partial<{
-      intro_ar: string;
-      application_ar: string;
-      closing_ar: string;
-      translated: string;
-    }>;
-
-    return {
-      introAr: typeof parsed.intro_ar === 'string' && parsed.intro_ar.trim() ? parsed.intro_ar.trim() : fallback.introAr,
-      applicationAr: typeof parsed.application_ar === 'string' && parsed.application_ar.trim() ? parsed.application_ar.trim() : fallback.applicationAr,
-      closingAr: typeof parsed.closing_ar === 'string' && parsed.closing_ar.trim() ? parsed.closing_ar.trim() : fallback.closingAr,
-      translated: typeof parsed.translated === 'string' && parsed.translated.trim() ? parsed.translated.trim() : undefined
-    };
-  } catch {
-    return fallback;
-  }
+  return { introAr, applicationAr, closingAr, translated };
 }
-
 // ──────────────────────────────────────────────────────────────
 // Main Generator Function
 // ──────────────────────────────────────────────────────────────
@@ -279,6 +294,10 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // 4. Retrieve Terminology from Jamhara
   const termDef = await findJamharaTerm(topic);
 
+  if (relevantVerses.length === 0 && verifiedHadiths.length === 0 && !termDef) {
+    throw new Error('لم تُسترجع مادة مصدرية كافية لهذا الموضوع من المراجع المعتمدة.');
+  }
+
   // 5. Resolve the requested translation from the approved live Quranpedia source.
   // Never fall back to model-generated religious translation.
   const verseTranslations = new Map<string, string>();
@@ -286,8 +305,14 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     if (language === 'ar') continue;
     try {
       const rows = await getAyahTranslations(v.surah_number, v.ayah_number, language);
-      const first = Array.isArray(rows) ? rows[0] : undefined;
-      if (first?.text) verseTranslations.set(`${v.surah_number}:${v.ayah_number}`, first.text);
+      const available = Array.isArray(rows) ? rows : [];
+      const preferredBook = language === 'ru'
+        ? /Elmir\s+Kuliev|إلمير\s+كولييف/i
+        : /Saheeh\s+International|صحيح\s+International/i;
+      const selected = available.find(row => preferredBook.test(row.bookName));
+      if (selected?.text) {
+        verseTranslations.set(`${v.surah_number}:${v.ayah_number}`, selected.text);
+      }
     } catch {
       // Source unavailable: leave translation absent rather than inventing it.
     }
@@ -317,7 +342,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     if (!tr) continue;
     allCitations.push({
       type: 'ayah',
-      arabic_text: tr,
+      arabic_text: v.text_uthmani,
       translation: tr,
       source_name: `ترجمة معاني القرآن — Quranpedia — ${language}`,
       source_url: `https://quranpedia.net/verse/${v.surah_number}/${v.ayah_number}`,
@@ -360,17 +385,14 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   const isKhutba = contentType === 'khutba_friday';
   const sections: DawahContentSection[] = [];
   const mainVerse = relevantVerses[0];
-  const secondVerse = relevantVerses[1];
   const mainHadith = verifiedHadiths[0] || null;
-  const secondHadith = verifiedHadiths[1];
 
   const mainVerseTr = mainVerse ? verseTranslations.get(`${mainVerse.surah_number}:${mainVerse.ayah_number}`) : undefined;
-  const secondVerseTr = secondVerse ? verseTranslations.get(`${secondVerse.surah_number}:${secondVerse.ayah_number}`) : undefined;
   
   // ── Section 1: Editorial Introduction ──
   const evidenceForEditor = [
-    ...relevantVerses.slice(0, 2).map(v => ({ type: 'ayah', text: v.text_uthmani })),
-    ...verifiedHadiths.slice(0, 2).map(h => ({ type: 'hadith', text: h.text_full || h.text })),
+    ...relevantVerses.slice(0, 3).map(v => ({ type: 'ayah', text: v.text_uthmani })),
+    ...verifiedHadiths.slice(0, 1).map(h => ({ type: 'hadith', text: h.text_full || h.text })),
     ...(termDef ? [{ type: 'term', text: termDef.text }] : [])
   ];
   const editorial = await generateEditorialNarrative(
@@ -393,17 +415,13 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // ── Section 2: Retrieved Quran Evidence ──
   if (mainVerse) {
     const quranLines = [
-      'المادة القرآنية المسترجعة مباشرة من المصدر المعتمد:',
+      'الآية:',
       '',
       `﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [سورة ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]`,
-      secondVerse
-        ? `﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [سورة ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]`
-        : '',
       mainVerseTr
         ? `الترجمة المسترجعة من المصدر: «${mainVerseTr}»`
         : 'لم تُسترجع ترجمة مطلوبة لهذا الموضع من المصدر.',
       '',
-      'هذه مادة مصدرية؛ لا تُنشئ بصيرة تفسيرًا أو حكمًا من خارجها.'
     ].filter(Boolean);
 
     sections.push({
@@ -423,16 +441,12 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // ── Section 3: Retrieved Hadith Evidence ──
   if (mainHadith) {
     const hadithLines = [
-      'المادة الحديثية المسترجعة مباشرة من الموسوعة الحديثية المعتمدة:',
+      'الحديث:'
       '',
       `«${mainHadith.text_full || mainHadith.text_clean}»`,
       `المصدر: ${mainHadith.source_book || 'المصدر الحديثي المسترجع'}`,
       `الدرجة كما وردت في المصدر: ${mainHadith.grade || 'غير محددة'}`,
-      secondHadith
-        ? `حديث إضافي مسترجع: «${secondHadith.text_full || secondHadith.text_clean}»`
-        : '',
       '',
-      'هذه مادة مصدرية؛ لا تُنشئ بصيرة حكمًا أو ترجيحًا من خارج المصدر.'
     ].filter(Boolean);
 
     sections.push({
@@ -540,11 +554,11 @@ function buildVideoReelScript(
       scene_number: 4,
       duration_seconds: '45-60 ثانية',
       visual_description: 'خاتمة سريعة مع شعار بصيرة وروابط المراجع ذات الصلة.',
-      voiceover_ar: `ابدأ اليوم بتطبيق «${topic}» في يومك، وشارك هذا المقطع لتنال أجر الدال على الخير كفاعله.`,
+      voiceover_ar: `راجع النصوص والمراجع قبل نشر هذا المقطع حول «${topic}».`,
       voiceover_translated: isRu
         ? `Начните применять это в своей жизни уже сегодня и поделитесь этим видео ради довольства Аллаха.`
         : `Implement "${topic}" in your daily routine today and share this reminder.`,
-      on_screen_text: isRu ? `Поделитесь благом · Источники Басиры` : `شارك الخير · راجع المصادر المعتمدة`
+      on_screen_text: isRu ? `Проверьте источники` : `راجع المصادر`
     }
   ];
 
@@ -721,7 +735,7 @@ export function generateInfographicSvg(content: DawahContent): string {
     <!-- Reference Footer -->
     <line x1="40" y1="205" x2="860" y2="205" stroke="#1e293b" stroke-width="1" />
     <text x="40" y="240" fill="#94a3b8" font-size="16">${hadithRef}</text>
-    <text x="860" y="240" text-anchor="end" fill="#10b981" font-size="15" font-weight="bold">✓ حديث موثق السند والمتن</text>
+    <text x="860" y="240" text-anchor="end" fill="#10b981" font-size="15" font-weight="bold">✓ الدرجة كما وردت في المصدر</text>
   </g>
 
   <!-- Bottom Official Footer & Source Attribution -->

@@ -181,32 +181,37 @@ export async function getQuranCandidatesForAI(item: ExtractedItem, limit = 12): 
 export async function getQuranCandidatesFromReferences(
   references: Array<{ surah: number; ayah: number }>
 ): Promise<QuranCandidate[]> {
-  const [mushaf, rows] = await Promise.all([
-    getHafsMushaf(),
-    Promise.all(
-      references.map(async ref => {
-        try {
-          return await getHafsAyah(ref.surah, ref.ayah);
-        } catch {
-          return null;
-        }
-      })
-    )
-  ]);
+  const deduped = [...new Map(
+    references
+      .filter(ref =>
+        Number.isInteger(ref.surah) && ref.surah >= 1 && ref.surah <= 114 &&
+        Number.isInteger(ref.ayah) && ref.ayah >= 1
+      )
+      .map(ref => [`${ref.surah}:${ref.ayah}`, ref])
+  ).values()];
+
+  const rows = await Promise.all(
+    deduped.map(async ref => {
+      try {
+        return await getHafsAyah(ref.surah, ref.ayah);
+      } catch {
+        return null;
+      }
+    })
+  );
 
   return rows
     .filter((ayah): ayah is QuranMushafAyah => Boolean(ayah))
     .map(ayah => {
-      const surah = mushaf.surahs.find(s => Number(s.id) === Number(ayah.surah));
-      const name = cleanSurahDisplayName(surah?.name || `سورة ${ayah.surah}`);
+      const name = `سورة ${ayah.surah}`;
       return {
         id: `quran-${ayah.surah}-${ayah.number}`,
         source: 'quran-uthmani' as const,
-        title: `سورة ${name} — الآية ${ayah.number}`,
+        title: `${name} — الآية ${ayah.number}`,
         text: ayah.text,
         surah_number: Number(ayah.surah),
         ayah_number: Number(ayah.number),
-        surah_name_ar: name,
+        surah_name_ar: name.replace(/^سورةs+/u, ''),
         text_uthmani: ayah.text
       };
     });
