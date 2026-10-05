@@ -35,6 +35,8 @@ import { rankCandidatesWithAI, generateFiqhSearchQueriesWithAI } from './src/lib
 import { groqChat, groqVisionText, groqTranscribe, GROQ_TEXT_MODEL, GROQ_VISION_MODEL } from './src/lib/groqClient.ts';
 
 dotenv.config();
+const BASEERA_SERVER_VERSION = 'groq-fiqh-debug-2026-10-05';
+console.log('[BASEERA][BOOT]', JSON.stringify({ version: BASEERA_SERVER_VERSION, cwd: process.cwd(), node: process.version, platform: process.platform, groq_key_configured: Boolean(process.env.GROQ_API_KEY?.trim()) }));
 
 const __filename = fileURLToPath(import.meta.url);
 process.on('uncaughtException', (err) => {
@@ -63,6 +65,8 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((req, res, next) => { res.setHeader('X-Baseera-Server-Version', BASEERA_SERVER_VERSION); next(); });
+
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
@@ -71,13 +75,16 @@ const aiEnabled = Boolean(process.env.GROQ_API_KEY?.trim());
 
 // AI readiness — exposes provider/model state only; never exposes the API key.
 app.get('/api/ai-status', (_req, res) => {
+  console.log('[BASEERA][AI_STATUS]', JSON.stringify({ version: BASEERA_SERVER_VERSION, groq_key_configured: aiEnabled, cwd: process.cwd() }));
   res.json({
     enabled: aiEnabled,
     provider: 'groq',
     text_model: GROQ_TEXT_MODEL,
     vision_model: GROQ_VISION_MODEL,
     audio_model: 'whisper-large-v3-turbo',
-    key_source: 'server_environment'
+    key_source: 'server_environment',
+    server_version: BASEERA_SERVER_VERSION,
+    cwd: process.cwd()
   });
 });
 
@@ -702,9 +709,11 @@ app.post('/api/ocr', async (req, res) => {
 
 // 2. Ingestion & Verification API (Text, URL, Image OCR, Audio STT)
 app.post('/api/verify', async (req, res) => {
+  const requestId = Math.random().toString(36).slice(2, 9);
   try {
     const { text, inputType = 'text', mediaBase64, mediaMimeType, url } = req.body;
     let extractedText = (text || '').trim();
+    console.log('[BASEERA][VERIFY][START]', JSON.stringify({ requestId, version: BASEERA_SERVER_VERSION, inputType, inputLength: extractedText.length, groqEnabled: aiEnabled, cwd: process.cwd() }));
 
     // Handle URL ingestion if text was not pre-fetched
     if (inputType === 'url' && url && !extractedText) {
@@ -974,7 +983,7 @@ ${extractedText}
 
     res.json({ success: true, report });
   } catch (error: any) {
-    console.error('Verification error:', error);
+    console.error('[BASEERA][VERIFY][ERROR]', JSON.stringify({ requestId, message: error?.message || String(error), stack: error?.stack }));
     res.status(500).json({ error: error.message || 'حدث خطأ أثناء فحص المحتوى.' });
   }
 });
