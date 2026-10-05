@@ -331,6 +331,12 @@ CANONICAL_SECTION_ANCHORS = [
         "title": "المبحث الرابع: حكم الختان",
         "url": "https://dorar.net/feqhia/218",
     },
+    {
+        "subject": "وضوء",
+        "intent": "ruling",
+        "title": "المبحث الثالث: مواطن مشروعيته — حكم الوضوء للصلاة",
+        "url": "https://dorar.net/feqhia/240",
+    },
 ]
 
 def canonical_section_fallback(subject_tokens, intent):
@@ -538,6 +544,11 @@ def run_self_test():
     assert index_ruling[0]["url"] == "https://dorar.net/feqhia/218"
     assert "حكم الختان" in norm_ar(index_ruling[0]["title"])
     assert "فوائد" not in norm_ar(index_ruling[0]["title"])
+
+    wudu_index_ruling = canonical_section_fallback(["وضوء"], "ruling")
+    assert wudu_index_ruling, "canonical fallback must contain the wudu ruling anchor"
+    assert wudu_index_ruling[0]["url"] == "https://dorar.net/feqhia/240"
+    assert "حكم الوضوء للصلاة" in norm_ar(wudu_index_ruling[0]["title"])
 
     print("dorar_feqhia self-test: PASS")
 
