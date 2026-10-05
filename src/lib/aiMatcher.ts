@@ -34,6 +34,7 @@ function getGroqKey(): string | null {
 export async function generateFiqhSearchQueriesWithAI(question: string): Promise<string[]> {
   if (!question.trim()) return [];
 
+  console.log('[BASEERA][AI][FIQH_QUERY_GEN][START]', JSON.stringify({ question: question.slice(0, 200), model: GROQ_TEXT_MODEL }));
   const raw = await groqChat(
     [{
       role: 'user',
@@ -70,14 +71,18 @@ ${question}
   );
 
   try {
+    console.log('[BASEERA][AI][FIQH_QUERY_GEN][RAW]', JSON.stringify({ length: raw.length, preview: raw.slice(0, 500) }));
     const parsed = JSON.parse(raw) as { queries?: unknown };
     if (!Array.isArray(parsed.queries)) return [];
-    return parsed.queries
+    const queries = parsed.queries
       .filter((q): q is string => typeof q === 'string')
       .map(q => q.trim())
       .filter(Boolean)
       .slice(0, 5);
-  } catch {
+    console.log('[BASEERA][AI][FIQH_QUERY_GEN][DONE]', JSON.stringify({ queries }));
+    return queries;
+  } catch (err) {
+    console.error('[BASEERA][AI][FIQH_QUERY_GEN][PARSE_ERROR]', JSON.stringify({ message: err instanceof Error ? err.message : String(err) }));
     return [];
   }
 }
@@ -89,7 +94,10 @@ export async function rankCandidatesWithAI(
   timeoutMs = 6000
 ): Promise<AIMatchResult | null> {
   const apiKey = getGroqKey();
-  if (!apiKey || !inputText.trim() || candidates.length === 0) return null;
+  if (!apiKey || !inputText.trim() || candidates.length === 0) {
+    console.warn('[BASEERA][AI][RANK][SKIP]', JSON.stringify({ kind, hasKey: Boolean(apiKey), inputLength: inputText.length, candidateCount: candidates.length }));
+    return null;
+  }
 
   const compactCandidates = candidates.slice(0, 8).map(c => ({
     id: c.id,
@@ -149,6 +157,7 @@ ${JSON.stringify(compactCandidates, null, 2)}
     ]);
 
     const raw = String(response).trim();
+    console.log('[BASEERA][AI][RANK][RAW]', JSON.stringify({ kind, candidateCount: compactCandidates.length, length: raw.length, preview: raw.slice(0, 500) }));
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<AIMatchResult>;
