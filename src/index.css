@@ -1539,7 +1539,7 @@
   .page-shell {
     position: relative;
     isolation: isolate;
-    overflow: clip;
+    overflow-x: clip;
     background:
       radial-gradient(circle at 86% 4%, rgba(33, 99, 67, .055), transparent 25rem),
       radial-gradient(circle at 8% 14%, rgba(163, 122, 45, .045), transparent 22rem),
