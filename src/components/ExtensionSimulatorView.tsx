@@ -113,11 +113,11 @@ export const ExtensionSimulatorView: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="page-shell mx-auto max-w-[1380px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
       {/* Editorial Header */}
       <div className="bento-card bento-card--gold bento-accent-top p-6 sm:p-8 reveal">
         <div className="flex items-center gap-2 text-xs mb-3">
-          <span>واجهة القارئ والباحث (Reader & Researcher Layer)</span>
+          <span>أداة التحقق داخل المتصفح</span>
           <span aria-hidden="true" className="text-faint">·</span>
           <span>Chrome & Edge Extension</span>
           <span aria-hidden="true" className="text-faint">·</span>
@@ -127,10 +127,10 @@ export const ExtensionSimulatorView: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold font-display text-ink tracking-tight">
-              إضافة المتصفح — بصيرة للقارئ والمعرّف بالإسلام
+              بصيرة أثناء التصفح
             </h1>
             <p className="text-sm text-muted mt-3 max-w-3xl leading-relaxed">
-              تتيح للقارئ والباحث فحص أي نص أو حديث أثناء تصفح المواقع بمجرد تظليله، أو فحص صور الأحاديث على فيسبوك وتويتر بالنقر بزر الفأرة الأيمن (Right Click Image OCR) والربط المباشر بموسوعة الدرر السنية.
+              ظلّل ما تقرأه، ثم افتح فحص بصيرة دون أن تترك الصفحة. ويمكن للإضافة التعامل مع النصوص والصور وإظهار رابط المرجع عندما يتوفر.
             </p>
           </div>
 
@@ -138,10 +138,10 @@ export const ExtensionSimulatorView: React.FC = () => {
             <a
               href="/baseera-extension.zip"
               download="baseera-extension.zip"
-              className="px-5 py-2.5 rounded-xl bg-gold-strong hover:bg-[#c96a12] font-semibold text-white shadow-md shadow-black/40 flex items-center gap-2 transition-all cursor-pointer text-xs active:scale-[0.98]"
+              className="px-5 py-2.5 rounded-xl bg-gold-strong hover:bg-[#c96a12] font-semibold text-ink shadow-md shadow-black/40 flex items-center gap-2 transition-all cursor-pointer text-xs active:scale-[0.98]"
             >
               <Download className="w-4 h-4" />
-              <span>تحميل حزمة الإضافة (.ZIP)</span>
+              <span>تحميل الإضافة</span>
             </a>
           </div>
         </div>
@@ -158,7 +158,7 @@ export const ExtensionSimulatorView: React.FC = () => {
           <div className="p-3.5 rounded-xl bento-card border border-hairline">
             <strong className="text-gold block mb-1">2. صفحة الإضافات</strong>
             <p className="text-muted leading-normal">
-              افتح المتصفح واكتب في شريط العنوان: <code className="text-emerald-300">chrome://extensions</code>
+              افتح المتصفح واكتب في شريط العنوان: <code className="text-brand">chrome://extensions</code>
             </p>
           </div>
 
@@ -189,24 +189,24 @@ export const ExtensionSimulatorView: React.FC = () => {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
               <span className="text-xs text-faint font-mono ml-2">https://social-web-feed.org/post</span>
             </div>
-            <span className="text-xs text-emerald-400 flex items-center gap-1">
+            <span className="text-xs text-brand flex items-center gap-1">
               <MousePointer className="w-3.5 h-3.5" />
-              انقر على أي نص أو صورة لاختبار الفحص
+              جرّب تحديد النص أو صورة في المحاكاة
             </span>
           </div>
 
           {/* Article & Social Mockup */}
           <div className="space-y-4 text-sm text-ink/85 leading-relaxed font-sans">
             <h2 className="text-xl font-bold font-display text-ink">
-              1. نصوص المنشورات (تحديد النص → زر عائم 🔎 تحقّق ببصيرة):
+              1. حدد اقتباسًا لتشاهد كيف تعمل الإضافة
             </h2>
 
-            <div className="p-4 rounded-xl bg-black/30 border border-hairline space-y-3 font-amiri text-lg">
+            <div className="p-4 rounded-xl bg-page border border-hairline space-y-3 font-amiri text-lg">
               <p className="leading-relaxed">
                 حديث طلب العلم المشتهر وتخريجه في الدرر السنية:{' '}
                 <button
                   onClick={() => handleSimulateSelection('طلب العلم فريضة على كل مسلم', 'قال رسول الله ﷺ: طلب العلم فريضة على كل مسلم')}
-                  className="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-bold hover:bg-emerald-900 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 rounded bg-emerald-950/80 text-brand border border-emerald-500/40 font-bold hover:bg-emerald-900 transition-colors cursor-pointer"
                   title="انقر لتجربة الفحص الفوري"
                 >
                   «قال رسول الله ﷺ: طلب العلم فريضة على كل مسلم»
@@ -217,7 +217,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                 ومن الأحاديث الضعيفة المنتشرة بكثرة:{' '}
                 <button
                   onClick={() => handleSimulateSelection('الجنة تحت أقدام الأمهات', 'حديث: الجنة تحت أقدام الأمهات')}
-                  className="px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-500/40 font-bold hover:bg-amber-900 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 rounded bg-amber-950/80 text-gold border border-amber-500/40 font-bold hover:bg-amber-900 transition-colors cursor-pointer"
                   title="انقر لتجربة الفحص الفوري"
                 >
                   «الجنة تحت أقدام الأمهات»
@@ -252,8 +252,8 @@ export const ExtensionSimulatorView: React.FC = () => {
 
               <div className="p-4 rounded-xl bg-slate-950/60 border border-hairline-strong space-y-3">
                 <div className="flex items-center justify-between text-xs text-muted">
-                  <span className="font-semibold text-white flex items-center gap-1.5">
-                    <ImageIcon className="w-4 h-4 text-emerald-400" />
+                  <span className="font-semibold text-ink flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-brand" />
                     منشور فيسبوك / تويتر يحتوي على صورة حديث:
                   </span>
                   <span className="text-[11px] text-faint">بدون الحاجة لرفع الصورة يدوياً</span>
@@ -262,7 +262,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                 {/* Simulated Image Box */}
                 <div className="relative rounded-xl border border-emerald-500/30 overflow-hidden bg-gradient-to-br from-[#0a101d] to-[#041c14] p-6 text-center shadow-inner group">
                   <div className="space-y-2 py-3">
-                    <div className="text-xs text-emerald-400 tracking-wider">بطاقة دعوية مصممة</div>
+                    <div className="text-xs text-brand tracking-wider">بطاقة دعوية مصممة</div>
                     <div className="font-amiri text-2xl font-bold text-amber-200">
                       « قال رسول الله ﷺ: الجنة تحت أقدام الأمهات »
                     </div>
@@ -273,7 +273,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                   <div className="mt-4 flex items-center justify-center gap-2">
                     <button
                       onClick={() => handleSimulateImage('الجنة تحت أقدام الأمهات', 'صورة حديث: الجنة تحت أقدام الأمهات')}
-                      className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-950 flex items-center gap-1.5 transition-all cursor-pointer group-hover:scale-105"
+                      className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-ink font-bold text-xs shadow-lg shadow-emerald-950 flex items-center gap-1.5 transition-all cursor-pointer group-hover:scale-105"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>🔎 تحقّق من الصورة عبر بصيرة</span>
@@ -292,11 +292,11 @@ export const ExtensionSimulatorView: React.FC = () => {
                 value={customLookup}
                 onChange={(e) => setCustomLookup(e.target.value)}
                 placeholder="أو اكتب أي حديث أو نص لفحصه فورا بالإضافة..."
-                className="w-full px-3 py-2 rounded-lg bg-black/40 border border-hairline-strong text-xs text-ink placeholder:text-faint focus:outline-none focus:border-gold font-amiri"
+                className="w-full px-3 py-2 rounded-lg bg-page border border-hairline-strong text-xs text-ink placeholder:text-faint focus:outline-none focus:border-gold font-amiri"
               />
               <button
                 type="submit"
-                className="px-4 py-2 rounded-lg bg-gold-strong hover:bg-[#c96a12] text-xs font-semibold text-white whitespace-nowrap cursor-pointer transition-colors"
+                className="px-4 py-2 rounded-lg bg-gold-strong hover:bg-[#c96a12] text-xs font-semibold text-ink whitespace-nowrap cursor-pointer transition-colors"
               >
                 فحص فوري
               </button>
@@ -308,7 +308,7 @@ export const ExtensionSimulatorView: React.FC = () => {
         <div className="lg:col-span-5 flex flex-col items-center">
           <div className="text-xs font-semibold text-muted mb-2 self-start flex items-center gap-2">
             <span>النافذة العائمة المصغرة للإضافة (Floating Inline Card):</span>
-            <span className="text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
+            <span className="text-[10px] bg-emerald-500/15 text-brand border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
               Shadow DOM
             </span>
           </div>
@@ -318,18 +318,18 @@ export const ExtensionSimulatorView: React.FC = () => {
             {/* Extension Header */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
-                <span className="text-emerald-400 font-bold text-base">◉</span>
-                <h3 className="text-sm font-bold text-emerald-400 leading-tight">بصيرة</h3>
+                <span className="text-brand font-bold text-base">◉</span>
+                <h3 className="text-sm font-bold text-brand leading-tight">بصيرة</h3>
               </div>
               <span className="text-[10px] text-slate-500 font-mono">v1.0.0</span>
             </div>
 
             {/* Context / Preview Box */}
             <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
-              <span className="text-[10px] text-sky-400 block mb-0.5 font-bold">
+              <span className="text-[10px] text-info block mb-0.5 font-bold">
                 {isImageVerification ? 'الصورة المفحوصة (OCR):' : 'النص المحدد:'}
               </span>
-              <span className="font-bold text-white text-sm font-amiri leading-normal">«{selectedWord}»</span>
+              <span className="font-bold text-ink text-sm font-amiri leading-normal">«{selectedWord}»</span>
             </div>
 
             {/* Loading Spinner */}
@@ -345,9 +345,9 @@ export const ExtensionSimulatorView: React.FC = () => {
               <div className="space-y-3">
                 <div className={`p-3 rounded-xl border ${
                   activeVerification.status === 'MATCHED'
-                    ? 'bg-emerald-950/50 border-emerald-600/60 text-emerald-300'
+                    ? 'bg-emerald-950/50 border-emerald-600/60 text-brand'
                     : activeVerification.status === 'NEEDS_REVIEW'
-                    ? 'bg-amber-950/50 border-amber-600/60 text-amber-300'
+                    ? 'bg-amber-950/50 border-amber-600/60 text-gold'
                     : 'bg-slate-900/80 border-slate-700 text-slate-300'
                 } space-y-1.5`}>
                   <div className="text-sm font-bold font-display leading-snug flex items-center gap-1.5">
@@ -363,8 +363,8 @@ export const ExtensionSimulatorView: React.FC = () => {
 
                 {/* Canonical Text if different or confirmed */}
                 {activeVerification.canonical_text && (
-                  <div className="p-2.5 rounded-lg bg-black/40 border-r-4 border-emerald-500 text-xs space-y-1">
-                    <span className="text-[10px] font-semibold text-emerald-400 block">الحكم / النص المعتمد:</span>
+                  <div className="p-2.5 rounded-lg bg-page border-r-4 border-emerald-500 text-xs space-y-1">
+                    <span className="text-[10px] font-semibold text-brand block">الحكم / النص المعتمد:</span>
                     <p className="font-amiri text-sm text-emerald-100 leading-relaxed">
                       «{activeVerification.canonical_text.slice(0, 300)}»
                     </p>
@@ -378,7 +378,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                       href={activeVerification.citation.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                      className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-ink text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
                     >
                       <span>عرض الدليل</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -399,7 +399,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                 {/* Collapsible Extracted OCR Text */}
                 {showOcrText && extractedOcrText && (
                   <div className="p-2.5 rounded-lg bg-black/50 border border-slate-700 text-xs text-slate-300 leading-relaxed">
-                    <strong className="text-sky-400 block mb-1">النص المقروء من الصورة بالذكاء الاصطناعي:</strong>
+                    <strong className="text-info block mb-1">النص المقروء من الصورة بالذكاء الاصطناعي:</strong>
                     <p className="font-amiri text-sm text-slate-200">«{extractedOcrText}»</p>
                   </div>
                 )}
@@ -407,13 +407,13 @@ export const ExtensionSimulatorView: React.FC = () => {
                 {/* Expand Details Toggle */}
                 <button
                   onClick={() => setShowSimDetails(!showSimDetails)}
-                  className="w-full text-center text-[11px] text-slate-400 hover:text-white transition-colors pt-1 cursor-pointer"
+                  className="w-full text-center text-[11px] text-slate-400 hover:text-ink transition-colors pt-1 cursor-pointer"
                 >
                   {showSimDetails ? '▲ إخفاء البيان والتفاصيل' : '▼ تفاصيل التخريج والبيان'}
                 </button>
 
                 {showSimDetails && (
-                  <div className="p-2.5 rounded-lg bg-black/40 border border-slate-800 text-xs text-slate-300 leading-relaxed space-y-1.5">
+                  <div className="p-2.5 rounded-lg bg-page border border-slate-800 text-xs text-slate-300 leading-relaxed space-y-1.5">
                     <p>{activeVerification.reason}</p>
                   </div>
                 )}
