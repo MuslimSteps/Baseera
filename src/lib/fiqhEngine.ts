@@ -102,7 +102,7 @@ export function verifyFiqhQuestion(item: ExtractedItem): VerificationResult {
       status: 'NEEDS_REVIEW',
       status_label_ar: 'السؤال غير محدد بما يكفي للبحث الفقهي',
       status_label_en: 'Fiqh Question Is Too Vague to Search Reliably',
-      reason: 'لم يتضمن الإدخال موضوعًا فقهيًا محددًا يمكن ربطه بمادة مصدرية بعينها. لن تختار بصيرة مقالًا غير مرتبط لمجرد تشابه عام في نتائج البحث؛ اذكر الفعل أو المسألة محل السؤال بوضوح.',
+      reason: 'الإدخال غير محدد بما يكفي؛ لم يتضمن موضوعًا فقهيًا يمكن ربطه بمادة مصدرية بعينها. لن تختار بصيرة مقالًا غير مرتبط لمجرد تشابه عام في نتائج البحث؛ اذكر الفعل أو المسألة محل السؤال بوضوح.',
       citation: {
         source_id: 'fiqh-madhahib-dorar',
         source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
