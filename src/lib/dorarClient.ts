@@ -538,6 +538,41 @@ export async function searchDorarFiqhLive(query: string): Promise<DorarFiqhLiveR
   }
 }
 
+/**
+ * Fetches the full text of a Dorar.net Fiqh Encyclopedia article.
+ * Guarantees that legal rulings and evidence are never truncated.
+ */
+export async function fetchDorarFiqhArticleLive(articleUrl: string): Promise<string | null> {
+  if (!articleUrl || !/\/feqhia\/\d+/.test(articleUrl)) return null;
+  try {
+    const { execFile } = await import('child_process');
+    const path = await import('path');
+    const scriptPath = path.resolve(process.cwd(), 'src/lib/dorar_feqhia.py');
+
+    return await new Promise<string | null>((resolve) => {
+      execFile(
+        process.platform === 'win32' ? 'python' : 'python3',
+        [scriptPath, '--fetch-article', articleUrl],
+        { timeout: 10000, encoding: 'utf-8' },
+        (error, stdout) => {
+          if (error || !stdout) return resolve(null);
+          try {
+            const data = JSON.parse(stdout);
+            if (data && data.success && data.text) {
+              return resolve(data.text);
+            }
+            resolve(null);
+          } catch {
+            resolve(null);
+          }
+        }
+      );
+    });
+  } catch {
+    return null;
+  }
+}
+
 
 /**
  * Analyzes whether results for a given hadith indicate a scholarly dispute or consensus

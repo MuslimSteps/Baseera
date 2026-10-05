@@ -8,6 +8,8 @@ import {
   ExternalLink,
   FileSearch,
   Info,
+  Scale,
+  ShieldCheck,
   Sparkles,
   ShieldAlert
 } from 'lucide-react';
@@ -48,9 +50,15 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
   const isReferral = result.status === 'REFER_TO_SPECIALIST';
   const isNotFound = result.status === 'NOT_FOUND_IN_CHECKED_SOURCES';
 
+  const isFiqh = result.item.type === 'fiqh_question' && Boolean(result.canonical_text || result.citation);
+  const isConsensusDisputed = isFiqh && Boolean(result.status_label_ar?.includes('دعوى إجماع غير صحيحة'));
+  const isConsensusVerified = isFiqh && Boolean(result.status_label_ar?.includes('إجماع موثق'));
+  const isTafsir = result.item.type === 'tafsir_question' && Boolean(result.canonical_text || result.citation);
+  const isAqeedah = result.item.type === 'aqeedah_question' && Boolean(result.canonical_text || result.citation);
+
   const tone = isMatched
     ? {
-        icon: <CheckCircle2 className="h-5 w-5" />,
+        icon: <CheckCircle2 className="h-5 w-5 text-emerald-700" />,
         badge: 'status-badge status-matched',
         panel: 'result-panel result-panel-matched',
         label: 'مطابق للمصدر'
@@ -64,24 +72,59 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
         }
       : isReferral
         ? {
-            icon: <ShieldAlert className="h-5 w-5" />,
+            icon: <ShieldAlert className="h-5 w-5 text-amber-700" />,
             badge: 'status-badge status-referral',
             panel: 'result-panel result-panel-referral',
             label: 'يتطلب الرجوع إلى مختص'
           }
-        : isReview
+        : isConsensusDisputed
           ? {
-              icon: <AlertTriangle className="h-5 w-5" />,
-              badge: 'status-badge status-review',
-              panel: 'result-panel result-panel-review',
-              label: 'يحتاج مراجعة'
+              icon: <Scale className="h-5 w-5 text-amber-700" />,
+              badge: 'status-badge bg-amber-50 text-amber-800 border-amber-300',
+              panel: 'result-panel border-s-4 border-s-amber-500 bg-amber-50/20',
+              label: 'مسألة خلافية بين المذاهب'
             }
-          : {
-              icon: <Info className="h-5 w-5" />,
-              badge: 'status-badge status-neutral',
-              panel: 'result-panel result-panel-neutral',
-              label: 'لم يُعثر عليه'
-            };
+          : isConsensusVerified
+            ? {
+                icon: <Scale className="h-5 w-5 text-emerald-700" />,
+                badge: 'status-badge bg-emerald-50 text-emerald-800 border-emerald-300',
+                panel: 'result-panel border-s-4 border-s-emerald-600 bg-emerald-50/20',
+                label: 'إجماع فقهي موثق'
+              }
+            : isFiqh
+              ? {
+                  icon: <Scale className="h-5 w-5 text-brand" />,
+                  badge: 'status-badge bg-emerald-50 text-emerald-800 border-emerald-300',
+                  panel: 'result-panel border-s-4 border-s-emerald-600 bg-emerald-50/20',
+                  label: 'مسألة فقهية موثقة'
+                }
+              : isTafsir
+                ? {
+                    icon: <BookOpenCheck className="h-5 w-5 text-brand" />,
+                    badge: 'status-badge bg-emerald-50 text-emerald-800 border-emerald-300',
+                    panel: 'result-panel border-s-4 border-s-emerald-600 bg-emerald-50/20',
+                    label: 'تفسير موثق من المصدر'
+                  }
+                : isAqeedah
+                  ? {
+                      icon: <ShieldCheck className="h-5 w-5 text-brand" />,
+                      badge: 'status-badge bg-emerald-50 text-emerald-800 border-emerald-300',
+                      panel: 'result-panel border-s-4 border-s-emerald-600 bg-emerald-50/20',
+                      label: 'مادة عقدية موثقة'
+                    }
+                  : isReview
+                    ? {
+                        icon: <AlertTriangle className="h-5 w-5" />,
+                        badge: 'status-badge status-review',
+                        panel: 'result-panel result-panel-review',
+                        label: 'يحتاج مراجعة'
+                      }
+                    : {
+                        icon: <Info className="h-5 w-5" />,
+                        badge: 'status-badge status-neutral',
+                        panel: 'result-panel result-panel-neutral',
+                        label: 'لم يُعثر عليه'
+                      };
 
   const typeLabel = {
     ayah: 'آية قرآنية',

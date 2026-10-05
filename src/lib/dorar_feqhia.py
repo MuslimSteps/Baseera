@@ -489,6 +489,10 @@ def run_self_test():
 if __name__ == "__main__":
     if "--self-test" in sys.argv:
         run_self_test()
+    elif len(sys.argv) >= 3 and sys.argv[1] == "--fetch-article":
+        target_url = sys.argv[2]
+        art_text = fetch_article_details(target_url)
+        print(json.dumps({"success": bool(art_text), "text": art_text or ""}, ensure_ascii=False))
     else:
         query = " ".join(arg for arg in sys.argv[1:] if not arg.startswith("--"))
         if not query:

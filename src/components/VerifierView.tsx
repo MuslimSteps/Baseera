@@ -2,9 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   FileText,
-  Globe,
   Image,
-  Link2,
   LoaderCircle,
   Mic,
   Search,
@@ -21,7 +19,7 @@ import { AnalysisReport } from '../types/baseera.ts';
 import { VerificationCard } from './VerificationCard.tsx';
 import { apiFetch } from '../lib/apiClient.ts';
 
-type InputKind = 'text' | 'url' | 'image' | 'audio';
+type InputKind = 'text' | 'image' | 'audio';
 type VerifyCategory = 'ayah' | 'hadith' | 'tafsir_question' | 'aqeedah_question' | 'term' | 'fiqh_question';
 
 const CATEGORIES: Array<{ id: VerifyCategory; label: string; hint: string; icon: React.ReactNode }> = [
@@ -35,7 +33,6 @@ const CATEGORIES: Array<{ id: VerifyCategory; label: string; hint: string; icon:
 
 const INPUTS: Array<{ id: InputKind; label: string; icon: React.ReactNode }> = [
   { id: 'text', label: 'نص', icon: <FileText /> },
-  { id: 'url', label: 'رابط', icon: <Link2 /> },
   { id: 'image', label: 'صورة', icon: <Image /> },
   { id: 'audio', label: 'صوت', icon: <Mic /> }
 ];
@@ -50,12 +47,10 @@ export const VerifierView: React.FC = () => {
   const [inputType, setInputType] = useState<InputKind>('text');
   const [category, setCategory] = useState<VerifyCategory | null>(null);
   const [inputText, setInputText] = useState('');
-  const [urlInput, setUrlInput] = useState('');
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
   const [isProcessingOcr, setIsProcessingOcr] = useState(false);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -69,7 +64,6 @@ export const VerifierView: React.FC = () => {
     setReport(null);
     setErrorMsg(null);
     setInputText('');
-    setUrlInput('');
     setMediaPreview(null);
     window.setTimeout(() => inputRef.current?.focus(), 0);
   };
@@ -85,7 +79,6 @@ export const VerifierView: React.FC = () => {
     setCategory(cat);
     setInputType('text');
     setInputText(text);
-    setUrlInput('');
     setReport(null);
     setErrorMsg(null);
     window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -93,35 +86,10 @@ export const VerifierView: React.FC = () => {
 
   const clearAll = () => {
     setInputText('');
-    setUrlInput('');
     setMediaPreview(null);
     setReport(null);
     setErrorMsg(null);
     inputRef.current?.focus();
-  };
-
-  const handleFetchUrl = async () => {
-    if (!urlInput.trim()) {
-      setErrorMsg('ألصق الرابط أولاً.');
-      return;
-    }
-    setIsFetchingUrl(true);
-    setErrorMsg(null);
-    try {
-      const res = await apiFetch('/api/fetch-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlInput.trim() })
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.text) throw new Error(data?.error || 'تعذر قراءة محتوى الرابط.');
-      setInputText(data.text);
-      window.setTimeout(() => inputRef.current?.focus(), 0);
-    } catch (error: any) {
-      setErrorMsg(error?.message || 'تعذر جلب محتوى الرابط.');
-    } finally {
-      setIsFetchingUrl(false);
-    }
   };
 
   const processImage = async (base64Data: string, mimeType: string) => {
@@ -201,7 +169,6 @@ export const VerifierView: React.FC = () => {
           inputType,
           targetCategory: category || 'auto',
           text: inputText,
-          url: inputType === 'url' ? urlInput : undefined,
           mediaBase64: (inputType === 'image' || inputType === 'audio') ? mediaPreview : undefined
         })
       });
@@ -218,7 +185,6 @@ export const VerifierView: React.FC = () => {
 
   const canVerify = Boolean(category && inputText.trim()) &&
     !isProcessing &&
-    !isFetchingUrl &&
     !isProcessingOcr &&
     !isProcessingAudio;
 
@@ -288,44 +254,6 @@ export const VerifierView: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* مدخل الرابط */}
-          {inputType === 'url' && (
-            <div className="space-y-3">
-              <div className="input-row">
-                <label className="sr-only" htmlFor="baseera-url">الرابط</label>
-                <div className="input-with-icon">
-                  <Globe className="h-4 w-4" />
-                  <input
-                    id="baseera-url"
-                    type="url"
-                    dir="ltr"
-                    value={urlInput}
-                    onChange={e => setUrlInput(e.target.value)}
-                    placeholder="https://example.com/..."
-                  />
-                </div>
-                <button type="button" onClick={() => void handleFetchUrl()} disabled={isFetchingUrl} className="btn btn-secondary min-h-11 px-4">
-                  {isFetchingUrl ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                  قراءة الرابط
-                </button>
-              </div>
-              {inputText && (
-                <div className="textarea-wrap">
-                  <div className="mb-1 text-xs font-semibold text-muted">النص المستخرج من الرابط (يمكنك مراجعته قبل الفحص):</div>
-                  <textarea
-                    rows={3}
-                    value={inputText}
-                    onChange={e => {
-                      setInputText(e.target.value);
-                      if (report) setReport(null);
-                    }}
-                    className="main-textarea"
-                  />
-                </div>
-              )}
-            </div>
-          )}
 
           {/* رفع الصور والتسجيلات الصوتية */}
           {(inputType === 'image' || inputType === 'audio') && (
