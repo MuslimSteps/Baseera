@@ -194,7 +194,7 @@ export const VerifierView: React.FC = () => {
         <div className="mb-4">
           <div className="eyebrow">بصيرة · التحقق</div>
           <h1 className="mt-1.5 font-display text-[28px] font-bold leading-tight tracking-tight text-ink sm:text-[38px]">
-            تحقق من المحتوى
+            تحقق من المحتوى قبل استخدامه
           </h1>
           <p className="mt-1.5 text-sm leading-6 text-muted">
             اختر نوع المحتوى ثم أدخل النص المراد فحصه.
@@ -315,9 +315,9 @@ export const VerifierView: React.FC = () => {
                   !category
                     ? 'اختر نوع المحتوى من الشريط أعلاه أولًا…'
                     : category === 'ayah'
-                      ? 'ألصق الآية أو جزءًا منها…'
+                      ? 'ألصق الآية أو جزءًا منها، وسنبحث عنها في المصحف المعتمد…'
                       : category === 'hadith'
-                        ? 'ألصق نص الحديث…'
+                        ? 'ألصق نص الحديث كما ورد لديك…'
                         : category === 'term'
                           ? 'اكتب المصطلح الذي تريد التحقق منه…'
                           : category === 'tafsir_question'
@@ -357,14 +357,14 @@ export const VerifierView: React.FC = () => {
             ) : (
               <>
                 <Search className="h-5 w-5" />
-                فحص الآن
+                ابدأ التحقق
               </>
             )}
           </button>
 
           {!inputText && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted">جرّب:</span>
+              <span className="text-[11px] font-semibold text-muted">ابدأ بمثال:</span>
               {EXAMPLES.map(example => (
                 <button
                   key={example.label}
