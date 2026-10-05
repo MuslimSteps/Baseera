@@ -245,6 +245,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
     }
 
     if (isFiqhQuestion) {
+      console.log('[BASEERA][FIQH][ENTER]', JSON.stringify({ requestId: (v as any)._requestId || null, query: queryToSearch, aiEnabled }));
       // ── FIQH PATH: Dorar Fiqh Encyclopedia (dorar.net/feqhia) ─────────────────
       const fiqhSearchUrl = r._fiqh_url || buildDorarFiqhUrl(queryToSearch);
       const contentWords: string[] = r._content_words || generateFiqhSearchKeywords(queryToSearch);
@@ -253,10 +254,12 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       // If the literal question is too broad for the source search, Groq
       // generates search concepts only; it never generates a ruling.
       let fiqhResult = await searchDorarFiqhLive(queryToSearch);
+      console.log('[BASEERA][FIQH][INITIAL_SOURCE_RESULT]', JSON.stringify({ query: queryToSearch, found: Boolean(fiqhResult?.found), title: fiqhResult?.title || null, url: fiqhResult?.url || null, resultCount: fiqhResult?.allResults?.length || 0 }));
 
       if (aiEnabled) {
         try {
           const aiQueries = await generateFiqhSearchQueriesWithAI(queryToSearch);
+          console.log('[BASEERA][FIQH][AI_QUERIES]', JSON.stringify({ query: queryToSearch, aiEnabled, aiQueries }));
           const collected = new Map<string, { title: string; text: string; url: string }>();
 
           const addResults = (result: any) => {
@@ -292,6 +295,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           }
 
           const candidateRows = Array.from(collected.values()).slice(0, 16);
+          console.log('[BASEERA][FIQH][CANDIDATES]', JSON.stringify({ query: queryToSearch, count: candidateRows.length, candidates: candidateRows.map(row => ({ title: row.title, url: row.url })) }));
           if (candidateRows.length > 0) {
             const aiCandidates = candidateRows.map((row, index) => ({
               id: `fiqh-${index}`,
@@ -301,6 +305,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
             }));
 
             const ai = await rankCandidatesWithAI('fiqh', queryToSearch, aiCandidates);
+            console.log('[BASEERA][FIQH][AI_RANK_RESULT]', JSON.stringify({ query: queryToSearch, ai }));
             if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
               const selectedIndex = Number(ai.candidate_id.replace('fiqh-', ''));
               const selected = candidateRows[selectedIndex];
@@ -337,6 +342,8 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
           console.warn('Groq fiqh search/rerank failed; keeping source search result:', aiErr.message);
         }
       }
+
+      console.log('[BASEERA][FIQH][FINAL_SOURCE_RESULT]', JSON.stringify({ query: queryToSearch, found: Boolean(fiqhResult?.found), title: fiqhResult?.title || null, url: fiqhResult?.url || null, resultCount: fiqhResult?.allResults?.length || 0 }));
 
       if (fiqhResult?.found) {
         const sensitive = isSensitiveFiqhQuestion(queryToSearch);
