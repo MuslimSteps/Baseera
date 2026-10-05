@@ -25,16 +25,17 @@ async function discoverFirstLink(
   indexUrl: string,
   pathPattern: RegExp
 ): Promise<{ title: string; url: string } | null> {
-  const response = await fetchRemoteSafely(indexUrl, {
+  try {
+    const response = await fetchRemoteSafely(indexUrl, {
     headers: {
       'User-Agent': 'Baseera/1.0',
       'Accept': 'text/html,application/xhtml+xml',
       'Accept-Language': 'ar,en;q=0.9'
     }
-  });
-  if (!response.ok) return null;
+    });
+    if (!response.ok) return null;
 
-  const html = await readTextWithLimit(response, 1_500_000);
+    const html = await readTextWithLimit(response, 5_000_000);
   const matches = [...html.matchAll(
     new RegExp(`<a\\b[^>]*href=["']([^"']*${pathPattern.source}[^"']*)["'][^>]*>([\\s\\S]*?)</a>`, 'gi')
   )];
@@ -55,7 +56,10 @@ async function discoverFirstLink(
     };
   }
 
-  return null;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 const [dorarHadithSeed, dorarFiqhSeed, dorarTafsirSeed, dorarAqeedahSeed, jamharaSeed, mushaf] =
