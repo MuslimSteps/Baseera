@@ -274,7 +274,11 @@ export function buildQuranDecision(
   }
 
   if (isPartialQuote) {
-    if (diff.every(d => d.type === 'equal') && !surahMismatch && !ayahMismatch) {
+    const looseQuoteMatchesSource =
+      normalizeArabic(candidate.text).includes(normalizeArabic(item.text)) &&
+      inputLooseWords.length >= 2;
+
+    if ((diff.every(d => d.type === 'equal') || looseQuoteMatchesSource) && !surahMismatch && !ayahMismatch) {
       return {
         id: candidate.id,
         item,
