@@ -66,12 +66,12 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
         </div>
 
         <h1 className="mt-6 text-balance font-display text-[40px] font-bold leading-[1.18] tracking-tight text-ink sm:text-[58px]">
-          اعرف الأصل.
-          <span className="text-brand"> ثم انشر.</span>
+          قبل أن تنشر،
+          <span className="text-brand"> اعرف الأصل.</span>
         </h1>
 
         <p className="mt-5 max-w-2xl text-pretty text-[17px] leading-8 text-muted sm:text-[19px]">
-          بصيرة تساعدك على الوصول إلى المرجع الموثوق والتحقق من النص قبل استخدامه أو نشره.
+          بصيرة تفحص النص في مرجعه المعتمد، وتعرض لك الدليل بوضوح قبل أن تستخدمه أو تنشره.
         </p>
 
         <button
@@ -150,6 +150,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted">
           صممت بصيرة لتكون سريعة في الاستخدام، واضحة في الحكم، وقابلة للمراجعة عندما تحتاج إلى التفاصيل.
+        </p>
       </div>
     </section>
 
