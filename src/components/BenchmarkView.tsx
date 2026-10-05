@@ -52,7 +52,7 @@ export const BenchmarkView: React.FC = () => {
   });
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="page-shell mx-auto max-w-[1380px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
       {/* Editorial Header */}
       <div className="bento-card bento-card--gold bento-accent-top p-6 sm:p-8 reveal">
         <div className="flex items-center gap-2 text-xs mb-3">
@@ -76,10 +76,10 @@ export const BenchmarkView: React.FC = () => {
           <button
             onClick={handleRunBenchmark}
             disabled={isRunning}
-            className="px-5 py-2.5 rounded-xl bg-gold-strong hover:bg-[#c96a12] font-semibold text-white shadow-md shadow-black/40 flex items-center gap-2 transition-all cursor-pointer self-start md:self-auto text-xs active:scale-[0.98]"
+            className="px-5 py-2.5 rounded-xl bg-gold-strong hover:bg-[#c96a12] font-semibold text-ink shadow-md shadow-black/40 flex items-center gap-2 transition-all cursor-pointer self-start md:self-auto text-xs active:scale-[0.98]"
           >
             <Play className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} />
-            <span>{isRunning ? 'جاري تشغيل الاختبار...' : 'تشغيل الاختبار المجمّد'}</span>
+            <span>{isRunning ? 'جاري تشغيل الاختبار...' : 'تشغيل مجموعة اختبارات ثابتة'}</span>
           </button>
         </div>
       </div>
@@ -90,12 +90,12 @@ export const BenchmarkView: React.FC = () => {
         <div className="bento-card col-span-12 sm:col-span-6 lg:col-span-3 p-5 border border-emerald-500/30 shadow-md">
           <div className="flex items-center justify-between text-xs mb-3">
             <span className="font-semibold text-ink">معدل التأكيد الخاطئ (FCR)</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <ShieldCheck className="w-4 h-4 text-brand" />
           </div>
-          <div className="text-3xl font-bold text-emerald-400 font-mono-numbers">
+          <div className="text-3xl font-bold text-brand font-mono-numbers">
             {comparativeData?.baseeraFull.false_confirmation_rate}%
           </div>
-          <p className="text-xs text-emerald-300/80 mt-1.5 leading-normal">
+          <p className="text-xs text-brand/80 mt-1.5 leading-normal">
             الهدف الأساسي: 0.0% تأكيد لأي نص محرف أو لا أصل له.
           </p>
         </div>
@@ -104,9 +104,9 @@ export const BenchmarkView: React.FC = () => {
         <div className="bento-card col-span-12 sm:col-span-6 lg:col-span-3 p-5 border border-hairline shadow-md">
           <div className="flex items-center justify-between text-xs mb-3">
             <span className="font-semibold text-ink">دقة التوثيق والعزو (Citation)</span>
-            <CheckCircle className="w-4 h-4 text-sky-400" />
+            <CheckCircle className="w-4 h-4 text-info" />
           </div>
-          <div className="text-3xl font-bold text-sky-400 font-mono-numbers">
+          <div className="text-3xl font-bold text-info font-mono-numbers">
             {comparativeData?.baseeraFull.citation_accuracy}%
           </div>
           <p className="text-xs text-muted mt-1.5 leading-normal">
@@ -118,9 +118,9 @@ export const BenchmarkView: React.FC = () => {
         <div className="bento-card col-span-12 sm:col-span-6 lg:col-span-3 p-5 border border-hairline shadow-md">
           <div className="flex items-center justify-between text-xs mb-3">
             <span className="font-semibold text-ink">دقة الامتناع (Abstention)</span>
-            <TrendingDown className="w-4 h-4 text-indigo-400" />
+            <TrendingDown className="w-4 h-4 text-refer" />
           </div>
-          <div className="text-3xl font-bold text-indigo-400 font-mono-numbers">
+          <div className="text-3xl font-bold text-refer font-mono-numbers">
             {comparativeData?.baseeraFull.abstention_accuracy}%
           </div>
           <p className="text-xs text-muted mt-1.5 leading-normal">
@@ -132,9 +132,9 @@ export const BenchmarkView: React.FC = () => {
         <div className="bento-card col-span-12 sm:col-span-6 lg:col-span-3 p-5 border border-hairline shadow-md">
           <div className="flex items-center justify-between text-xs mb-3">
             <span className="font-semibold text-ink">الثبات القطعي عبر التكرار</span>
-            <Award className="w-4 h-4 text-amber-400" />
+            <Award className="w-4 h-4 text-gold" />
           </div>
-          <div className="text-3xl font-bold text-amber-400 font-mono-numbers">
+          <div className="text-3xl font-bold text-gold font-mono-numbers">
             {comparativeData?.baseeraFull.consistency_score}%
           </div>
           <p className="text-xs text-muted mt-1.5 leading-normal">
@@ -166,21 +166,21 @@ export const BenchmarkView: React.FC = () => {
         <div className="space-y-6">
           <div className="bento-card border border-hairline overflow-hidden shadow-lg">
             <div className="p-5 border-b border-hairline">
-              <h3 className="text-base font-bold font-display text-ink">نتائج الاختبار المجمّد — بصيرة</h3>
+              <h3 className="text-base font-bold font-display text-ink">نتائج مجموعة اختبارات ثابتة — بصيرة</h3>
               <p className="text-xs text-muted mt-1">هذه نتائج تشغيل حتمي لسياسة القرار على حالات ثابتة وfixtures مصدرية معلنة؛ لا تُعرض كمقارنة تجريبية مع نماذج خارجية.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-right text-xs">
-                <thead className="bg-black/40 text-muted border-b border-hairline"><tr>
+                <thead className="bg-page text-muted border-b border-hairline"><tr>
                   <th className="py-3 px-5">النظام</th><th className="py-3 px-4 text-center">FCR ⬇</th><th className="py-3 px-4 text-center">تغطية التوثيق ⬆</th><th className="py-3 px-4 text-center">الامتناع ⬆</th><th className="py-3 px-4 text-center">الثبات ⬆</th><th className="py-3 px-5 text-center">الدقة</th>
                 </tr></thead>
                 <tbody><tr className="bg-emerald-950/20 font-medium">
-                  <td className="py-4 px-5 text-white">بصيرة — المنظومة الكاملة</td>
-                  <td className="py-4 px-4 text-center text-emerald-400">{comparativeData.baseeraFull.false_confirmation_rate}%</td>
+                  <td className="py-4 px-5 text-ink">بصيرة — المنظومة الكاملة</td>
+                  <td className="py-4 px-4 text-center text-brand">{comparativeData.baseeraFull.false_confirmation_rate}%</td>
                   <td className="py-4 px-4 text-center">{comparativeData.baseeraFull.citation_accuracy}%</td>
                   <td className="py-4 px-4 text-center">{comparativeData.baseeraFull.abstention_accuracy}%</td>
                   <td className="py-4 px-4 text-center">{comparativeData.baseeraFull.consistency_score}%</td>
-                  <td className="py-4 px-5 text-center text-emerald-400">{comparativeData.baseeraFull.accuracy}%</td>
+                  <td className="py-4 px-5 text-center text-brand">{comparativeData.baseeraFull.accuracy}%</td>
                 </tr></tbody>
               </table>
             </div>
@@ -197,19 +197,19 @@ export const BenchmarkView: React.FC = () => {
           {/* System Switcher */}
           <div className="p-4 rounded-xl bento-card border border-hairline flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-ink">
-              <Award className="w-4 h-4 text-emerald-400" />
-              <span>فحص تدقيق بصيرة على حالات الاختبار المجمّدة:</span>
+              <Award className="w-4 h-4 text-brand" />
+              <span>فحص تدقيق بصيرة على حالات مجموعة اختبارات ثابتةة:</span>
             </div>
 
             <div className="flex flex-wrap gap-2 text-xs">
-              {[{ id: 'baseeraFull', label: 'بصيرة الكاملة', activeClass: 'bg-emerald-950 text-emerald-300 border-emerald-600' }].map(sys => (
+              {[{ id: 'baseeraFull', label: 'بصيرة الكاملة', activeClass: 'bg-emerald-950 text-brand border-emerald-600' }].map(sys => (
                 <button
                   key={sys.id}
                   onClick={() => setSelectedSystemInspection(sys.id as any)}
                   className={`px-3 py-1.5 rounded-lg border font-medium transition-all cursor-pointer ${
                     selectedSystemInspection === sys.id
                       ? `${sys.activeClass} font-semibold shadow-sm`
-                      : 'bg-black/30 border-hairline text-muted hover:text-white'
+                      : 'bg-page border-hairline text-muted hover:text-ink'
                   }`}
                 >
                   {sys.label}
@@ -242,8 +242,8 @@ export const BenchmarkView: React.FC = () => {
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
                   selectedCategory === cat.id
-                    ? 'bg-gold-strong text-white font-medium'
-                    : 'bg-black/30 text-muted hover:text-white'
+                    ? 'bg-gold-strong text-ink font-medium'
+                    : 'bg-page text-muted hover:text-ink'
                 }`}
               >
                 {cat.label}
@@ -269,7 +269,7 @@ export const BenchmarkView: React.FC = () => {
 
                     <div className="flex items-center gap-2">
                       {passed ? (
-                        <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                        <span className="text-[11px] text-brand font-semibold flex items-center gap-1">
                           <Check className="w-3.5 h-3.5" />
                           صائب
                         </span>
@@ -292,12 +292,12 @@ export const BenchmarkView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-lg bg-black/40 border border-hairline font-amiri text-base text-ink mb-2 leading-relaxed">
+                  <div className="p-3 rounded-lg bg-page border border-hairline font-amiri text-base text-ink mb-2 leading-relaxed">
                     «{tc.input_text}»
                   </div>
 
                   {runDetail?.notes && (
-                    <div className="text-xs p-2 rounded bg-black/20 text-ink/85 mb-2">
+                    <div className="text-xs p-2 rounded bg-page text-ink/85 mb-2">
                       <strong className="text-muted ml-1">تحليل أداء النظام:</strong>
                       {runDetail.notes}
                     </div>
