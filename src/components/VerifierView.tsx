@@ -137,6 +137,7 @@ export const VerifierView: React.FC = () => {
   const [aiStatus, setAiStatus] = useState<{ enabled: boolean; provider?: string; text_model?: string } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('simple');
+  const [targetCategory, setTargetCategory] = useState<'auto' | 'ayah' | 'hadith' | 'fiqh_question' | 'term'>('auto');
 
   useEffect(() => {
     console.log('[BASEERA][CLIENT][BOOT]', JSON.stringify({ apiBaseUrl: API_BASE_URL || '(same-origin)', location: window.location.href }));
@@ -284,6 +285,7 @@ export const VerifierView: React.FC = () => {
     try {
       const payload: any = {
         inputType,
+        targetCategory,
         text: inputText,
         url: inputType === 'url' ? urlInput : undefined,
         mediaBase64: (inputType === 'image' || inputType === 'audio') ? mediaPreview : undefined,
@@ -510,6 +512,36 @@ export const VerifierView: React.FC = () => {
           </div>
         )}
 
+        {/* Content Type Selector — Quran, Hadith, Fiqh, Term, Auto */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <span className="text-xs text-slate-500 font-medium ml-1">المجال المستهدف:</span>
+          {[
+            { id: 'auto', label: 'كشف تلقائي (شامل)', icon: Sparkles },
+            { id: 'ayah', label: 'قرآن كريم', icon: BookOpen },
+            { id: 'hadith', label: 'حديث نبوي', icon: ShieldCheck },
+            { id: 'fiqh_question', label: 'حكم فقهي', icon: HelpCircle },
+            { id: 'term', label: 'مصطلح شرعي', icon: FileText }
+          ].map(cat => {
+            const active = targetCategory === cat.id;
+            const Icon = cat.icon;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setTargetCategory(cat.id as any)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  active
+                    ? 'bg-[#1E3A5F] text-white border-[#1E3A5F] shadow-xs font-semibold'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${active ? 'text-amber-300' : 'text-slate-400'}`} />
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Text Area — THE HERO */}
         <div>
           <textarea
@@ -566,6 +598,11 @@ export const VerifierView: React.FC = () => {
               onClick={() => {
                 setInputType('text');
                 setInputText(preset.text);
+                if (preset.category === 'القرآن الكريم') setTargetCategory('ayah');
+                else if (preset.category === 'السنة النبوية') setTargetCategory('hadith');
+                else if (preset.category === 'الفقه والأحكام' || preset.category === 'الفتاوى والأحوال') setTargetCategory('fiqh_question');
+                else if (preset.category === 'مصطلحات الجمهرة') setTargetCategory('term');
+                else setTargetCategory('auto');
               }}
               className="shrink-0 px-3.5 py-2 rounded-full bg-white border border-slate-200 hover:border-[#1E3A5F] hover:text-[#1E3A5F] text-xs text-slate-600 font-medium transition-all cursor-pointer whitespace-nowrap"
             >

@@ -819,9 +819,9 @@ app.post('/api/ocr', async (req, res) => {
 app.post('/api/verify', async (req, res) => {
   const requestId = Math.random().toString(36).slice(2, 9);
   try {
-    const { text, inputType = 'text', mediaBase64, mediaMimeType, url } = req.body;
+    const { text, inputType = 'text', targetCategory = 'auto', mediaBase64, mediaMimeType, url } = req.body;
     let extractedText = (text || '').trim();
-    console.log('[BASEERA][VERIFY][START]', JSON.stringify({ requestId, version: BASEERA_SERVER_VERSION, inputType, inputLength: extractedText.length, groqEnabled: aiEnabled, cwd: process.cwd() }));
+    console.log('[BASEERA][VERIFY][START]', JSON.stringify({ requestId, version: BASEERA_SERVER_VERSION, inputType, targetCategory, inputLength: extractedText.length, groqEnabled: aiEnabled, cwd: process.cwd() }));
 
     // Handle URL ingestion if text was not pre-fetched
     if (inputType === 'url' && url && !extractedText) {
@@ -985,6 +985,27 @@ ${extractedText}
         );
         if (!alreadyCaptured) {
           extractedItems.push(rItem);
+        }
+      }
+    }
+
+    // If user explicitly chose a target category (Quran, Hadith, Fiqh, Term),
+    // align extracted items directly with their selection for maximum precision.
+    if (targetCategory && targetCategory !== 'auto') {
+      const validTypes: Array<ExtractedItem['type']> = ['ayah', 'hadith', 'fiqh_question', 'term'];
+      if (validTypes.includes(targetCategory as any)) {
+        if (extractedItems.length === 0) {
+          extractedItems = [{
+            type: targetCategory as ExtractedItem['type'],
+            text: extractedText,
+            context: extractedText,
+            language: 'ar',
+            confidence: 0.99
+          }];
+        } else {
+          for (const item of extractedItems) {
+            item.type = targetCategory as ExtractedItem['type'];
+          }
         }
       }
     }
