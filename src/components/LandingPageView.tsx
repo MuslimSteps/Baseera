@@ -26,32 +26,32 @@ const SECTIONS = [
     id: 'verifier' as const,
     icon: <FileSearch />,
     eyebrow: '01 · التحقق',
-    title: 'تحقق من آية أو حديث أو محتوى ديني.',
-    text: 'اختر نوع المادة، ثم أدخلها. تحصل على النتيجة مباشرة مع المصدر الذي بُنيت عليه.',
+    title: 'تحقق من النص قبل أن تنسبه أو تنشره.',
+    text: 'افحص آية أو حديثًا أو محتوى دينيًا، ثم شاهد الدليل والمصدر والاختلافات في مكان واحد.',
     action: 'ابدأ الفحص'
   },
   {
     id: 'dawah' as const,
     icon: <Sparkles />,
     eyebrow: '02 · إعداد المحتوى',
-    title: 'جهّز خطبة أو مقالًا بمراجع واضحة.',
-    text: 'حوّل الفكرة إلى محتوى منظم مع إبقاء الشواهد والمراجع قابلة للمراجعة.',
+    title: 'حوّل الفكرة إلى محتوى جاهز للمراجعة.',
+    text: 'أنشئ خطبة أو مقالًا أو بطاقة، مع إبقاء الشواهد والمراجع واضحة وقابلة للتتبع.',
     action: 'إعداد المحتوى'
   },
   {
     id: 'extension' as const,
     icon: <Layers3 />,
     eyebrow: '03 · أثناء التصفح',
-    title: 'افحص ما تقرأه دون مغادرة الصفحة.',
-    text: 'استخدم إضافة بصيرة للتحقق من اقتباس أو منشور أثناء التصفح.',
+    title: 'تحقق وأنت تتصفح.',
+    text: 'افحص اقتباسًا أو منشورًا من داخل المتصفح دون نسخ المحتوى إلى أداة أخرى.',
     action: 'استكشف الإضافة'
   },
   {
     id: 'sources' as const,
     icon: <BookOpenCheck />,
     eyebrow: '04 · المراجع',
-    title: 'اعرف من أين تأتي النتيجة.',
-    text: 'المراجع المعتمدة ظاهرة وواضحة، والذكاء الاصطناعي ليس بديلًا عنها.',
+    title: 'المصدر ظاهر، والذكاء الاصطناعي ليس المرجع.',
+    text: 'ترى الجهة التي بُنيت عليها النتيجة ورابطها، بينما يظل دور الذكاء الاصطناعي مساعدًا لا حاكمًا.',
     action: 'شاهد المراجع'
   }
 ];
@@ -86,8 +86,25 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
 
         <div className="home-trust-line">
           <span><ShieldCheck className="h-4 w-4" /> المصدر أولًا</span>
-          <span><ShieldCheck className="h-4 w-4" /> نتيجة مختصرة</span>
+          <span><ShieldCheck className="h-4 w-4" /> نتيجة واضحة</span>
           <span><ShieldCheck className="h-4 w-4" /> الدليل ظاهر</span>
+        </div>
+
+        <div className="home-flow" aria-label="طريقة عمل بصيرة">
+          <div className="home-flow-step">
+            <span>01</span>
+            <strong>أدخل النص</strong>
+          </div>
+          <div className="home-flow-line" aria-hidden="true" />
+          <div className="home-flow-step">
+            <span>02</span>
+            <strong>نرجع إلى المصدر</strong>
+          </div>
+          <div className="home-flow-line" aria-hidden="true" />
+          <div className="home-flow-step">
+            <span>03</span>
+            <strong>تظهر النتيجة والدليل</strong>
+          </div>
         </div>
       </div>
     </section>
@@ -129,11 +146,10 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
       <div>
         <div className="eyebrow">بصيرة</div>
         <h2 className="mt-1 font-display text-xl font-bold text-ink">
-          النتيجة لا تكفي. يجب أن تستطيع تتبّعها.
+          لا تكتفِ بالنتيجة؛ تتبّع الأصل.
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted">
-          لهذا تظهر النتيجة مختصرة، ويظل الأصل والدليل في متناولك.
-        </p>
+          صممت بصيرة لتكون سريعة في الاستخدام، واضحة في الحكم، وقابلة للمراجعة عندما تحتاج إلى التفاصيل.
       </div>
     </section>
 
