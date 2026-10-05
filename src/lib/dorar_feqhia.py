@@ -142,17 +142,18 @@ def title_intent_fit(title, intent, subject_tokens):
         # Critical distinction:
         # "حكم مشروعية الختان وفوائده" is a wisdom/benefits section, not the
         # legal-ruling section "حكم الختان".
-        if re.search(r"حكم\s+مشروعيه|حكم\s+فوائد|الحكمه|حكم\s+فوائده", t):
+        if re.search(r"حكم\s+مشروعيه|حكم\s+فوائد|الحكمه|حكم\s+فوائده|لمشروعيه|حكم\s+عظيمه", t):
             return -120
+        has_subject = bool(subject_tokens and any(token in t for token in subject_tokens))
+        if not has_subject:
+            return -150
+        score = 80
         if "حكم" in t:
-            score = 100
-            if subject_tokens and any(token in t for token in subject_tokens):
-                score += 50
-            exact_phrase = "حكم " + " ".join(subject_tokens[:2])
-            if len(subject_tokens) >= 1 and exact_phrase in t:
-                score += 120
-            return score
-        return -80
+            score += 80
+        exact_phrase = "حكم " + " ".join(subject_tokens[:2])
+        if len(subject_tokens) >= 1 and exact_phrase in t:
+            score += 120
+        return score
 
     if intent == "benefits":
         if "فوائد" in t or "الحكمه" in t or "حكم مشروعيه" in t:

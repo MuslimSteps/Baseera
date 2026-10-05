@@ -340,6 +340,22 @@ export async function getLanguageCatalog(): Promise<QuranTranslationLanguage[]> 
   const data = await getJson('/translations/languages');
   return Array.isArray(data) ? data : [];
 }
+export function getCumulativeAyahId(surah: number, ayah: number): number {
+  let count = 0;
+  for (const s of localSource.surahs) {
+    if (s.number < surah) {
+      count += s.ayahs.length;
+    } else if (s.number === surah) {
+      count += ayah;
+      break;
+    }
+  }
+  return count;
+}
+
 export function buildQuranpediaAyahUrl(surah: number, ayah: number): string {
-  return `${WEB_BASE}/surah/1/${surah}?ayah=${ayah}`;
+  const ayahId = getCumulativeAyahId(surah, ayah);
+  return ayahId > 0
+    ? `${WEB_BASE}/surah/1/${surah}?ayah=${ayah}&ayah_id=${ayahId}`
+    : `${WEB_BASE}/surah/1/${surah}?ayah=${ayah}`;
 }

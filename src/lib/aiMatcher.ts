@@ -210,12 +210,11 @@ ${JSON.stringify(compactCandidates, null, 2)}
           temperature: 0,
           maxTokens: 768,
           json: true,
-          reasoningEffort: 'medium',
-          timeoutMs
+          timeoutMs: Math.max(timeoutMs, 10000)
         }
       ),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('AI semantic match timeout')), timeoutMs)
+        setTimeout(() => reject(new Error('AI semantic match timeout')), Math.max(timeoutMs, 10000))
       )
     ]);
 

@@ -8,7 +8,7 @@
  */
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1';
-export const GROQ_TEXT_MODEL = 'openai/gpt-oss-120b';
+export const GROQ_TEXT_MODEL = 'allam-2-7b';
 export const GROQ_VISION_MODEL = 'qwen/qwen3.8-27b';
 export const GROQ_AUDIO_MODEL = 'whisper-large-v3-turbo';
 

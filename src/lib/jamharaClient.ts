@@ -73,6 +73,44 @@ export async function searchJamharaLive(query: string): Promise<JamharaLiveResul
   const key = q.toLowerCase();
   if (cache.has(key)) return cache.get(key)!;
 
+  try {
+    const { execFile } = await import('child_process');
+    const path = await import('path');
+    const scriptPath = path.resolve(process.cwd(), 'src/lib/dorar_encyclopedia.py');
+
+    const pyResult = await new Promise<JamharaLiveResult | null>((resolve) => {
+      execFile(
+        process.platform === 'win32' ? 'python' : 'python3',
+        [scriptPath, 'term', q],
+        { timeout: 12000, encoding: 'utf-8' },
+        (error, stdout) => {
+          if (error || !stdout) return resolve(null);
+          try {
+            const data = JSON.parse(stdout);
+            if (data && data.found) {
+              const res: JamharaLiveResult = {
+                found: true,
+                title: data.title,
+                text: data.text,
+                url: data.url,
+                source: data.source
+              };
+              return resolve(res);
+            }
+            resolve(null);
+          } catch {
+            resolve(null);
+          }
+        }
+      );
+    });
+
+    if (pyResult) {
+      cache.set(key, pyResult);
+      return pyResult;
+    }
+  } catch {}
+
   const url = searchUrl(q);
   try {
     const response = await fetchRemoteSafely(url, {

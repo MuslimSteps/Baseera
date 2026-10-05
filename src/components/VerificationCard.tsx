@@ -283,6 +283,13 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
                 <span>{result.abstention_note}</span>
               </div>
             )}
+
+            {result.diff && result.diff.length > 0 && (
+              <div className="pt-2 border-t border-line">
+                <div className="eyebrow mb-2">ألوان المطابقة اللفظية وتحليل الفوارق</div>
+                <WordDiffViewer diff={result.diff} canonicalText={result.canonical_text} />
+              </div>
+            )}
           </div>
         )}
       </div>

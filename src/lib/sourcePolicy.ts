@@ -38,7 +38,7 @@ const SOURCE_ALLOWED_PATHS: Record<string, RegExp> = {
   'dorar-aqeedah': /^\/aqeeda(?:\/|$)/,
   'dorar-hadith': /^\/(?:hadith|dorar_api\.json)(?:\/|$|\?)/,
   'shamela-sunnah': /^\//,
-  'jamhara-terms': /^\/(?:dictionary|search)(?:\/|$|\?)/,
+  'jamhara-terms': /^\/(?:dictionary|search|t)(?:\/|$|\?)/,
   'fiqh-madhahib-dorar': /^\/feqhia(?:\/|$|\?)/,
   'dawa-center': /^\//
 };
