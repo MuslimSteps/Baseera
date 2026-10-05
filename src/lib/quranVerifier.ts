@@ -231,6 +231,8 @@ export function buildQuranDecision(
     url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
   };
 
+  const cleanCanonicalText = (candidate.text_uthmani || '').replace(/[\uFC00-\uFC6E]/g, '').trim();
+
   if (quality.exact && !surahMismatch && !ayahMismatch) {
     return {
       id: candidate.id,
@@ -241,7 +243,7 @@ export function buildQuranDecision(
       status_label_en: 'Verified Quranic Match',
       reason: 'النص يطابق الآية في المصحف المعتمد.',
       citation,
-      canonical_text: candidate.text_uthmani,
+      canonical_text: cleanCanonicalText,
       canonical_surah: candidate.surah_name_ar,
       canonical_ayah_number: candidate.ayah_number,
       diff,
@@ -264,7 +266,7 @@ export function buildQuranDecision(
         status_label_en: 'Verified Partial Quranic Match',
         reason: 'النص المدخل جزء مطابق من الآية في المصحف المعتمد.',
         citation,
-        canonical_text: candidate.text_uthmani,
+        canonical_text: cleanCanonicalText,
         canonical_surah: candidate.surah_name_ar,
         canonical_ayah_number: candidate.ayah_number,
         diff,
@@ -281,7 +283,7 @@ export function buildQuranDecision(
       status_label_en: 'Partial Quranic Quote — Review Required',
       reason: 'النص جزء من آية في المصدر المعتمد، لكن توجد ألفاظ تختلف عن النص الأصلي.',
       citation,
-      canonical_text: candidate.text_uthmani,
+      canonical_text: cleanCanonicalText,
       canonical_surah: candidate.surah_name_ar,
       canonical_ayah_number: candidate.ayah_number,
       diff,
@@ -298,7 +300,7 @@ export function buildQuranDecision(
       status_label_en: 'Incorrect Surah Attribution',
       reason: 'النص يطابق آية في المصدر، لكن اسم السورة المذكور لا يوافق موضعها.',
       citation,
-      canonical_text: candidate.text_uthmani,
+      canonical_text: cleanCanonicalText,
       canonical_surah: candidate.surah_name_ar,
       canonical_ayah_number: candidate.ayah_number,
       diff,
@@ -315,7 +317,7 @@ export function buildQuranDecision(
       status_label_en: 'Incorrect Verse Number',
       reason: 'النص يطابق آية في المصدر، لكن رقم الآية المذكور لا يوافق موضعها.',
       citation,
-      canonical_text: candidate.text_uthmani,
+      canonical_text: cleanCanonicalText,
       canonical_surah: candidate.surah_name_ar,
       canonical_ayah_number: candidate.ayah_number,
       diff,
@@ -328,11 +330,11 @@ export function buildQuranDecision(
     item,
     status: 'NEEDS_REVIEW',
     finding_type: 'altered_quran_text',
-    status_label_ar: 'يحتاج مراجعة — النص يختلف عن المصدر',
-    status_label_en: 'Quranic Text Differs From Source',
-    reason: 'يوجد اختلاف لفظي بين المدخل والنص القرآني المعتمد. راجع الأصل قبل نسبته إلى القرآن.',
+    status_label_ar: 'غير مطابق — رُصد اختلاف في لفظ الآية',
+    status_label_en: 'Non-matching — Quranic Wording Altered',
+    reason: 'يوجد اختلاف لفظي بين المدخل والنص القرآني المعتمد في المصحف الشريف. راجع الفوارق الملونة أدناه.',
     citation,
-    canonical_text: candidate.text_uthmani,
+    canonical_text: cleanCanonicalText,
     canonical_surah: candidate.surah_name_ar,
     canonical_ayah_number: candidate.ayah_number,
     diff,

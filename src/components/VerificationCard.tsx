@@ -42,8 +42,9 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
     setDetailsOpen(viewMode === 'detailed');
   }, [viewMode]);
 
+  const isAlteredQuran = result.finding_type === 'altered_quran_text';
   const isMatched = result.status === 'MATCHED';
-  const isReview = result.status === 'NEEDS_REVIEW';
+  const isReview = result.status === 'NEEDS_REVIEW' && !isAlteredQuran;
   const isReferral = result.status === 'REFER_TO_SPECIALIST';
   const isNotFound = result.status === 'NOT_FOUND_IN_CHECKED_SOURCES';
 
@@ -54,26 +55,33 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
         panel: 'result-panel result-panel-matched',
         label: 'مطابق للمصدر'
       }
-    : isReferral
+    : isAlteredQuran
       ? {
-          icon: <ShieldAlert className="h-5 w-5" />,
-          badge: 'status-badge status-referral',
-          panel: 'result-panel result-panel-referral',
-          label: 'يتطلب الرجوع إلى مختص'
+          icon: <ShieldAlert className="h-5 w-5 text-rose-600" />,
+          badge: 'status-badge status-danger bg-rose-50 text-rose-700 border-rose-200',
+          panel: 'result-panel border-s-4 border-s-rose-500 bg-rose-50/20',
+          label: 'غير مطابق (رُصد تبديل لفظي)'
         }
-      : isReview
+      : isReferral
         ? {
-            icon: <AlertTriangle className="h-5 w-5" />,
-            badge: 'status-badge status-review',
-            panel: 'result-panel result-panel-review',
-            label: 'يحتاج مراجعة'
+            icon: <ShieldAlert className="h-5 w-5" />,
+            badge: 'status-badge status-referral',
+            panel: 'result-panel result-panel-referral',
+            label: 'يتطلب الرجوع إلى مختص'
           }
-        : {
-            icon: <Info className="h-5 w-5" />,
-            badge: 'status-badge status-neutral',
-            panel: 'result-panel result-panel-neutral',
-            label: 'لم يُعثر عليه'
-          };
+        : isReview
+          ? {
+              icon: <AlertTriangle className="h-5 w-5" />,
+              badge: 'status-badge status-review',
+              panel: 'result-panel result-panel-review',
+              label: 'يحتاج مراجعة'
+            }
+          : {
+              icon: <Info className="h-5 w-5" />,
+              badge: 'status-badge status-neutral',
+              panel: 'result-panel result-panel-neutral',
+              label: 'لم يُعثر عليه'
+            };
 
   const typeLabel = {
     ayah: 'آية قرآنية',
@@ -134,7 +142,7 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
             <FileSearch className="h-5 w-5 text-gold" aria-hidden="true" />
           </div>
 
-          <div className="evidence-quote">«{result.canonical_text}»</div>
+          <div className="evidence-quote">«{(result.canonical_text || '').replace(/[\uFC00-\uFC6E]/g, '').trim()}»</div>
 
           <div className="evidence-meta">
             {result.citation?.book && <span>{cleanLabel(result.citation.book)}</span>}
@@ -198,7 +206,7 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
             {result.diff && result.diff.length > 0 && (
               <div>
                 <div className="eyebrow mb-2">الفروق</div>
-                <WordDiffViewer diff={result.diff} />
+                <WordDiffViewer diff={result.diff} canonicalText={result.canonical_text} />
               </div>
             )}
           </div>

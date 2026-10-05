@@ -61,8 +61,8 @@ function localToAyah(surah: LocalSurah, ayah: LocalAyah): QuranMushafAyah {
     id: Number(`${surah.number}${String(ayah.number).padStart(3, '0')}`),
     number: ayah.number,
     surah: surah.number,
-    text: ayah.text,
-    search: ayah.search || ayah.text
+    text: (ayah.text || '').replace(/[\uFC00-\uFC6E]/g, '').trim(),
+    search: (ayah.search || ayah.text || '').replace(/[\uFC00-\uFC6E]/g, '').trim()
   };
 }
 

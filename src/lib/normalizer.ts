@@ -113,43 +113,45 @@ export function computeWordDiff(inputStr: string, canonicalStr: string): {
   // the full verse. This prevents false "altered" reports for valid excerpts.
   let best = {
     start: 0,
-    end: Math.min(canonWords.length, inputWords.length),
+    end: canonWords.length,
     distance: Number.POSITIVE_INFINITY,
     score: 0
   };
 
-  const minLen = Math.max(1, inputWords.length - 2);
-  const maxLen = Math.min(canonWords.length, inputWords.length + 2);
+  if (canonWords.length > inputWords.length + 1) {
+    const minLen = Math.max(1, inputWords.length - 2);
+    const maxLen = Math.min(canonWords.length, inputWords.length + 2);
 
-  for (let len = minLen; len <= maxLen; len++) {
-    for (let start = 0; start + len <= canonWords.length; start++) {
-      const a = inputLoose;
-      const b = canonicalLoose.slice(start, start + len);
-      const m = a.length;
-      const n = b.length;
-      const dp = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
+    for (let len = minLen; len <= maxLen; len++) {
+      for (let start = 0; start + len <= canonWords.length; start++) {
+        const a = inputLoose;
+        const b = canonicalLoose.slice(start, start + len);
+        const m = a.length;
+        const n = b.length;
+        const dp = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
 
-      for (let i = 0; i <= m; i++) dp[i][0] = i;
-      for (let j = 0; j <= n; j++) dp[0][j] = j;
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
 
-      for (let i = 1; i <= m; i++) {
-        for (let j = 1; j <= n; j++) {
-          const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-          dp[i][j] = Math.min(
-            dp[i - 1][j] + 1,
-            dp[i][j - 1] + 1,
-            dp[i - 1][j - 1] + cost
-          );
+        for (let i = 1; i <= m; i++) {
+          for (let j = 1; j <= n; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            dp[i][j] = Math.min(
+              dp[i - 1][j] + 1,
+              dp[i][j - 1] + 1,
+              dp[i - 1][j - 1] + cost
+            );
+          }
         }
-      }
 
-      const distance = dp[m][n];
-      const score = 1 - distance / Math.max(m, n);
-      const preferred = score > best.score ||
-        (score === best.score && Math.abs(len - inputWords.length) < Math.abs((best.end - best.start) - inputWords.length));
+        const distance = dp[m][n];
+        const score = 1 - distance / Math.max(m, n);
+        const preferred = score > best.score ||
+          (score === best.score && Math.abs(len - inputWords.length) < Math.abs((best.end - best.start) - inputWords.length));
 
-      if (preferred) {
-        best = { start, end: start + len, distance, score };
+        if (preferred) {
+          best = { start, end: start + len, distance, score };
+        }
       }
     }
   }
