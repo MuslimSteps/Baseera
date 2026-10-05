@@ -51,13 +51,11 @@ const NAV_ITEMS: Array<{
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId | 'home'>('home');
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
-
+ 
   const go = (tab: TabId | 'home') => {
     setActiveTab(tab);
     setMobileOpen(false);
-    setMoreOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const activeLabel =
@@ -95,43 +93,17 @@ export default function App() {
               >
                 الرئيسية
               </button>
-              <button
-                type="button"
-                onClick={() => go('verifier')}
-                className={`nav-link ${activeTab === 'verifier' ? 'nav-link-active' : ''}`}
-                aria-current={activeTab === 'verifier' ? 'page' : undefined}
-              >
-                فحص المحتوى
-              </button>
-              <div className="relative">
+              {NAV_ITEMS.filter(item => ['verifier','dawah','extension','sources'].includes(item.id)).map(item => (
                 <button
+                  key={item.id}
                   type="button"
-                  onClick={() => setMoreOpen(value => !value)}
-                  className="nav-link"
-                  aria-expanded={moreOpen}
+                  onClick={() => go(item.id)}
+                  className={`nav-link ${activeTab === item.id ? 'nav-link-active' : ''}`}
+                  aria-current={activeTab === item.id ? 'page' : undefined}
                 >
-                  المزيد
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
+                  {item.label}
                 </button>
-                {moreOpen && (
-                  <div className="absolute right-0 top-[50px] z-50 grid w-[220px] gap-1 rounded-2xl border border-line bg-surface p-2 shadow-float">
-                    {NAV_ITEMS.filter(item => item.id !== 'verifier').map(item => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => go(item.id)}
-                        className={`mobile-nav-link !min-h-11 ${activeTab === item.id ? 'mobile-nav-link-active' : ''}`}
-                      >
-                        <span className="flex items-center gap-3">
-                          <span className="nav-link-icon" aria-hidden="true">{item.icon}</span>
-                          {item.label}
-                        </span>
-                        <ArrowLeft className="h-4 w-4" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              ))}
             </nav>
 
             <div className="mr-auto flex items-center gap-2">
