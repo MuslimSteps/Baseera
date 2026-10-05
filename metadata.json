@@ -1,6 +1,5 @@
 {
   "name": "بصيرة — Baseera",
   "description": "منظومة التحقق من المحتوى الإسلامي وسياقه لتمكين المعرّفين بالإسلام وصنّاع المحتوى وفق الحزمة المرجعية المعتمدة",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "requestFramePermissions": []
 }
