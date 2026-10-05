@@ -15,6 +15,15 @@
   --color-line: #dfe4dd;
   --color-line-strong: #cbd3ca;
 
+  /* Compatibility aliases for the existing secondary workspaces. */
+  --color-canvas: #f6f7f3;
+  --color-canvas-2: #eef1eb;
+  --color-canvas-soft: #eef3ec;
+  --color-hairline: #dfe4dd;
+  --color-hairline-strong: #cbd3ca;
+  --color-surface-2: #fbfcfa;
+  --color-surface-3: #eef1eb;
+
   --color-ink: #17231a;
   --color-muted: #68736b;
   --color-faint: #99a39c;
@@ -23,8 +32,13 @@
   --color-brand-strong: #174c32;
   --color-brand-soft: #e7f3ea;
 
+  --color-primary: #174c32;
+  --color-primary-soft: #216343;
+  --color-primary-strong: #102f20;
+
   --color-gold: #a37a2d;
   --color-gold-soft: #f5ecd7;
+  --color-gold-strong: #805d20;
 
   --color-info: #365d7a;
   --color-info-soft: #eaf2f7;
