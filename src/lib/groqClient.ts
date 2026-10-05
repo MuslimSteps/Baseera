@@ -19,7 +19,11 @@ function getGroqKey(): string | null {
 
 async function groqRequest(path: string, init: RequestInit): Promise<Response> {
   const key = getGroqKey();
-  if (!key) throw new Error('GROQ_API_KEY is not configured on the server.');
+  if (!key) {
+    console.error('[BASEERA][GROQ][NO_KEY]', JSON.stringify({ path }));
+    throw new Error('GROQ_API_KEY is not configured on the server.');
+  }
+  console.log('[BASEERA][GROQ][REQUEST]', JSON.stringify({ path, configured: true }));
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${key}`,
@@ -34,6 +38,7 @@ async function groqRequest(path: string, init: RequestInit): Promise<Response> {
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
+    console.error('[BASEERA][GROQ][ERROR]', JSON.stringify({ path, status: response.status, body: body.slice(0, 800) }));
     throw new Error(`Groq API ${response.status}: ${body.slice(0, 500)}`);
   }
   return response;
@@ -72,7 +77,9 @@ export async function groqChat(
       body: JSON.stringify(body)
     });
     const data = await response.json() as any;
-    return String(data?.choices?.[0]?.message?.content || '').trim();
+    const content = String(data?.choices?.[0]?.message?.content || '').trim();
+    console.log('[BASEERA][GROQ][RESPONSE]', JSON.stringify({ model: body.model, contentLength: content.length, preview: content.slice(0, 300) }));
+    return content;
   } finally {
     clearTimeout(timeout);
   }
