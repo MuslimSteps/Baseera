@@ -66,10 +66,10 @@ export const BenchmarkView: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold font-display text-ink tracking-tight">
-              لوحة قياس الدقة ومقارنة الأنظمة
+              لوحة قياس الجودة والتحقق
             </h1>
             <p className="text-sm text-muted mt-3 max-w-3xl leading-relaxed">
-              تم تجميد حالات الاختبار مسبقاً وفق الحزمة العلمية لقياس أداء طبقة التحقق البرمجية المرجعية في بصيرة.
+              تُستخدم حالات ثابتة وقابلة لإعادة التشغيل لقياس دقة سياسة القرار، جودة التوثيق، والامتناع عند غياب الدليل.
             </p>
           </div>
 
@@ -79,7 +79,7 @@ export const BenchmarkView: React.FC = () => {
             className="px-5 py-2.5 rounded-xl bg-gold-strong hover:bg-[#c96a12] font-semibold text-ink shadow-md shadow-black/40 flex items-center gap-2 transition-all cursor-pointer self-start md:self-auto text-xs active:scale-[0.98]"
           >
             <Play className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} />
-            <span>{isRunning ? 'جاري تشغيل الاختبار...' : 'تشغيل مجموعة اختبارات ثابتة'}</span>
+            <span>{isRunning ? 'جاري تشغيل الاختبار...' : 'تشغيل الاختبارات الثابتة'}</span>
           </button>
         </div>
       </div>
