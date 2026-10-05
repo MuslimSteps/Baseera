@@ -239,8 +239,8 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
         }
       }
 
-      // No sufficient Quranic evidence. Continue to the hadith path below so
-      // misattributed hadiths can still be detected.
+      // With an explicit source selection, a Quran miss stays within the
+      // Quran scope. Cross-source attribution is reserved for automatic mode.
     }
 
     if (v.item.type === 'hadith') {
@@ -1001,7 +1001,7 @@ app.post('/api/verify', async (req, res) => {
       ]);
     };
 
-    if (aiEnabled && extractedText.length > 10) {
+    if (aiEnabled && extractedText.length > 10 && (!targetCategory || targetCategory === 'auto')) {
       try {
         const aiRaw = await groqChat(
           [{
