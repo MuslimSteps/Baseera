@@ -9,8 +9,8 @@
  * and enables accurate semantic/exact matches without altering original input.
  */
 
-// Arabic Tashkeel (diacritics) Unicode ranges
-const TASHKEEL_REGEX = /[\u0617-\u061A\u064B-\u0652\u0670\u06D6-\u06ED]/g;
+// Arabic Tashkeel (diacritics) Unicode ranges including Quranic marks
+const TASHKEEL_REGEX = /[\u0617-\u061A\u064B-\u0653\u06D6-\u06ED]/g;
 
 // Tatweel (Kashida)
 const TATWEEL_REGEX = /\u0640/g;
@@ -24,6 +24,8 @@ const QURAN_AYAH_MARKERS = /[\uFC00-\uFC6E]/g;
 export function normalizeArabic(text: string): string {
   if (!text) return '';
   return text
+    // Normalize dagger alef to standard alef before diacritic removal
+    .replace(/\u0670/g, 'ا')
     // Remove Tashkeel and Quranic stop marks
     .replace(TASHKEEL_REGEX, '')
     .replace(QURANIC_SIGNS, '')
@@ -55,6 +57,9 @@ export function normalizeArabic(text: string): string {
 export function normalizeArabicStrict(text: string): string {
   if (!text) return '';
   return text
+    // Convert Uthmani dagger alef and alef wasla to standard alef for orthographic alignment
+    .replace(/\u0670/g, 'ا')
+    .replace(/ٱ/g, 'ا')
     .replace(TASHKEEL_REGEX, '')
     .replace(QURANIC_SIGNS, '')
     .replace(QURAN_AYAH_MARKERS, '')

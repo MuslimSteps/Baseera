@@ -28,6 +28,7 @@ export interface QuranMushafAyah {
   surah: number;
   page_number?: number;
   text: string;
+  search?: string;
   marker?: string;
   options?: string[];
 }
@@ -60,7 +61,8 @@ function localToAyah(surah: LocalSurah, ayah: LocalAyah): QuranMushafAyah {
     id: Number(`${surah.number}${String(ayah.number).padStart(3, '0')}`),
     number: ayah.number,
     surah: surah.number,
-    text: ayah.text
+    text: ayah.text,
+    search: ayah.search || ayah.text
   };
 }
 

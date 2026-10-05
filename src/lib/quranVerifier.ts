@@ -18,6 +18,7 @@ export type QuranCandidate = {
   source: 'quran-uthmani';
   title: string;
   text: string;
+  search?: string;
   surah_number: number;
   ayah_number: number;
   surah_name_ar: string;
@@ -105,6 +106,7 @@ export async function getQuranCandidatesForAI(item: ExtractedItem, limit = 12): 
         source: 'quran-uthmani' as const,
         title: `سورة ${surahName} — الآية ${ayah.number}`,
         text: ayah.text,
+        search: ayah.search || ayah.text,
         surah_number: surahNumber,
         ayah_number: Number(ayah.number),
         surah_name_ar: surahName,
@@ -135,6 +137,7 @@ export async function getQuranCandidatesFromReferences(
       source: 'quran-uthmani' as const,
       title: `سورة ${surahName} — الآية ${ayah.number}`,
       text: ayah.text,
+      search: ayah.search || ayah.text,
       surah_number: surahNumber,
       ayah_number: Number(ayah.number),
       surah_name_ar: surahName,
@@ -143,26 +146,36 @@ export async function getQuranCandidatesFromReferences(
   });
 }
 
-function matchQuality(input: string, canonical: string): {
+function matchQuality(input: string, candidate: QuranCandidate): {
   score: number;
   exact: boolean;
   altered: boolean;
 } {
-  const exact = normalizeArabicStrict(input) === normalizeArabicStrict(canonical);
+  const exact =
+    normalizeArabicStrict(input) === normalizeArabicStrict(candidate.text) ||
+    (Boolean(candidate.search) && normalizeArabicStrict(input) === normalizeArabicStrict(candidate.search!));
   if (exact) return { score: 1, exact: true, altered: false };
 
-  const score = candidateScore(input, canonical);
-  const diff = computeWordDiff(input, canonical).diff;
-  const changed = diff.some(d => d.type === 'changed');
-  return { score, exact: false, altered: changed };
+  const scoreText = candidateScore(input, candidate.text);
+  const scoreSearch = candidate.search ? candidateScore(input, candidate.search) : 0;
+  const score = Math.max(scoreText, scoreSearch);
+
+  const diffText = computeWordDiff(input, candidate.text);
+  const diffSearch = candidate.search ? computeWordDiff(input, candidate.search) : diffText;
+  const bestDiff = diffSearch.similarityScore >= diffText.similarityScore ? diffSearch : diffText;
+
+  const changed = bestDiff.diff.some(d => d.type === 'changed');
+  return { score: Math.max(score, bestDiff.similarityScore), exact: bestDiff.similarityScore === 1, altered: changed };
 }
 
 export function buildQuranDecision(
   item: ExtractedItem,
   candidate: QuranCandidate
 ): VerificationResult {
-  const quality = matchQuality(item.text, candidate.text);
-  const diffResult = computeWordDiff(item.text, candidate.text);
+  const quality = matchQuality(item.text, candidate);
+  const diffResultText = computeWordDiff(item.text, candidate.text);
+  const diffResultSearch = candidate.search ? computeWordDiff(item.text, candidate.search) : diffResultText;
+  const diffResult = diffResultSearch.similarityScore >= diffResultText.similarityScore ? diffResultSearch : diffResultText;
   const diff = diffResult.diff;
   const inputStrict = normalizeArabicStrict(item.text);
   const canonicalStrict = normalizeArabicStrict(candidate.text);

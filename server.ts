@@ -199,6 +199,7 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
             source: 'quran-uthmani' as const,
             title: `سورة ${surahName} — الآية ${ayahNumber}`,
             text: ayah.text,
+            search: ayah.search || ayah.text,
             surah_number: surahNumber,
             ayah_number: ayahNumber,
             surah_name_ar: surahName,
@@ -237,8 +238,11 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       selected = candidates.find(candidate => {
         const strictCandidate = normalizeArabicStrict(candidate.text);
         const looseCandidate = normalizeArabic(candidate.text);
+        const strictSearch = candidate.search ? normalizeArabicStrict(candidate.search) : '';
+        const looseSearch = candidate.search ? normalizeArabic(candidate.search) : '';
         return strictCandidate === strictInput ||
-          (looseInput.length >= 4 && looseCandidate.includes(looseInput));
+          strictSearch === strictInput ||
+          (looseInput.length >= 4 && (looseCandidate.includes(looseInput) || looseSearch.includes(looseInput)));
       });
 
       const hintId = (v.item as any).ai_match_hint?.candidate_id as string | undefined;
