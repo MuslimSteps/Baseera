@@ -142,7 +142,7 @@ def title_intent_fit(title, intent, subject_tokens):
         # Critical distinction:
         # "حكم مشروعية الختان وفوائده" is a wisdom/benefits section, not the
         # legal-ruling section "حكم الختان".
-        if re.search(r"حكم\s+مشروعيه|حكم\\s+فوائد|الحكمه|حكم\\s+فوائده", t):
+        if re.search(r"حكم\s+مشروعيه|حكم\s+فوائد|الحكمه|حكم\s+فوائده", t):
             return -120
         if "حكم" in t:
             score = 100
@@ -202,7 +202,7 @@ def extract_article_fields(art):
 
     rel_link = link.group(1) if link else ""
     full_link = rel_link if rel_link.startswith("http") else ("https://dorar.net" + rel_link)
-    title = re.sub(r"^\d+\\s*[-–]\\s*", "", title).strip()
+    title = re.sub(r"^\d+\s*[-–]\s*", "", title).strip()
 
     return title, text, full_link
 
@@ -221,7 +221,7 @@ def fetch_article_details(article_url):
         chunk = re.sub(r'<span class="tip"[^>]*>[\s\S]*?</span>', "", chunk)
         clean = re.sub(r"<[^>]+>", " ", chunk)
         clean = html_lib.unescape(re.sub(r"\s+", " ", clean)).strip()
-        clean = re.sub(r'^w-100 mt-4\\s*["\'>\s]*', "", clean)
+        clean = re.sub(r'^w-100 mt-4\s*["\'>\s]*', "", clean)
 
         for marker in ["المادة في سؤال وجواب", "انظر أيضا", "الرابط المختصر"]:
             idx = clean.find(marker)
