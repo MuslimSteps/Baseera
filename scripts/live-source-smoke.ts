@@ -60,17 +60,17 @@ async function discoverFirstLink(
 
 const [dorarHadithSeed, dorarFiqhSeed, dorarTafsirSeed, dorarAqeedahSeed, jamharaSeed, mushaf] =
   await Promise.all([
-    discoverFirstLink('https://dorar.net/hadith', /\\/hadith\\//),
-    discoverFirstLink('https://dorar.net/feqhia', /\\/feqhia\\/\\d+/),
-    discoverFirstLink('https://dorar.net/tafseer', /\\/tafseer\\/\\d+/),
-    discoverFirstLink('https://dorar.net/aqeeda', /\\/aqeeda\\/\\d+/),
-    discoverFirstLink('https://islamic-content.com/dictionary', /\\/dictionary\\/word\\/\\d+/),
+    discoverFirstLink('https://dorar.net/hadith', /\/hadith\///),
+    discoverFirstLink('https://dorar.net/feqhia', /\/feqhia\/\d+/),
+    discoverFirstLink('https://dorar.net/tafseer', /\/tafseer\/\d+/),
+    discoverFirstLink('https://dorar.net/aqeeda', /\/aqeeda\/\d+/),
+    discoverFirstLink('https://islamic-content.com/dictionary', /\/dictionary\/word\/\d+/),
     getHafsMushaf()
   ]);
 
 await run(
   'Dorar Hadith — dynamic source discovery',
-  () => dorarHadithSeed ? searchDorarApiLive(dorarHadithSeed.title.split(/\\s+/).slice(0, 3).join(' ')) : [],
+  () => dorarHadithSeed ? searchDorarApiLive(dorarHadithSeed.title.split(/\s+/).slice(0, 3).join(' ')) : [],
   (value: any[]) => 'results=' + (Array.isArray(value) ? value.length : 0)
 );
 
