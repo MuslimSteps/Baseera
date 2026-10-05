@@ -1,3 +1,5 @@
+import { groqChat, GROQ_TEXT_MODEL } from './groqClient.ts';
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -28,6 +30,57 @@ function getGroqKey(): string | null {
   return key && key.length > 10 ? key : null;
 }
 
+
+export async function generateFiqhSearchQueriesWithAI(question: string): Promise<string[]> {
+  if (!question.trim()) return [];
+
+  const raw = await groqChat(
+    [{
+      role: 'user',
+      content: `أنت طبقة فهم واستعلام في «بصيرة». حلّل السؤال الفقهي التالي لتحسين البحث في موسوعة الدرر السنية فقط.
+
+ممنوع:
+- إصدار الحكم الشرعي.
+- ترجيح قول فقهي.
+- اختراع مصدر أو نص.
+- الإجابة عن السؤال.
+
+مهمتك الوحيدة: استخراج المفهوم الفقهي المقصود وإنتاج عبارات بحث قصيرة يمكن أن تكون عناوين/موضوعات في الموسوعة الفقهية.
+
+السؤال:
+<<<
+${question}
+>>>
+
+أعد JSON فقط:
+{
+  "queries": ["عبارة بحث 1", "عبارة بحث 2", "عبارة بحث 3", "عبارة بحث 4"]
+}
+
+اجعل العبارات محددة، ولا تكرر السؤال حرفياً إذا كانت صياغة أقصر وأوضح أنسب للبحث.`
+    }],
+    {
+      model: GROQ_TEXT_MODEL,
+      temperature: 0.2,
+      maxTokens: 512,
+      json: true,
+      reasoningEffort: 'medium',
+      timeoutMs: 8000
+    }
+  );
+
+  try {
+    const parsed = JSON.parse(raw) as { queries?: unknown };
+    if (!Array.isArray(parsed.queries)) return [];
+    return parsed.queries
+      .filter((q): q is string => typeof q === 'string')
+      .map(q => q.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+  } catch {
+    return [];
+  }
+}
 
 export async function rankCandidatesWithAI(
   kind: 'quran' | 'hadith' | 'fiqh',
