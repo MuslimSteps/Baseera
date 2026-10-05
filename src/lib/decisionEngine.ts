@@ -35,6 +35,9 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
   // 1. If claimed/tagged as Ayah
   if (item.type === 'ayah') {
     const quranRes = verifyQuranAyah(item);
+    if ((quranRes as any)._needs_live_search) {
+      return quranRes;
+    }
     if (quranRes.status === 'MATCHED' || quranRes.status === 'NEEDS_REVIEW') {
       return quranRes;
     }
@@ -95,6 +98,9 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
   // 2. If claimed/tagged as Hadith
   if (item.type === 'hadith') {
     const hadithRes = verifyHadith(item);
+    if ((hadithRes as any)._needs_live_search) {
+      return hadithRes;
+    }
     if (hadithRes.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') {
       return hadithRes;
     }

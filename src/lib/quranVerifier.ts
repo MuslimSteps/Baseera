@@ -131,15 +131,15 @@ export async function getQuranCandidatesForAI(item: ExtractedItem, limit = 12): 
     .filter(x => x.score >= 0.08 || normalizeArabic(x.ayah.text).includes(normalizedInput))
     .slice(0, limit)
     .map(x => {
-      const surah = mushaf.surahs.find(s => s.id === x.ayah.surah);
+      const surah = mushaf.surahs.find(s => Number(s.id) === Number(x.ayah.surah));
       const surahName = cleanSurahDisplayName(surah?.name || '');
       return {
         id: `quran-${x.ayah.surah}-${x.ayah.number}`,
         source: 'quran-uthmani',
         title: `سورة ${surahName} — الآية ${x.ayah.number}`,
         text: x.ayah.text,
-        surah_number: x.ayah.surah,
-        ayah_number: x.ayah.number,
+        surah_number: Number(x.ayah.surah),
+        ayah_number: Number(x.ayah.number),
         surah_name_ar: surahName,
         text_uthmani: x.ayah.text
       };
@@ -165,15 +165,15 @@ export async function getQuranCandidatesFromReferences(
   return rows
     .filter((ayah): ayah is QuranMushafAyah => Boolean(ayah))
     .map(ayah => {
-      const surah = mushaf.surahs.find(s => s.id === ayah.surah);
+      const surah = mushaf.surahs.find(s => Number(s.id) === Number(ayah.surah));
       const name = cleanSurahDisplayName(surah?.name || `سورة ${ayah.surah}`);
       return {
         id: `quran-${ayah.surah}-${ayah.number}`,
         source: 'quran-uthmani' as const,
         title: `سورة ${name} — الآية ${ayah.number}`,
         text: ayah.text,
-        surah_number: ayah.surah,
-        ayah_number: ayah.number,
+        surah_number: Number(ayah.surah),
+        ayah_number: Number(ayah.number),
         surah_name_ar: name,
         text_uthmani: ayah.text
       };
@@ -230,6 +230,42 @@ export function buildQuranDecision(
   if (!quality.exact) {
     const changed = diff.filter(d => d.type === 'changed');
     const findingType = changed.length > 0 ? 'altered_quran_text' : 'partial_quran_quote';
+
+    let surahMismatch = false;
+    if (item.claimed_surah) {
+      const claimedSurah = normalizeArabic(item.claimed_surah).replace(/^سوره?\s+/, '').trim();
+      const actualSurah = normalizeArabic(candidate.surah_name_ar).replace(/^سوره?\s+/, '').trim();
+      if (!actualSurah.includes(claimedSurah.replace(/^ال/, '')) && !claimedSurah.includes(actualSurah.replace(/^ال/, ''))) {
+        surahMismatch = true;
+      }
+    }
+    const ayahMismatch = Boolean(item.claimed_ayah && item.claimed_ayah !== candidate.ayah_number);
+
+    if (changed.length === 0 && !surahMismatch && !ayahMismatch) {
+      return {
+        id: candidate.id,
+        item,
+        status: 'MATCHED',
+        finding_type: 'partial_quran_quote',
+        status_label_ar: 'مطابقة تامة للنص القرآني المعتمد (اقتباس صحيح)',
+        status_label_en: 'Verified Quranic Match (Partial Quotation)',
+        reason: 'النص المدخل يطابق موضع الآية الكريمة من المصحف الشريف بالرسم العثماني دون أي تحريف أو تبديل في الألفاظ.',
+        citation: {
+          source_id: 'quran-uthmani',
+          source_name: 'المصحف الشريف — النص الحفصي المعتمد',
+          authority: 'مجمع الملك فهد / Quranpedia',
+          book: `سورة ${candidate.surah_name_ar}`,
+          number_or_page: `الآية: ${candidate.ayah_number}`,
+          url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
+        },
+        canonical_text: candidate.text_uthmani,
+        canonical_surah: candidate.surah_name_ar,
+        canonical_ayah_number: candidate.ayah_number,
+        diff,
+        decision_level: 'A'
+      };
+    }
+
     return {
       id: candidate.id,
       item,
