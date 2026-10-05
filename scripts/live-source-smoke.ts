@@ -70,31 +70,31 @@ const [dorarHadithSeed, dorarFiqhSeed, dorarTafsirSeed, dorarAqeedahSeed, jamhar
 
 await run(
   'Dorar Hadith — dynamic source discovery',
-  () => dorarHadithSeed ? searchDorarApiLive(dorarHadithSeed.title.split(/\s+/).slice(0, 3).join(' ')) : [],
+  async () => dorarHadithSeed ? searchDorarApiLive(dorarHadithSeed.title.split(/\s+/).slice(0, 3).join(' ')) : [],
   (value: any[]) => 'results=' + (Array.isArray(value) ? value.length : 0)
 );
 
 await run(
   'Dorar Fiqh — dynamic source discovery',
-  () => dorarFiqhSeed ? searchDorarFiqhLive(dorarFiqhSeed.title) : null,
+  async () => dorarFiqhSeed ? searchDorarFiqhLive(dorarFiqhSeed.title) : null,
   (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
 );
 
 await run(
   'Dorar Tafsir — dynamic source discovery',
-  () => dorarTafsirSeed ? searchDorarTafsirLive(dorarTafsirSeed.title) : null,
+  async () => dorarTafsirSeed ? searchDorarTafsirLive(dorarTafsirSeed.title) : null,
   (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
 );
 
 await run(
   'Dorar Aqeedah — dynamic source discovery',
-  () => dorarAqeedahSeed ? searchDorarAqeedahLive(dorarAqeedahSeed.title) : null,
+  async () => dorarAqeedahSeed ? searchDorarAqeedahLive(dorarAqeedahSeed.title) : null,
   (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
 );
 
 await run(
   'Jamhara — dynamic source discovery',
-  () => jamharaSeed ? searchJamharaLive(jamharaSeed.title) : null,
+  async () => jamharaSeed ? searchJamharaLive(jamharaSeed.title) : null,
   (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
 );
 
@@ -102,13 +102,13 @@ const firstAyah = mushaf?.surahs?.[0]?.ayahs?.[0];
 
 await run(
   'Quranpedia translation language discovery',
-  () => firstAyah ? getAvailableTranslationLanguages(firstAyah.surah, firstAyah.number) : [],
+  async () => firstAyah ? getAvailableTranslationLanguages(firstAyah.surah, firstAyah.number) : [],
   (value: any[]) => 'languages=' + (Array.isArray(value) ? value.length : 0)
 );
 
 await run(
   'Quranpedia all available translations for discovered ayah',
-  () => firstAyah ? getAyahTranslations(firstAyah.surah, firstAyah.number) : [],
+  async () => firstAyah ? getAyahTranslations(firstAyah.surah, firstAyah.number) : [],
   (value: any) => {
     const groups = value && typeof value === 'object' ? Object.entries(value) : [];
     const nonEmpty = groups.filter(([, rows]: any) =>
