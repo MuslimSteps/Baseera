@@ -1087,16 +1087,27 @@ ${extractedText}
     // If user explicitly chose a target category (Quran, Hadith, Fiqh, Term),
     // align extracted items directly with their selection for maximum precision.
     if (targetCategory && targetCategory !== 'auto') {
-      const validTypes: Array<ExtractedItem['type']> = ['ayah', 'hadith', 'fiqh_question', 'term'];
+      const validTypes: Array<ExtractedItem['type']> = [
+        'ayah',
+        'hadith',
+        'tafsir_question',
+        'aqeedah_question',
+        'fiqh_question',
+        'term'
+      ];
       if (validTypes.includes(targetCategory as any)) {
         const selectedType = targetCategory as ExtractedItem['type'];
         const scope = selectedType === 'ayah'
           ? 'quran'
           : selectedType === 'hadith'
             ? 'hadith'
-            : selectedType === 'term'
-              ? 'term'
-              : 'fiqh';
+            : selectedType === 'tafsir_question'
+              ? 'tafsir'
+              : selectedType === 'aqeedah_question'
+                ? 'aqeedah'
+                : selectedType === 'term'
+                  ? 'term'
+                  : 'fiqh';
 
         // The user's explicit choice means this entire submitted payload is
         // one verification item against one approved source.
