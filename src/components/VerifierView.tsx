@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck,
   FileText,
@@ -134,9 +134,18 @@ export const VerifierView: React.FC = () => {
   const [ocrConsensus, setOcrConsensus] = useState(false);
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => localStorage.getItem('baseera_gemini_key') || '');
+  const [aiStatus, setAiStatus] = useState<{ enabled: boolean; provider?: string; text_model?: string } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('simple');
+
+  useEffect(() => {
+    let mounted = true;
+    apiFetch('/api/ai-status')
+      .then(async res => res.ok ? await res.json() : null)
+      .then(data => { if (mounted && data) setAiStatus(data); })
+      .catch(() => { if (mounted) setAiStatus(null); });
+    return () => { mounted = false; };
+  }, []);
 
   // Tab change handler — clears stale text when switching to URL or Image to prevent false matches
   const handleTabChange = (type: 'text' | 'url' | 'image' | 'audio') => {
@@ -197,7 +206,6 @@ export const VerifierView: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mediaBase64: base64Data,
-          apiKey: geminiApiKey.trim() || undefined,
           ocrConsensus
         })
       });
@@ -240,7 +248,7 @@ export const VerifierView: React.FC = () => {
       const res = await apiFetch('/api/transcribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mediaBase64: base64Data, mediaMimeType: mimeType, apiKey: geminiApiKey.trim() || undefined })
+        body: JSON.stringify({ mediaBase64: base64Data, mediaMimeType: mimeType })
       });
       const data = await res.json();
       if (!res.ok || !data.text) throw new Error(data.error || 'تعذر تحويل الصوت إلى نص.');
@@ -274,7 +282,6 @@ export const VerifierView: React.FC = () => {
         text: inputText,
         url: inputType === 'url' ? urlInput : undefined,
         mediaBase64: (inputType === 'image' || inputType === 'audio') ? mediaPreview : undefined,
-        apiKey: geminiApiKey.trim() || undefined,
         ocrConsensus: inputType === 'image' ? ocrConsensus : false
       };
 
@@ -397,24 +404,19 @@ export const VerifierView: React.FC = () => {
         {showSettings && (
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-800">مفتاح Gemini API (اختياري):</span>
-              <span className="text-slate-400">يُحفظ محلياً</span>
+              <span className="font-semibold text-slate-800">حالة الذكاء الاصطناعي</span>
+              <span className={aiStatus?.enabled ? 'text-emerald-600' : 'text-amber-600'}>
+                {aiStatus?.enabled ? 'Groq متصل' : 'Groq غير مهيأ'}
+              </span>
             </div>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                value={geminiApiKey}
-                onChange={(e) => {
-                  setGeminiApiKey(e.target.value);
-                  localStorage.setItem('baseera_gemini_key', e.target.value);
-                }}
-                placeholder="AIzaSy..."
-                className="flex-1 px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono focus:outline-none focus:border-[#1E3A5F] focus:ring-2 focus:ring-[#1E3A5F]/10"
-              />
-              <button onClick={() => setShowSettings(false)} className="btn btn-primary shrink-0">
-                حفظ
-              </button>
-            </div>
+            <p className="text-slate-500 leading-relaxed">
+              يستخدم الخادم Groq للمضاهاة الدلالية واستخراج النية، بينما تبقى المصادر المعتمدة هي المرجع النهائي.
+            </p>
+            {aiStatus?.text_model && (
+              <div className="text-[11px] text-slate-400 font-mono" dir="ltr">
+                {aiStatus.text_model}
+              </div>
+            )}
           </div>
         )}
 
@@ -472,7 +474,7 @@ export const VerifierView: React.FC = () => {
                       </span>
                     ) : ocrEngineUsed ? (
                       <span className="text-emerald-600 text-[11px]">
-                        تم الاستخراج بنجاح ({ocrEngineUsed === 'gemini' ? 'Gemini Vision' : 'Tesseract'})
+                        تم الاستخراج بنجاح ({ocrEngineUsed?.startsWith('groq') ? 'Groq Vision' : 'Tesseract'})
                       </span>
                     ) : (
                       <span className="text-slate-400 text-[11px]">جاهزة للمعالجة</span>
