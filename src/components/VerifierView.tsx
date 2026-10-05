@@ -10,6 +10,10 @@ import {
   Search,
   ShieldCheck,
   Upload,
+  BookOpen,
+  ScrollText,
+  Languages,
+  Scale,
   X
 } from 'lucide-react';
 import { AnalysisReport } from '../types/baseera.ts';
@@ -17,6 +21,14 @@ import { VerificationCard } from './VerificationCard.tsx';
 import { apiFetch } from '../lib/apiClient.ts';
 
 type InputKind = 'text' | 'url' | 'image' | 'audio';
+type VerifyCategory = 'ayah' | 'hadith' | 'term' | 'fiqh_question';
+
+const CATEGORIES: Array<{ id: VerifyCategory; label: string; hint: string; icon: React.ReactNode }> = [
+  { id: 'ayah', label: 'القرآن', hint: 'المصحف فقط', icon: <BookOpen /> },
+  { id: 'hadith', label: 'الحديث', hint: 'الدرر السنية', icon: <ScrollText /> },
+  { id: 'term', label: 'مصطلح', hint: 'الجمهرة', icon: <Languages /> },
+  { id: 'fiqh_question', label: 'فقه', hint: 'الموسوعة الفقهية', icon: <Scale /> }
+];
 
 const INPUTS: Array<{ id: InputKind; label: string; icon: React.ReactNode }> = [
   { id: 'text', label: 'نص', icon: <FileText /> },
@@ -33,6 +45,7 @@ const EXAMPLES = [
 
 export const VerifierView: React.FC = () => {
   const [inputType, setInputType] = useState<InputKind>('text');
+  const [category, setCategory] = useState<VerifyCategory | null>(null);
   const [inputText, setInputText] = useState('');
   const [urlInput, setUrlInput] = useState('');
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
@@ -58,7 +71,15 @@ export const VerifierView: React.FC = () => {
     window.setTimeout(() => inputRef.current?.focus(), 0);
   };
 
+  const chooseCategory = (value: VerifyCategory) => {
+    setCategory(value);
+    setReport(null);
+    setErrorMsg(null);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
   const useExample = (text: string) => {
+    setCategory('ayah');
     setInputType('text');
     setInputText(text);
     setUrlInput('');
@@ -175,6 +196,7 @@ export const VerifierView: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inputType,
+          targetCategory: category || 'auto',
           text: inputText,
           url: inputType === 'url' ? urlInput : undefined,
           mediaBase64: (inputType === 'image' || inputType === 'audio') ? mediaPreview : undefined
@@ -191,7 +213,7 @@ export const VerifierView: React.FC = () => {
     }
   };
 
-  const canVerify = Boolean(inputText.trim()) &&
+  const canVerify = Boolean(category && inputText.trim()) &&
     !isProcessing &&
     !isFetchingUrl &&
     !isProcessingOcr &&
@@ -203,23 +225,48 @@ export const VerifierView: React.FC = () => {
         <div className="mb-5">
           <div className="eyebrow">بصيرة · التحقق</div>
           <h1 className="mt-2 font-display text-[30px] font-bold leading-tight tracking-tight text-ink sm:text-[42px]">
-            تحقق قبل أن تنشر
+            اختر ما تريد التحقق منه
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted sm:text-base">
-            الصق النص أو أدخل رابطًا أو ارفع صورة أو تسجيلًا، ثم اقرأ النتيجة ودليلها من المصدر.
+          <p className="mt-2 text-sm leading-6 text-muted sm:text-base">
+            اختر النوع، ثم أدخل المحتوى. سنفحص المرجع المناسب فقط.
           </p>
         </div>
 
         <div className="tool-card">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="trust-icon"><ShieldCheck className="h-4 w-4" /></span>
-              <span className="text-sm font-bold text-ink">فحص المحتوى</span>
-            </div>
-            <span className="text-[11px] font-semibold text-muted">المصادر المرجعية هي الأساس</span>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-sm font-bold text-ink">نوع المحتوى</span>
+            {category && (
+              <span className="text-[11px] font-semibold text-muted">
+                {CATEGORIES.find(item => item.id === category)?.hint}
+              </span>
+            )}
           </div>
 
-          <div className="input-tabs" role="tablist" aria-label="نوع الإدخال">
+          <div className="category-grid" role="radiogroup" aria-label="نوع المحتوى">
+            {CATEGORIES.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                role="radio"
+                aria-checked={category === item.id}
+                onClick={() => chooseCategory(item.id)}
+                className={`category-option ${category === item.id ? 'category-option-active' : ''}`}
+              >
+                <span className="category-option-icon" aria-hidden="true">{item.icon}</span>
+                <span>
+                  <span className="category-option-label">{item.label}</span>
+                  <span className="category-option-hint">{item.hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 flex min-h-10 items-center gap-2 rounded-xl border border-line bg-page px-3 text-xs text-muted">
+            <ShieldCheck className="h-4 w-4 text-brand" />
+            <span>{category ? `سيُفحص هذا الإدخال في ${CATEGORIES.find(item => item.id === category)?.hint} فقط.` : 'اختر النوع للبدء.'}</span>
+          </div>
+
+          <div className="input-tabs mt-3" role="tablist" aria-label="طريقة الإدخال">
             {INPUTS.map(item => (
               <button
                 key={item.id}
@@ -289,7 +336,17 @@ export const VerifierView: React.FC = () => {
                 setInputText(e.target.value);
                 if (report) setReport(null);
               }}
-              placeholder="ألصق النص هنا…"
+              placeholder={
+                !category
+                  ? 'اختر النوع أولًا…'
+                  : category === 'ayah'
+                    ? 'ألصق الآية أو جزءًا منها…'
+                    : category === 'hadith'
+                      ? 'ألصق نص الحديث…'
+                      : category === 'term'
+                        ? 'اكتب المصطلح الذي تريد التحقق منه…'
+                        : 'اكتب السؤال الفقهي…'
+              }
               className="main-textarea"
             />
             {inputText && (
@@ -345,11 +402,7 @@ export const VerifierView: React.FC = () => {
 
         {report && (
           <section id="baseera-results" className="mt-8" aria-live="polite">
-            {report.verifications.length > 1 && (
-              <div className="mb-3 text-xs font-semibold text-muted">
-                تم فحص {report.verifications.length.toLocaleString('ar-EG')} عناصر
-              </div>
-            )}
+
             <div className="space-y-4">
               {report.verifications.map((item, index) => (
                 <VerificationCard key={item.id || index} result={item} index={index} viewMode="simple" />
