@@ -207,9 +207,6 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
   if (hadithRes.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') return hadithRes;
   const quranRes = verifyQuranAyah(item);
   if (quranRes.status === 'MATCHED' || quranRes.status === 'NEEDS_REVIEW') return quranRes;
-  const fiqhRes = verifyFiqhQuestion(item);
-  if (fiqhRes.status === 'MATCHED' || fiqhRes.status === 'REFER_TO_SPECIALIST' || fiqhRes.status === 'NEEDS_REVIEW') return fiqhRes;
-
   const notFoundRes: VerificationResult = {
     id: `not-found-${Date.now()}`,
     item,
@@ -227,6 +224,8 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
     abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
   };
 
+  // Keep the claim in the comprehensive live-search pipeline, but do NOT
+  // reinterpret an unclassified/general claim as a Fiqh question.
   (notFoundRes as any)._needs_live_search = true;
   return notFoundRes;
 }
