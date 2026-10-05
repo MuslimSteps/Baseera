@@ -390,6 +390,12 @@ const CANONICAL_FIQH_SECTION_ANCHORS: Array<{ subject: string; intent: 'ruling';
     intent: 'ruling',
     title: 'المبحث الرابع: حكم الختان',
     url: 'https://dorar.net/feqhia/218'
+  },
+  {
+    subject: 'وضوء',
+    intent: 'ruling',
+    title: 'المبحث الثالث: مواطن مشروعيته — حكم الوضوء للصلاة',
+    url: 'https://dorar.net/feqhia/240'
   }
 ];
 
@@ -454,6 +460,126 @@ async function fetchDorarFiqhArticle(url: string): Promise<{ title: string; text
   }
 }
 
+const FIQH_GENERIC_STOPWORDS = new Set([
+  'ما', 'هو', 'هي', 'هل', 'في', 'من', 'على', 'عن', 'الى', 'إلى', 'مع', 'بعد', 'قبل',
+  'أن', 'إن', 'الشرع', 'الشرعي', 'الشريعة', 'الإسلام', 'الإسلامي', 'الفقه', 'الدين',
+  'حكم', 'احكام', 'أحكام', 'يجوز', 'يجب', 'يصح', 'يحرم', 'حرام', 'فرض', 'واجب'
+]);
+
+function inferFiqhIntentForFallback(query: string): 'ruling' | 'benefits' | 'definition' | 'timing' | 'conditions' | 'unknown' {
+  const n = normalizeArabic(query || '');
+  if (/ما\\s+(?:هو\\s+)?حكم|هل\\s+(?:يجوز|يجب|يصح|يحرم)|\\b(?:حكم|واجب|فرض|حرام|مكروه|مستحب|جائز)\\b/i.test(n)) return 'ruling';
+  if (/فوائد|الحكمه|حكمة|لماذا\\s+شرع/i.test(n)) return 'benefits';
+  if (/تعريف|ما\\s+معنى|معنى/i.test(n)) return 'definition';
+  if (/متى|وقت/i.test(n)) return 'timing';
+  if (/شروط|يشترط/i.test(n)) return 'conditions';
+  return 'unknown';
+}
+
+function getFiqhSubjectTokensForFallback(query: string): string[] {
+  const n = normalizeArabic(query || '');
+  return n
+    .split(/\\s+/)
+    .map(w => w.replace(/^ال/, ''))
+    .map(w => w.replace(/[^\\u0621-\\u064Aa-zA-Z0-9_-]/g, ''))
+    .filter(w => w.length >= 3 && !FIQH_GENERIC_STOPWORDS.has(w))
+    .filter((w, i, arr) => arr.indexOf(w) === i)
+    .slice(0, 5);
+}
+
+function stripDorarHtml(value: string): string {
+  return decodeHtmlEntities(value.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim());
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#39;/gi, "'");
+}
+
+function parseDorarFiqhSearchArticles(html: string): Array<{ title: string; text: string; url: string }> {
+  if (!html) return [];
+  const articles = html.match(/<article[^>]*>[\\s\\S]*?<\\/article>/gi) || [];
+  const results: Array<{ title: string; text: string; url: string }> = [];
+  for (const article of articles.slice(0, 20)) {
+    const href = article.match(/href=["']([^"']*\\/feqhia\\/\\d+[^"']*)["']/i)?.[1] || '';
+    const h = article.match(/<h[1-6][^>]*>([\\s\\S]*?)<\\/h[1-6]>/i)?.[1] || '';
+    const title = stripDorarHtml(h);
+    const text = stripDorarHtml(article);
+    if (!title || !href) continue;
+    const url = href.startsWith('http') ? href : 'https://dorar.net' + href;
+    results.push({ title, text: text.slice(0, 1800), url });
+  }
+  return results;
+}
+
+async function searchDorarFiqhHttpFallback(query: string): Promise<DorarFiqhLiveResult | null> {
+  const clean = query.replace(/[«»"“؟?.,!]/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 180);
+  if (!clean) return null;
+
+  try {
+    const url = buildDorarFiqhUrl(clean);
+    const response = await fetchRemoteSafely(url, {
+      headers: {
+        'User-Agent': 'Baseera/1.0',
+        'Accept': 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ar,en;q=0.9'
+      }
+    });
+    if (!response.ok) return null;
+    const html = await readTextWithLimit(response, 1_500_000);
+    const rows = parseDorarFiqhSearchArticles(html);
+    if (!rows.length) return null;
+
+    const intent = inferFiqhIntentForFallback(clean);
+    const subjects = getFiqhSubjectTokensForFallback(clean);
+    const scored = rows.map(row => {
+      const title = normalizeArabic(row.title);
+      const body = normalizeArabic(row.text);
+      const subjectHits = subjects.filter(token => title.includes(token)).length;
+      const bodyHits = subjects.filter(token => body.includes(token)).length;
+      let score = subjectHits * 80 + Math.min(bodyHits, 6) * 8;
+      if (intent === 'ruling') {
+        if (title.includes('حكم')) score += 120;
+        if (/حكم\\s+مشروعيه|حكم\\s+فوائد|فوائد/.test(title)) score -= 140;
+      } else if (intent === 'benefits' && /فوائد|حكمة|حكمه/.test(title)) {
+        score += 120;
+      } else if (intent === 'definition' && /تعريف|معنى/.test(title)) {
+        score += 120;
+      } else if (intent === 'timing' && /وقت|متى/.test(title)) {
+        score += 120;
+      } else if (intent === 'conditions' && /شروط|يشترط/.test(title)) {
+        score += 120;
+      }
+      const answerable = subjects.length > 0 && (subjectHits > 0 || bodyHits >= 2) &&
+        (intent === 'unknown' || intent !== 'ruling' || title.includes('حكم') || body.includes('حكم'));
+      return { ...row, score, answerable };
+    }).sort((a, b) => b.score - a.score);
+
+    const top = scored.find(r => r.answerable);
+    if (!top) return null;
+
+    const article = await fetchDorarFiqhArticle(top.url);
+    const detailedRuling = article?.text || top.text;
+    return {
+      found: true,
+      title: article?.title || top.title,
+      text: top.text,
+      detailedRuling,
+      url: top.url,
+      source: 'الموسوعة الفقهية المقارنة — الدرر السنية',
+      allResults: scored.slice(0, 10).map(r => ({ title: r.title, text: r.text, url: r.url }))
+    };
+  } catch (err) {
+    console.warn('Dorar Fiqh HTTP fallback failed:', err);
+    return null;
+  }
+}
+
 const dorarFiqhMemoryCache = new Map<string, {
   found: boolean;
   title: string;
@@ -487,7 +613,7 @@ export async function searchDorarFiqhLive(query: string): Promise<DorarFiqhLiveR
     const scriptPath = path.resolve(process.cwd(), 'src/lib/dorar_feqhia.py');
 
     const result = await new Promise<any>((resolve) => {
-      execFile('python', [scriptPath, cleanQ], { timeout: 12000, encoding: 'utf-8' }, (error, stdout) => {
+      execFile(process.platform === 'win32' ? 'python' : 'python3', [scriptPath, cleanQ], { timeout: 12000, encoding: 'utf-8' }, (error, stdout) => {
         if (error || !stdout) {
           return resolve(null);
         }
@@ -524,6 +650,14 @@ export async function searchDorarFiqhLive(query: string): Promise<DorarFiqhLiveR
     if (result) {
       dorarFiqhMemoryCache.set(cacheKey, result);
       return result;
+    }
+
+    // Node-side fallback: use Dorar's own Fiqh search directly if the Python
+    // connector is unavailable in the deployment environment.
+    const httpFallback = await searchDorarFiqhHttpFallback(cleanQ);
+    if (httpFallback) {
+      dorarFiqhMemoryCache.set(cacheKey, httpFallback);
+      return httpFallback;
     }
 
     // Final server-side fallback: canonical official section + direct article fetch.
