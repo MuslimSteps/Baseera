@@ -663,8 +663,41 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
             : (fiqhResult.text ? `${fiqhResult.title} — ${fiqhResult.text}` : fiqhResult.title);
 
           const fullTextForDispute = (rulingDetails + ' ' + (fiqhResult.text || '') + ' ' + (fiqhResult.title || '')).toLowerCase();
-          const hasDisputeIndicators = /(?:خلاف|اختلف|واختلفوا|القول الأول|القول الثاني|مذهب الحنفية|مذهب الشافعية|مذهب المالكية|مذهب الحنابلة|جمهور|ورواية|وفي قول|طائفة من السلف)/.test(fullTextForDispute);
-          const hasConsensusInSource = /(?:أجمع العلماء|أجمع أهل العلم|باتفاق الأئمة|بالإجماع|لا خلاف بين العلماء|أجمع المسلمون)/.test(fullTextForDispute) && !hasDisputeIndicators;
+          let hasConsensusInSource = /(?:أجمع العلماء|أجمع أهل العلم|اتفاق أهل العلم|اتفاق العلماء|باتفاق العلماء|باتفاق الأئمة|بالإجماع|الدليل من الإجماع|نقل الإجماع|نقل الاتفاق|حكاية الإجماع|لا خلاف بين العلماء|أجمع المسلمون|إجماع أهل العلم)/i.test(fullTextForDispute);
+          let hasDisputeIndicators = /(?:خلاف|اختلف|واختلفوا|القول الأول|القول الثاني|مذهب الحنفية|مذهب الشافعية|مذهب المالكية|مذهب الحنابلة|جمهور|ورواية|وفي قول|طائفة من السلف)/.test(fullTextForDispute);
+
+          if (/(?:الدليل من الإجماع|اتفاق أهل العلم|نقل الإجماع|نقل الاتفاق|باتفاق العلماء)/i.test(fullTextForDispute)) {
+            hasConsensusInSource = true;
+            hasDisputeIndicators = false;
+          }
+
+          try {
+            const aiVerdict = await groqChat([
+              {
+                role: 'system',
+                content: 'أنت باحث فقهي محقق في منصة بصيرة. أمامك سؤال فقهي ونص مسترجع من الموسوعة الفقهية المقارنة بالدرر السنية. مهمتك تحليل النص فقط دون أي اختلاق خارج النص:\n1. هل ينص المصدر على إجماع/اتفاق؟\n2. هل يذكر خلافاً بين المذاهب؟\n3. استخرج خلاصة الحكم المباشر في جملة واضحة وموجزة.\nأجب بـ JSON فقط: {"has_consensus": boolean, "is_disputed": boolean, "direct_ruling": string}'
+              },
+              {
+                role: 'user',
+                content: `السؤال: ${queryToSearch}\nعنوان المقال: ${fiqhResult.title}\nالنص:\n"""\n${fullTextForDispute.slice(0, 3000)}\n"""`
+              }
+            ], { json: true, temperature: 0.05, timeoutMs: 5000 });
+
+            const parsed = JSON.parse(aiVerdict);
+            if (parsed && typeof parsed.has_consensus === 'boolean') {
+              if (parsed.has_consensus) {
+                hasConsensusInSource = true;
+                hasDisputeIndicators = false;
+              } else if (parsed.is_disputed) {
+                hasDisputeIndicators = true;
+              }
+            }
+            if (parsed?.direct_ruling && typeof parsed.direct_ruling === 'string' && parsed.direct_ruling.length > 10) {
+              (fiqhResult as any).directRuling = parsed.direct_ruling.trim();
+            }
+          } catch (e: any) {
+            console.warn('[BASEERA][FIQH][AI_VERDICT_FALLBACK]', e?.message);
+          }
 
           v.status = 'NEEDS_REVIEW';
           v.canonical_text = rulingDetails;
@@ -677,24 +710,28 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
             url: fiqhResult.url || fiqhSearchUrl
           };
 
+          const rulingPrefix = (fiqhResult as any).directRuling ? `الحكم المستنبط: ${(fiqhResult as any).directRuling} — ` : '';
+
           if (claimsConsensus) {
             if (hasDisputeIndicators && !hasConsensusInSource) {
               v.status_label_ar = 'دعوى إجماع غير صحيحة — المسألة خلافية بين المذاهب الأربعة';
               v.status_label_en = 'Incorrect Claim of Consensus — Disputed Across Four Madhhabs';
-              v.reason = `دعوى الإجماع غير صحيحة؛ فالمسألة خلافية مشهورة بين أئمة المذاهب الأربعة وفق ما وثقته الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»). تعددت أقوال المذاهب وأدلتهم بين مجيز ومانع ومفصل، ولا يصح ادعاء الإجماع فيها. راجع تفصيل الأقوال والأدلة من المصدر المعتمد أدناه.`;
+              v.reason = `${rulingPrefix}دعوى الإجماع غير صحيحة؛ فالمسألة خلافية مشهورة بين أئمة المذاهب الأربعة وفق ما وثقته الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»). تعددت أقوال المذاهب وأدلتهم بين مجيز ومانع ومفصل، ولا يصح ادعاء الإجماع فيها. راجع تفصيل الأقوال والأدلة من المصدر المعتمد أدناه.`;
             } else if (hasConsensusInSource) {
               v.status_label_ar = 'إجماع موثق في الموسوعة الفقهية المقارنة';
               v.status_label_en = 'Documented Consensus in Fiqh Encyclopedia';
-              v.reason = `ثبت الإجماع في هذه المسألة طبقاً لما وثقته الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»). راجع نص المادة الفقهية والأدلة أدناه.`;
+              v.reason = `${rulingPrefix}ثبت الإجماع في هذه المسألة طبقاً لما وثقته الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»). راجع نص المادة الفقهية والأدلة أدناه.`;
             } else {
               v.status_label_ar = 'مسألة فقهية موثقة — لم يثبت إجماع في المصدر';
               v.status_label_en = 'Documented Fiqh Matter — Consensus Not Stated in Source';
-              v.reason = `عُثر على مادة المسألة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»)، ولم يُنص في المصدر على وجود إجماع. راجع نص المادة المعتمدة أدناه.`;
+              v.reason = `${rulingPrefix}عُثر على مادة المسألة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}»)، ولم يُنص في المصدر على وجود إجماع. راجع نص المادة المعتمدة أدناه.`;
             }
           } else {
-            v.status_label_ar = 'مسألة فقهية موثقة في الموسوعة الفقهية (المذاهب الأربعة)';
+            v.status_label_ar = hasConsensusInSource
+              ? 'إجماع موثق في الموسوعة الفقهية المقارنة'
+              : 'مسألة فقهية موثقة في الموسوعة الفقهية (المذاهب الأربعة)';
             v.status_label_en = 'Documented Fiqh Matter — Four Madhhabs Encyclopedia';
-            v.reason = `عُثر على مادة المسألة موثقة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}») مع تفصيل أقوال المذاهب الفقهية وأدلتها، والنص المعروض مأخوذ مباشرة من المادة المرجعية المعتمدة.`;
+            v.reason = `${rulingPrefix}عُثر على مادة المسألة موثقة في الموسوعة الفقهية المقارنة بالدرر السنية («${fiqhResult.title}») مع تفصيل أقوال المذاهب الفقهية وأدلتها، والنص المعروض مأخوذ مباشرة من المادة المرجعية المعتمدة.`;
           }
         }
       } else {

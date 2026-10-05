@@ -50,11 +50,13 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
   const isReferral = result.status === 'REFER_TO_SPECIALIST';
   const isNotFound = result.status === 'NOT_FOUND_IN_CHECKED_SOURCES';
 
-  const isFiqh = result.item.type === 'fiqh_question' && Boolean(result.canonical_text || result.citation);
+  const isFiqh = (result.item.type === 'fiqh_question' || result.citation?.source_id === 'fiqh-madhahib-dorar') && Boolean(result.canonical_text || result.citation?.book);
   const isConsensusDisputed = isFiqh && Boolean(result.status_label_ar?.includes('دعوى إجماع غير صحيحة'));
-  const isConsensusVerified = isFiqh && Boolean(result.status_label_ar?.includes('إجماع موثق'));
-  const isTafsir = result.item.type === 'tafsir_question' && Boolean(result.canonical_text || result.citation);
-  const isAqeedah = result.item.type === 'aqeedah_question' && Boolean(result.canonical_text || result.citation);
+  const isConsensusVerified = isFiqh && Boolean(result.status_label_ar?.includes('إجماع موثق') || result.status_label_ar?.includes('إجماع فقهي موثق'));
+  const isTafsir = (result.item.type === 'tafsir_question' || result.citation?.source_id === 'quran-tafsir-salaf') && Boolean(result.canonical_text || result.citation?.book);
+  const isAqeedah = (result.item.type === 'aqeedah_question' || result.citation?.source_id === 'dorar-aqeedah') && Boolean(result.canonical_text || result.citation?.book);
+
+  const hasDifferences = Boolean(result.diff && result.diff.some(d => d.type !== 'equal'));
 
   const tone = isMatched
     ? {
@@ -216,8 +218,8 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
           )
         )}
 
-        {/* عارض الفروق اللفظية المباشر إن وجد */}
-        {result.diff && result.diff.length > 0 && (
+        {/* عارض الفروق اللفظية المباشر — يظهر فقط عند وجود اختلاف فعلي عن المصحف الشريف */}
+        {hasDifferences && result.diff && (
           <div className="mt-4 pt-3.5 border-t border-line/60">
             <div className="eyebrow mb-2">الفروق المكتشفة مع المصحف الشريف</div>
             <WordDiffViewer diff={result.diff} canonicalText={result.canonical_text} />
@@ -279,13 +281,6 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
               <div className="notice-box">
                 <Info className="h-4 w-4 shrink-0" />
                 <span>{result.abstention_note}</span>
-              </div>
-            )}
-
-            {result.diff && result.diff.length > 0 && (
-              <div>
-                <div className="eyebrow mb-2">الفروق</div>
-                <WordDiffViewer diff={result.diff} canonicalText={result.canonical_text} />
               </div>
             )}
           </div>
