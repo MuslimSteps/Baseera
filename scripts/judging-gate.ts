@@ -227,6 +227,20 @@ test('explicit fiqh question always enters the live-source path', () => {
   assert.equal((result as any)._needs_live_search, true);
 });
 
+test('cross-source engine does not route vague general claims into Fiqh', () => {
+  const result = verifySingleItemCrossSource(item('claim', 'مسألة خلافية'));
+  assert.notEqual(result.item.type, 'fiqh_question');
+  assert.notEqual(result.citation?.source_id, 'fiqh-madhahib-dorar');
+  assert.equal((result as any)._needs_live_search, true);
+});
+
+test('vague explicit Fiqh questions are rejected before source ranking', () => {
+  const result = verifyFiqhQuestion(item('fiqh_question', 'ما حكم هذه المسألة؟'));
+  assert.equal(result.status, 'NEEDS_REVIEW');
+  assert.equal((result as any)._needs_live_search, undefined);
+  assert.match(result.reason, /غير محدد/);
+});
+
 test('cross-source engine does not falsely certify unverified hadith-like text offline', () => {
   const result = verifySingleItemCrossSource(item('hadith', 'من استعمل الحاسوب في الخير كتب الله له بكل ضغطة زر حسنة'));
   assert.notEqual(result.status, 'MATCHED');
@@ -291,7 +305,7 @@ test('benchmark code labels fixtures as fixtures and contains no randomization',
   assert.ok(runner.includes('fixture'));
 });
 
-console.log(`\nPassed: ${31 - failures.length}/31`);
+console.log(`\nPassed: ${33 - failures.length}/33`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);
