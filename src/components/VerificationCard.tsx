@@ -1,18 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  CheckCircle2,
   AlertTriangle,
-  HelpCircle,
-  ArrowUpRight,
-  BookOpen,
-  ExternalLink,
-  ShieldAlert,
-  Info,
-  Layers,
+  ArrowLeft,
+  BookOpenCheck,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
+  FileSearch,
+  Info,
   Sparkles,
-  FileCheck
+  ShieldAlert
 } from 'lucide-react';
 import { VerificationResult } from '../types/baseera.ts';
 import { WordDiffViewer } from './WordDiffViewer.tsx';
@@ -23,304 +21,193 @@ interface VerificationCardProps {
   viewMode?: 'simple' | 'detailed';
 }
 
-export const VerificationCard: React.FC<VerificationCardProps> = ({ result, index, viewMode = 'simple' }) => {
-  const [showDetails, setShowDetails] = useState(viewMode === 'detailed');
+function cleanLabel(value?: string) {
+  return (value || '').replace(/\s+/g, ' ').trim();
+}
+
+export const VerificationCard: React.FC<VerificationCardProps> = ({
+  result,
+  index,
+  viewMode = 'simple'
+}) => {
+  const [detailsOpen, setDetailsOpen] = useState(viewMode === 'detailed');
 
   useEffect(() => {
-    setShowDetails(viewMode === 'detailed');
+    setDetailsOpen(viewMode === 'detailed');
   }, [viewMode]);
 
-  const {
-    item,
-    status,
-    status_label_ar,
-    reason,
-    citation,
-    canonical_text,
-    verified_translation,
-    diff,
-    reduction_warning,
-    jamhara_definition,
-    school_positions,
-    abstention_note,
-    decision_level
-  } = result;
+  const isMatched = result.status === 'MATCHED';
+  const isReview = result.status === 'NEEDS_REVIEW';
+  const isReferral = result.status === 'REFER_TO_SPECIALIST';
+  const isNotFound = result.status === 'NOT_FOUND_IN_CHECKED_SOURCES';
 
-  // Status visual attributes
-  const getStatusTheme = () => {
-    if (result.finding_type === 'altered_quran_text') {
-      return {
-        icon: <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />,
-        textColor: 'text-rose-400',
-        borderColor: 'border-rose-500/40',
-        bgColor: 'bg-rose-950/25',
-        badgeText: status_label_ar,
-        leftBorder: 'border-r-4 border-r-rose-500'
-      };
-    }
+  const tone = result.finding_type === 'altered_quran_text' || isReview
+    ? {
+        icon: <AlertTriangle className="h-5 w-5" />,
+        badge: 'status-badge status-review',
+        panel: 'result-panel result-panel-review'
+      }
+    : isReferral
+      ? {
+          icon: <ShieldAlert className="h-5 w-5" />,
+          badge: 'status-badge status-referral',
+          panel: 'result-panel result-panel-referral'
+        }
+      : isNotFound
+        ? {
+            icon: <Info className="h-5 w-5" />,
+            badge: 'status-badge status-neutral',
+            panel: 'result-panel result-panel-neutral'
+          }
+        : {
+            icon: <CheckCircle2 className="h-5 w-5" />,
+            badge: 'status-badge status-matched',
+            panel: 'result-panel result-panel-matched'
+          };
 
-    switch (status) {
-      case 'MATCHED':
-        return {
-          icon: <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />,
-          textColor: 'text-emerald-400',
-          borderColor: 'border-emerald-500/30',
-          bgColor: 'bg-emerald-950/20',
-          badgeText: status_label_ar,
-          leftBorder: 'border-r-4 border-r-emerald-500'
-        };
-      case 'NEEDS_REVIEW':
-        return {
-          icon: <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />,
-          textColor: 'text-amber-400',
-          borderColor: 'border-amber-500/30',
-          bgColor: 'bg-amber-950/20',
-          badgeText: status_label_ar,
-          leftBorder: 'border-r-4 border-r-amber-500'
-        };
-      case 'REFER_TO_SPECIALIST':
-        return {
-          icon: <ArrowUpRight className="w-5 h-5 text-indigo-400 shrink-0" />,
-          textColor: 'text-indigo-400',
-          borderColor: 'border-indigo-500/30',
-          bgColor: 'bg-indigo-950/20',
-          badgeText: status_label_ar,
-          leftBorder: 'border-r-4 border-r-indigo-500'
-        };
-      case 'NOT_FOUND_IN_CHECKED_SOURCES':
-      default:
-        return {
-          icon: <HelpCircle className="w-5 h-5 text-muted shrink-0" />,
-          textColor: 'text-muted',
-          borderColor: 'border-hairline',
-          bgColor: 'bg-slate-900/40',
-          badgeText: status_label_ar,
-          leftBorder: 'border-r-4 border-r-slate-500'
-        };
-    }
-  };
-
-  const statusTheme = getStatusTheme();
-
-  const getTypeLabel = () => {
-    switch (item.type) {
-      case 'ayah':
-        return (item.context && (item.context.includes('تعالى') || item.context.includes('لقوله')))
-          ? 'آية مقتبسة داخل سياق النص'
-          : 'آية قرآنية';
-      case 'hadith':
-        return item.text.length > 50 ? 'متن الرواية / الأثر المنقول' : 'حديث نبوي';
-      case 'term': return 'مصطلح إسلامي (الجمهرة)';
-      case 'fiqh_question': return 'مسألة فقهية';
-      default: return 'استشهاد منقول';
-    }
-  };
-
-  const getDecisionLevelLabel = (level?: string) => {
-    if (!level) return null;
-    switch (level) {
-      case 'A': return 'مصدر نصي قطعي';
-      case 'B': return 'مصدر حديثي موثق';
-      case 'C': return 'مصدر فقهي اجتهادي';
-      default: return null;
-    }
-  };
-
-  // Strip Arabic diacritics and surah prefix from names like "سُورَةُ التَّغَابُنِ" → "التغابن"
-  const cleanSurahName = (raw?: string) => {
-    if (!raw) return raw;
-    return raw
-      .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '') // diacritics + tatweel
-      .replace(/^سورة\s*/u, '')
-      .trim();
-  };
+  const typeLabel = {
+    ayah: 'آية قرآنية',
+    hadith: 'حديث أو رواية',
+    term: 'مصطلح',
+    fiqh_question: 'مسألة فقهية',
+    tafsir_question: 'سؤال في التفسير',
+    aqeedah_question: 'سؤال عقدي',
+    claim: 'نص يحتاج تحققًا'
+  }[result.item.type] || 'نص يحتاج تحققًا';
 
   return (
-    <div className={`bento-card border border-hairline p-5 shadow-lg reveal ${statusTheme.leftBorder} space-y-4`}>
-      {/* 1. Header: Element Number & Classification */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-hairline text-xs">
-        <div className="flex items-center gap-2 text-muted">
-          <span className="font-bold text-ink bg-white/[0.05] px-2 py-0.5 rounded-md">عنصر {index + 1}</span>
-          <span aria-hidden="true" className="text-faint">·</span>
-          <span className="text-gold font-semibold">{getTypeLabel()}</span>
+    <article className="verification-card">
+      <div className="verification-card-top">
+        <div className="flex items-center gap-2">
+          <span className="item-index">{String(index + 1).padStart(2, '0')}</span>
+          <span className="text-xs font-bold text-muted">{typeLabel}</span>
         </div>
-
-        {decision_level && getDecisionLevelLabel(decision_level) && (
-          <span className="text-[11px] text-muted bg-black/30 px-2 py-0.5 rounded border border-hairline">
-            {getDecisionLevelLabel(decision_level)}
-          </span>
+        {result.decision_level && (
+          <span className="decision-chip">مستوى {result.decision_level}</span>
         )}
       </div>
 
-      {/* 2. Direct Simple Verdict Card (للمستخدم العامي: حكم واضح ومباشر في سطرين) */}
-      <div className={`p-4 rounded-xl border ${statusTheme.borderColor} ${statusTheme.bgColor} space-y-3`}>
+      <div className={tone.panel}>
         <div className="flex items-start gap-3">
-          <div className="mt-0.5">{statusTheme.icon}</div>
-          <div className="flex-1 space-y-1">
-            <div className="text-xs text-muted font-medium">النتيجة والخلاصة المعتمدة:</div>
-            <div className={`text-base font-bold font-display ${statusTheme.textColor} leading-normal`}>
-              {statusTheme.badgeText}
-            </div>
-            {citation && (
-              <div className="text-xs text-ink/85 flex flex-wrap items-center gap-2 pt-1">
-                <span className="font-semibold text-muted">المصدر المعتمد:</span>
-                <span className="text-white font-medium">{citation.source_name}</span>
-                {citation.book && (
-                  <>
-                    <span className="text-faint">·</span>
-                    <span className="text-ink/85">{cleanSurahName(citation.book)}</span>
-                  </>
-                )}
-                {citation.number_or_page && (
-                  <>
-                    <span className="text-faint">·</span>
-                    <span className="text-muted font-mono-numbers">{citation.number_or_page}</span>
-                  </>
-                )}
-              </div>
-            )}
+          <span className={`status-icon-wrap ${tone.badge}`} aria-hidden="true">
+            {tone.icon}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-semibold text-muted">نتيجة الفحص</div>
+            <h3 className="mt-1 text-lg font-bold leading-7 text-ink">
+              {result.status_label_ar}
+            </h3>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-muted">{result.reason}</p>
+          </div>
+        </div>
 
-            {result.ai_match && (
-              <div className="text-[11px] text-sky-300/90 flex items-center gap-2 pt-1">
-                <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                <span>
-                  مضاهاة دلالية بالذكاء الاصطناعي: رُتّبت مرشحات من المصدر أولاً،
-                  ثم حُسمت النتيجة من النص المرجعي لا من النموذج.
-                </span>
+        {result.citation?.url && (
+          <a
+            href={result.citation.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="source-link mt-4"
+          >
+            <BookOpenCheck className="h-4 w-4" />
+            <span>فتح المرجع الأصلي</span>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
+      </div>
+
+      {result.canonical_text && !isNotFound && (
+        <div className="evidence-block">
+          <div className="evidence-head">
+            <div>
+              <div className="eyebrow">الدليل من المصدر</div>
+              <div className="mt-1 text-xs text-muted">
+                {cleanLabel(result.citation?.source_name)}
+                {result.citation?.book ? ` · ${cleanLabel(result.citation.book)}` : ''}
               </div>
-            )}
+            </div>
+            <FileSearch className="h-5 w-5 text-gold" aria-hidden="true" />
           </div>
 
-          {citation?.url && (
-            <a
-              href={citation.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-lg bg-white/[0.06] hover:bg-gold-strong hover:text-white text-gold-soft text-xs font-semibold inline-flex items-center gap-1.5 transition-all shrink-0 shadow-sm"
-              title="فتح الرابط في منصة المرجع الرسمية"
-            >
-              <span>توثيق السند</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+          <div className="evidence-quote">
+            «{result.canonical_text}»
+          </div>
+
+          {(result.citation?.number_or_page || result.citation?.grade) && (
+            <div className="evidence-meta">
+              {result.citation.number_or_page && <span>{result.citation.number_or_page}</span>}
+              {result.citation.grade && <span>{result.citation.grade}</span>}
+            </div>
           )}
         </div>
+      )}
 
-        {/* Canonical Text: Always clearly shown */}
-        {canonical_text && status !== 'NOT_FOUND_IN_CHECKED_SOURCES' && (
-          <div className="pt-2 border-t border-hairline">
-            <div className="text-[11px] font-semibold text-emerald-400 mb-1 flex items-center gap-1">
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>{item.type === 'fiqh_question' ? 'النص الفقهي المرجعي من المصدر المعتمد:' : 'النص الصحيح المعتمد في المرجع:'}</span>
-            </div>
-            <div className="p-3 rounded-lg bg-black/40 border border-hairline font-amiri text-lg text-emerald-100 leading-relaxed select-text">
-              «{canonical_text}»
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 3. Expandable Academic Investigation (للمحكّمين والباحثين) */}
-      <div className="pt-1">
-        <button
-          onClick={() => setShowDetails(!showDetails)}
-          className="w-full py-2 px-3 rounded-xl bg-black/30 hover:bg-white/[0.04] border border-hairline flex items-center justify-between text-xs text-ink/85 font-medium transition-colors cursor-pointer"
-        >
-          <span className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>{showDetails ? 'إخفاء التحقيق العلمي ومقارنة الألفاظ' : 'عرض التحقيق العلمي ومقارنة الألفاظ الدقيقة (للمحكّمين)'}</span>
+      {result.ai_match && (
+        <div className="ai-note">
+          <Sparkles className="h-4 w-4 shrink-0" />
+          <span>
+            المضاهاة بالذكاء الاصطناعي كانت للمساعدة في ترتيب المرشحات فقط؛
+            النتيجة النهائية مرتبطة بالمصدر المرجعي.
           </span>
-          {showDetails ? <ChevronUp className="w-4 h-4 text-muted" /> : <ChevronDown className="w-4 h-4 text-muted" />}
+        </div>
+      )}
+
+      <div className="mt-3 overflow-hidden rounded-2xl border border-line bg-page">
+        <button
+          type="button"
+          onClick={() => setDetailsOpen(open => !open)}
+          className="details-toggle"
+          aria-expanded={detailsOpen}
+        >
+          <span className="flex items-center gap-2">
+            {detailsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {detailsOpen ? 'إخفاء التفاصيل' : 'عرض تفاصيل التحقق'}
+          </span>
+          <span className="text-[11px] text-faint">للقراء والباحثين</span>
         </button>
 
-        {showDetails && (
-          <div className="mt-4 pt-4 border-t border-hairline space-y-4">
-            {/* Raw Input as received */}
-            <div>
-              <div className="text-xs text-muted mb-1.5 font-medium">النص المنقول المفحوص (كما ورد بالمدخل):</div>
-              <div className="p-3 rounded-lg bg-black/50 border border-hairline font-amiri text-base text-ink/85 leading-relaxed select-text">
-                «{item.text}»
+        {detailsOpen && (
+          <div className="space-y-5 border-t border-line px-4 py-5 sm:px-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="detail-cell">
+                <div className="detail-label">العنصر المدخل</div>
+                <div className="detail-value">{result.item.text}</div>
               </div>
-              {item.claimed_source && (
-                <div className="text-xs text-muted mt-2 flex items-center gap-1.5">
-                  <span>العزو المذكور في المدخل:</span>
-                  <span className="text-ink font-medium">{item.claimed_source}</span>
-                </div>
-              )}
+              <div className="detail-cell">
+                <div className="detail-label">نوع المرجع</div>
+                <div className="detail-value">{cleanLabel(result.citation?.source_name) || 'لم يُحدّد'}</div>
+              </div>
             </div>
 
-            {/* Word-level diff viewer if discrepancy found */}
-            {diff && diff.length > 0 && (
-              <WordDiffViewer diff={diff} canonicalText={canonical_text} />
-            )}
-
-            {/* Verified Translation if available */}
-            {verified_translation && (
-              <div className="p-3 rounded-lg bg-black/30 border border-hairline text-xs text-ink/85 leading-relaxed font-sans">
-                <span className="text-muted font-semibold block mb-1">الترجمة المعتمدة (مجمع الملك فهد / الجمهرة):</span>
-                <p className="italic text-ink/85">"{verified_translation}"</p>
+            {result.abstention_note && (
+              <div className="notice-box">
+                <Info className="h-4 w-4 shrink-0" />
+                <span>{result.abstention_note}</span>
               </div>
             )}
 
-            {/* Jamhara Contextual Definition for Terms */}
-            {jamhara_definition && (
-              <div className="p-3.5 rounded-lg bg-sky-950/20 border border-sky-500/20 text-xs text-sky-200 leading-relaxed">
-                <span className="text-sky-300 font-bold block mb-1 flex items-center gap-1.5">
-                  <Info className="w-3.5 h-3.5" />
-                  السياق الاصطلاحي المعتمد في موسوعة الجمهرة:
-                </span>
-                <p className="text-sky-100/90 leading-normal">{jamhara_definition}</p>
+            {result.diff && result.diff.length > 0 && (
+              <div>
+                <div className="eyebrow mb-2">مقارنة النص</div>
+                <WordDiffViewer diff={result.diff} />
               </div>
             )}
-
-            {/* Reductionist Warning Alert */}
-            {reduction_warning && (
-              <div className="p-3.5 rounded-lg bg-amber-950/30 border border-amber-500/30 text-xs text-amber-200 leading-relaxed flex items-start gap-2.5">
-                <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="text-amber-300 block mb-0.5">تنبيه سياقي: رصد اختزال أو تشويه للمصطلح:</strong>
-                  <p className="text-amber-100/90">{reduction_warning}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Four Madhhabs Scholarly Differences View */}
-            {school_positions && school_positions.length > 0 && (
-              <div className="border border-hairline rounded-lg overflow-hidden text-xs">
-                <div className="bg-slate-900/90 px-3.5 py-2.5 font-semibold text-ink flex items-center gap-1.5 border-b border-hairline">
-                  <Layers className="w-4 h-4 text-purple-400" />
-                  <span>أقوال أئمة المذاهب الأربعة المعتمدة (عرض مقارن حيادي دون ترجيح آلي):</span>
-                </div>
-                <div className="divide-y divide-hairline bg-black/20">
-                  {school_positions.map((pos, pIdx) => (
-                    <div key={pIdx} className="p-3">
-                      <span className="font-bold text-ink block mb-0.5">{pos.school}:</span>
-                      <span className="text-muted leading-relaxed">{pos.ruling}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Abstention Statement */}
-            {abstention_note && (
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-hairline text-xs text-ink/85 flex items-start gap-2">
-                <Info className="w-4 h-4 text-muted shrink-0 mt-0.5" />
-                <div>
-                  <strong className="text-ink block mb-0.5">بيان الامتناع الشرعي:</strong>
-                  <p className="text-muted">{abstention_note}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Verification Explanation */}
-            <div className="pt-2 text-xs text-ink/85 leading-relaxed">
-              <span className="font-semibold text-muted block mb-1">بيان الفحص والتخريج الموسع:</span>
-              <p className="text-ink/85 leading-relaxed">{reason}</p>
-            </div>
           </div>
         )}
       </div>
-    </div>
+
+      {result.status === 'MATCHED' && (
+        <div className="mt-3 inline-flex items-center gap-2 text-[11px] font-semibold text-brand-strong">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          تم ربط هذه النتيجة بدليل مصدرّي قبل عرضها.
+        </div>
+      )}
+
+      {result.status === 'REFER_TO_SPECIALIST' && (
+        <div className="mt-3 inline-flex items-center gap-2 text-[11px] font-semibold text-indigo-700">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          الإحالة هنا جزء من سلامة الاستخدام، وليست نتيجة فشل.
+        </div>
+      )}
+    </article>
   );
 };
-
