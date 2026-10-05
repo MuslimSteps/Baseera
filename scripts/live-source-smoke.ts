@@ -45,7 +45,7 @@ async function discoverFirstLink(
       .replace(/<[^>]+>/g, ' ')
       .replace(/&nbsp;/gi, ' ')
       .replace(/&amp;/gi, '&')
-      .replace(/\\s+/g, ' ')
+       .replace(/\s+/g, ' ')
       .trim();
 
     if (title.length < 3) continue;
@@ -60,7 +60,7 @@ async function discoverFirstLink(
 
 const [dorarHadithSeed, dorarFiqhSeed, dorarTafsirSeed, dorarAqeedahSeed, jamharaSeed, mushaf] =
   await Promise.all([
-    discoverFirstLink('https://dorar.net/hadith', /\/hadith\///),
+    discoverFirstLink('https://dorar.net/hadith', /\/hadith\//),
     discoverFirstLink('https://dorar.net/feqhia', /\/feqhia\/\d+/),
     discoverFirstLink('https://dorar.net/tafseer', /\/tafseer\/\d+/),
     discoverFirstLink('https://dorar.net/aqeeda', /\/aqeeda\/\d+/),
