@@ -441,7 +441,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // ── Section 3: Retrieved Hadith Evidence ──
   if (mainHadith) {
     const hadithLines = [
-      'الحديث:'
+      'الحديث:',
       '',
       `«${mainHadith.text_full || mainHadith.text_clean}»`,
       `المصدر: ${mainHadith.source_book || 'المصدر الحديثي المسترجع'}`,

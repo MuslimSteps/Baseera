@@ -4,15 +4,14 @@
  *
  * Source-first Quran verifier.
  *
- * Quran text is never bundled in the application. The current Hafs mushaf is
- * fetched from the approved live Quranpedia API and cached in memory.
- * AI is used only for candidate ranking/search assistance; source text from
- * Quranpedia remains the final evidence.
+ * The verifier uses the provenance-labeled Hafs source snapshot as a deterministic
+ * fallback and prefers live Quranpedia data when available. AI is used only for
+ * search assistance/ranking; it never supplies Quran text or evidence.
  */
 
 import { computeWordDiff, normalizeArabic, normalizeArabicStrict } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
-import { getHafsMushaf, getHafsAyah, searchHafsAyahsLive, QuranMushafAyah } from './quranpediaClient.ts';
+import { getHafsAyah, getHafsSurahName, searchHafsAyahsLive, QuranMushafAyah } from './quranpediaClient.ts';
 
 export type QuranCandidate = {
   id: string;
@@ -31,23 +30,6 @@ function cleanSurahDisplayName(raw: string): string {
     .replace(/^سُورَةُ\s*/u, '')
     .replace(/^سورة\s*/u, '')
     .trim();
-}
-
-function findSurah(mushaf: Awaited<ReturnType<typeof getHafsMushaf>>, rawName?: string) {
-  if (!rawName) return null;
-  const normalized = normalizeArabic(rawName)
-    .replace(/^سوره?\s+/, '')
-    .replace(/^ال/, '')
-    .trim();
-  if (!normalized) return null;
-
-  return mushaf.surahs.find(s => {
-    const name = normalizeArabic(s.name)
-      .replace(/^سوره?\s+/, '')
-      .replace(/^ال/, '')
-      .trim();
-    return name === normalized || name.includes(normalized) || normalized.includes(name);
-  }) || null;
 }
 
 function editSimilarity(a: string[], b: string[]): number {
@@ -112,72 +94,25 @@ function candidateScore(input: string, canonical: string): number {
 }
 
 export async function getQuranCandidatesForAI(item: ExtractedItem, limit = 12): Promise<QuranCandidate[]> {
-  // Fast path: live source search discovers only relevant ayah references.
-  // This avoids requiring the full Quran corpus to be downloaded for each check.
-  let liveSearchFailed = false;
-  try {
-    const liveRows = await searchHafsAyahsLive(item.text, limit);
-    if (liveRows.length > 0) {
-      const mushaf = await getHafsMushaf().catch(() => null);
-      return liveRows
-        .sort((a, b) => candidateScore(item.text, b.text) - candidateScore(item.text, a.text))
-        .map(ayah => {
-          const surah = mushaf?.surahs.find(s => Number(s.id) === Number(ayah.surah));
-        const surahName = cleanSurahDisplayName(surah?.name || `سورة ${ayah.surah}`);
-          return {
-            id: `quran-${ayah.surah}-${ayah.number}`,
-          source: 'quran-uthmani' as const,
-          title: `سورة ${surahName} — الآية ${ayah.number}`,
-          text: ayah.text,
-          surah_number: Number(ayah.surah),
-          ayah_number: Number(ayah.number),
-          surah_name_ar: surahName,
-            text_uthmani: ayah.text
-          };
-        });
-    }
-  } catch (error) {
-    liveSearchFailed = true;
-    console.warn('[BASEERA][QURAN][LIVE_SEARCH_ERROR]', error);
-  }
-
-  // Secondary path for inputs with an explicit surah citation.
-  try {
-    const mushaf = await getHafsMushaf();
-    const claimedSurah = findSurah(mushaf, item.claimed_surah);
-    if (!claimedSurah) {
-      if (liveSearchFailed) {
-        throw new Error('تعذر الوصول إلى مصدر القرآن المباشر.');
-      }
-      return [];
-    }
-
-    return claimedSurah.ayahs
-      .map(ayah => ({ ayah, score: candidateScore(item.text, ayah.text) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map(x => {
-        const surahName = cleanSurahDisplayName(claimedSurah.name);
-        return {
-          id: `quran-${x.ayah.surah}-${x.ayah.number}`,
-          source: 'quran-uthmani' as const,
-          title: `سورة ${surahName} — الآية ${x.ayah.number}`,
-          text: x.ayah.text,
-          surah_number: Number(x.ayah.surah),
-          ayah_number: Number(x.ayah.number),
-          surah_name_ar: surahName,
-          text_uthmani: x.ayah.text
-        };
-      });
-  } catch (error) {
-    console.warn('[BASEERA][QURAN][FULL_MUSHAF_FALLBACK]', error);
-    if (liveSearchFailed) {
-      throw new Error('تعذر الوصول إلى مصدر القرآن المباشر.');
-    }
-  }
-
-  return [];
+  const rows = await searchHafsAyahsLive(item.text, limit);
+  return rows
+    .sort((a, b) => candidateScore(item.text, b.text) - candidateScore(item.text, a.text))
+    .map(ayah => {
+      const surahNumber = Number(ayah.surah);
+      const surahName = cleanSurahDisplayName(getHafsSurahName(surahNumber));
+      return {
+        id: `quran-${surahNumber}-${ayah.number}`,
+        source: 'quran-uthmani' as const,
+        title: `سورة ${surahName} — الآية ${ayah.number}`,
+        text: ayah.text,
+        surah_number: surahNumber,
+        ayah_number: Number(ayah.number),
+        surah_name_ar: surahName,
+        text_uthmani: ayah.text
+      };
+    });
 }
+
 export async function getQuranCandidatesFromReferences(
   references: Array<{ surah: number; ayah: number }>
 ): Promise<QuranCandidate[]> {
@@ -190,33 +125,23 @@ export async function getQuranCandidatesFromReferences(
       .map(ref => [`${ref.surah}:${ref.ayah}`, ref])
   ).values()];
 
-  const rows = await Promise.all(
-    deduped.map(async ref => {
-      try {
-        return await getHafsAyah(ref.surah, ref.ayah);
-      } catch {
-        return null;
-      }
-    })
-  );
+  const rows = await Promise.all(deduped.map(ref => getHafsAyah(ref.surah, ref.ayah)));
 
-  return rows
-    .filter((ayah): ayah is QuranMushafAyah => Boolean(ayah))
-    .map(ayah => {
-      const name = `سورة ${ayah.surah}`;
-      return {
-        id: `quran-${ayah.surah}-${ayah.number}`,
-        source: 'quran-uthmani' as const,
-        title: `${name} — الآية ${ayah.number}`,
-        text: ayah.text,
-        surah_number: Number(ayah.surah),
-        ayah_number: Number(ayah.number),
-        surah_name_ar: name.replace(/^سورةs+/u, ''),
-        text_uthmani: ayah.text
-      };
-    });
+  return rows.filter((ayah): ayah is QuranMushafAyah => Boolean(ayah)).map(ayah => {
+    const surahNumber = Number(ayah.surah);
+    const surahName = cleanSurahDisplayName(getHafsSurahName(surahNumber));
+    return {
+      id: `quran-${surahNumber}-${ayah.number}`,
+      source: 'quran-uthmani' as const,
+      title: `سورة ${surahName} — الآية ${ayah.number}`,
+      text: ayah.text,
+      surah_number: surahNumber,
+      ayah_number: Number(ayah.number),
+      surah_name_ar: surahName,
+      text_uthmani: ayah.text
+    };
+  });
 }
-
 
 function matchQuality(input: string, canonical: string): {
   score: number;
@@ -280,6 +205,7 @@ export function buildQuranDecision(
 
   const ayahMismatch = Boolean(item.claimed_ayah && item.claimed_ayah !== candidate.ayah_number);
   const isPartialQuote =
+    inputLooseWords.length >= 2 &&
     inputLooseWords.length < canonicalLooseWords.length &&
     (canonicalStrict.includes(inputStrict) || quality.score >= 0.72);
 

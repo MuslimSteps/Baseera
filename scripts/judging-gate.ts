@@ -15,15 +15,19 @@ import { enforceApprovedCitations, isApprovedCitation, isApprovedSourceUrl } fro
 import { isGroundedInInput } from '../src/lib/inputGrounding.ts';
 import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from '../src/lib/dorarQueryUtils.ts';
 import { buildJamharaSearchUrl } from '../src/lib/jamharaClient.ts';
-import { buildQuranpediaAyahUrl } from '../src/lib/quranpediaClient.ts';
+import { buildQuranpediaAyahUrl, searchHafsAyahsLocal } from '../src/lib/quranpediaClient.ts';
 import { getAllFrozenBenchmarkCases, getRobustnessBenchmarkCases } from '../src/lib/benchmarkData.ts';
 
 type TestFn = () => void;
 const failures: string[] = [];
+let totalTests = 0;
+let passedTests = 0;
 
 function test(name: string, fn: TestFn): void {
+  totalTests++;
   try {
     fn();
+    passedTests++;
     console.log(`PASS  ${name}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -81,7 +85,7 @@ test('registry contains the required approved source identities', () => {
   ]) assert.ok(ids.has(id), `missing source: ${id}`);
 });
 
-test('runtime religious knowledge files are not embedded in the repository', () => {
+test('legacy runtime knowledge files are not embedded in the repository', () => {
   for (const file of [
     '../sources/quran.json',
     '../sources/quran_translations.json',
@@ -105,10 +109,14 @@ test('terminology verifier has no local terminology import', () => {
   assert.equal(text.includes('sources/terminology.json'), false);
 });
 
-test('Quran verifier has no local Quran corpus import', () => {
-  const text = readFileSync(new URL('../src/lib/quranVerifier.ts', import.meta.url), 'utf8');
-  assert.equal(text.includes('sources/quran.json'), false);
-  assert.equal(text.includes('sources/quran_translations.json'), false);
+test('single common Quran word does not become a fuzzy match', () => {
+  const rows = searchHafsAyahsLocal('الله', 5);
+  assert.equal(rows.length, 0);
+});
+
+test('deterministic Hafs source resolves the canonical 2:255 quotation', () => {
+  const rows = searchHafsAyahsLocal('مَن ذَا الَّذِي يَشْفَعُ عِندَهُ إِلَّا بِإِذْنِهِ', 5);
+  assert.ok(rows.some(row => Number(row.surah) === 2 && row.number === 255));
 });
 
 // 2. Dynamic source contracts.
@@ -330,7 +338,7 @@ test('benchmark code labels fixtures as fixtures and contains no randomization',
   assert.ok(runner.includes('fixture'));
 });
 
-console.log(`\nPassed: ${33 - failures.length}/33`);
+console.log(`\nPassed: ${passedTests}/${totalTests}`);
 if (failures.length) {
   console.error('\nFAILURES');
   for (const failure of failures) console.error(`- ${failure}`);

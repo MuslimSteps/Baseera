@@ -18,12 +18,16 @@ const TATWEEL_REGEX = /\u0640/g;
 // Quranic signs (Sajdah, Rub el Hizb, Ayah signs, etc.)
 const QURANIC_SIGNS = /[\u06D6-\u06ED\uFD3E\uFD3F]/g;
 
+// Quranic ayah-end glyphs used by some Hafs datasets (for example \uFC00–\uFC6E).
+const QURAN_AYAH_MARKERS = /[\uFC00-\uFC6E]/g;
+
 export function normalizeArabic(text: string): string {
   if (!text) return '';
   return text
     // Remove Tashkeel and Quranic stop marks
     .replace(TASHKEEL_REGEX, '')
     .replace(QURANIC_SIGNS, '')
+    .replace(QURAN_AYAH_MARKERS, '')
     .replace(TATWEEL_REGEX, '')
     // Standardize Alef variations (أ, إ, آ, ٱ -> ا)
     .replace(/[أإآٱ]/g, 'ا')
@@ -53,6 +57,7 @@ export function normalizeArabicStrict(text: string): string {
   return text
     .replace(TASHKEEL_REGEX, '')
     .replace(QURANIC_SIGNS, '')
+    .replace(QURAN_AYAH_MARKERS, '')
     .replace(TATWEEL_REGEX, '')
     .replace(/[.,/#!$%^&*;:{}=\-_\`~()«»"'\[\]؟،؛]/g, ' ')
     .replace(/\s+/g, ' ')

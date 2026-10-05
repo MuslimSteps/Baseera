@@ -117,7 +117,7 @@ export async function generateQuranReferenceCandidatesWithAI(
 {"references":[{"surah":1,"ayah":1},{"surah":2,"ayah":255}]}
 
 أقصى عدد 8 مواضع.`
-    },
+    }],
     {
       model: GROQ_TEXT_MODEL,
       temperature: 0,
