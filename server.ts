@@ -1089,19 +1089,25 @@ ${extractedText}
     if (targetCategory && targetCategory !== 'auto') {
       const validTypes: Array<ExtractedItem['type']> = ['ayah', 'hadith', 'fiqh_question', 'term'];
       if (validTypes.includes(targetCategory as any)) {
-        if (extractedItems.length === 0) {
-          extractedItems = [{
-            type: targetCategory as ExtractedItem['type'],
-            text: extractedText,
-            context: extractedText,
-            language: 'ar',
-            confidence: 0.99
-          }];
-        } else {
-          for (const item of extractedItems) {
-            item.type = targetCategory as ExtractedItem['type'];
-          }
-        }
+        const selectedType = targetCategory as ExtractedItem['type'];
+        const scope = selectedType === 'ayah'
+          ? 'quran'
+          : selectedType === 'hadith'
+            ? 'hadith'
+            : selectedType === 'term'
+              ? 'term'
+              : 'fiqh';
+
+        // The user's explicit choice means this entire submitted payload is
+        // one verification item against one approved source.
+        extractedItems = [{
+          type: selectedType,
+          text: extractedText,
+          context: extractedText,
+          language: /[a-zA-Z]/.test(extractedText) ? 'en' : 'ar',
+          confidence: 0.99,
+          verification_scope: scope
+        } as ExtractedItem & { verification_scope: string }];
       }
     }
 
@@ -1114,7 +1120,7 @@ ${extractedText}
 
     // AI semantic matching is advisory: it can propose the most likely source
     // candidate, but the canonical verifier below remains the final authority.
-    if (aiEnabled) {
+    if (aiEnabled && (!targetCategory || targetCategory === 'auto')) {
       await applyAISemanticMatching(extractedItems);
     }
 
