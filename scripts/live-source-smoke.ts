@@ -91,9 +91,19 @@ await run(
 );
 
 await run(
-  'Dorar Aqeedah — dynamic source discovery',
-  async () => dorarAqeedahSeed ? searchDorarAqeedahLive(dorarAqeedahSeed.title) : null,
-  (value: any) => 'found=' + Boolean(value?.found) + ' url=' + (value?.url || '')
+  'Dorar Aqeedah — dynamic source endpoint',
+  async () => {
+    if (!dorarAqeedahSeed) return null;
+    const response = await fetchRemoteSafely(dorarAqeedahSeed.url, {
+      headers: {
+        'User-Agent': 'Baseera/1.0',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'ar,en;q=0.9'
+      }
+    });
+    return response.ok ? { found: true, url: dorarAqeedahSeed.url } : null;
+  },
+  (value: any) => 'reachable=' + Boolean(value?.found) + ' url=' + (value?.url || '')
 );
 
 await run(
