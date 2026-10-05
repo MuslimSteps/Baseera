@@ -10,32 +10,30 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 import sourceRegistry from './sources/source-registry.json' with { type: 'json' };
-import quranData from './sources/quran.json' with { type: 'json' };
-import termData from './sources/terminology.json' with { type: 'json' };
-import fiqhData from './sources/fiqh.json' with { type: 'json' };
 
 import { extractItemsRuleBased } from './src/lib/extractor.ts';
 import { verifyExtractedItems } from './src/lib/decisionEngine.ts';
 import { isSensitiveFiqhQuestion } from './src/lib/fiqhEngine.ts';
 import { enforceApprovedCitations, isApprovedCitation } from './src/lib/sourcePolicy.ts';
+import { enforceDecisionPolicy } from './src/lib/decisionPolicy.ts';
 import { isGroundedInInput } from './src/lib/inputGrounding.ts';
-import { getAvailableTranslationLanguages, getAyahTranslations } from './src/lib/quranpediaClient.ts';
+import { getAvailableTranslationLanguages, getAyahTranslations, getHafsAyah } from './src/lib/quranpediaClient.ts';
 import { searchDorarAqeedahLive, searchDorarTafsirLive } from './src/lib/dorarEncyclopediaClient.ts';
 import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from './src/lib/dorarQueryUtils.ts';
 import { buildJamharaSearchUrl, searchJamharaLive } from './src/lib/jamharaClient.ts';
 import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
 import { normalizeArabic, normalizeArabicStrict } from './src/lib/normalizer.ts';
 import { getComparativeBenchmarkResults } from './src/lib/benchmarkRunner.ts';
-import { searchDorarApiLive, searchDorarWithSmartQueries, searchDorarFiqhLive, buildDorarFiqhUrl, cleanSearchQuery, generateFiqhSearchKeywords } from './src/lib/dorarClient.ts';
+import { searchDorarApiLive, searchDorarWithSmartQueries, searchDorarFiqhLive, buildDorarFiqhUrl, cleanSearchQuery } from './src/lib/dorarClient.ts';
 import { generateDawahContent, formatContentAsText, generateInfographicSvg, DawahContentRequest } from './src/lib/dawahGenerator.ts';
 import { ExtractedItem } from './src/types/baseera.ts';
 import { fetchRemoteSafely, readTextWithLimit, readBytesWithLimit } from './src/lib/safeRemoteFetch.ts';
-import { getQuranCandidatesForAI } from './src/lib/quranVerifier.ts';
-import { rankCandidatesWithAI, generateFiqhSearchQueriesWithAI } from './src/lib/aiMatcher.ts';
+import { getQuranCandidatesForAI, buildQuranDecision, QuranCandidate } from './src/lib/quranVerifier.ts';
+import { rankCandidatesWithAI, generateFiqhSearchQueriesWithAI, generateSourceSearchQueriesWithAI, generateQuranReferenceCandidatesWithAI } from './src/lib/aiMatcher.ts';
 import { groqChat, groqVisionText, groqTranscribe, GROQ_TEXT_MODEL, GROQ_VISION_MODEL } from './src/lib/groqClient.ts';
 
 dotenv.config();
-const BASEERA_SERVER_VERSION = 'groq-fiqh-debug-2026-10-05';
+const BASEERA_SERVER_VERSION = 'live-source-ai-policy-2026-10-05';
 console.log('[BASEERA][BOOT]', JSON.stringify({ version: BASEERA_SERVER_VERSION, cwd: process.cwd(), node: process.version, platform: process.platform, groq_key_configured: Boolean(process.env.GROQ_API_KEY?.trim()) }));
 
 const __filename = fileURLToPath(import.meta.url);
@@ -93,10 +91,7 @@ app.get('/api/sources', (_req, res) => {
   res.json({
     registry: sourceRegistry,
     stats: {
-      quran_verses_indexed: quranData.verses.length,
       hadith_verification_mode: 'live_dorar_only',
-      terms_indexed: termData.terms.length,
-      fiqh_topics_indexed: fiqhData.topics.length,
       active_verification_source_ids: [
         'quran-uthmani',
         'quran-translations',
@@ -110,18 +105,25 @@ app.get('/api/sources', (_req, res) => {
         'shamela-sunnah'
       ],
       supplemental_source_ids: ['dawa-center'],
-      coverage_note: 'الترجمات المحلية الإنجليزية فقط، مع استعلام حي للغات المتاحة في Quranpedia لكل آية؛ التفسير والعقيدة لهما مسارات مصدرية حية؛ الشاملة ما زالت مرجعاً مسجلاً بلا موصل مستقل.'
+      coverage_note: 'المحتوى الديني السلطوي لا يعتمد على قواعد معرفة محلية: القرآن والترجمات من Quranpedia API، الحديث والفقه والتفسير والعقيدة من مسارات المصدر المعتمدة، والمصطلحات من الجمهرة الحية.'
     }
   });
 });
 
 async function applyAISemanticMatching(items: ExtractedItem[]): Promise<void> {
-  // AI is a candidate selector/ranker only. Every selected candidate is
-  // subsequently re-validated against the canonical source by the deterministic verifier.
+  // AI only ranks candidates already retrieved from the approved live source.
+  // It never supplies source text, citation, or ruling.
   for (const item of items) {
     if (item.type !== 'ayah') continue;
 
-    const candidates = getQuranCandidatesForAI(item, 12);
+    let candidates;
+    try {
+      candidates = await getQuranCandidatesForAI(item, 12);
+    } catch (error) {
+      console.warn('[BASEERA][AI][QURAN_CANDIDATES][ERROR]', error);
+      continue;
+    }
+
     if (candidates.length === 0) continue;
 
     const ai = await rankCandidatesWithAI(
@@ -140,8 +142,6 @@ async function applyAISemanticMatching(items: ExtractedItem[]): Promise<void> {
     const selected = candidates.find(c => c.id === ai.candidate_id);
     if (!selected) continue;
 
-    // Keep the AI result as a ranking hint only. Never convert an AI
-    // suggestion into user-supplied surah/ayah attribution.
     (item as any).ai_match_hint = {
       candidate_id: ai.candidate_id,
       relation: ai.relation,
@@ -165,6 +165,64 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
   const isAqeedahQuestion = v.item.type === 'aqeedah_question';
 
   try {
+    // ── QURAN PATH: live Quranpedia source is authoritative ────────────────
+    if (v.item.type === 'ayah') {
+      let candidates = await getQuranCandidatesForAI(v.item, 12);
+
+      // For non-Arabic input (for example an English translation), AI may
+      // suggest locations, but every suggested location is fetched and
+      // validated against the live Quran source before being exposed.
+      if (candidates.length === 0 && aiEnabled) {
+        const refs = await generateQuranReferenceCandidatesWithAI(queryToSearch);
+        const hinted = await (await import('./src/lib/quranVerifier.ts')).getQuranCandidatesFromReferences(refs);
+        candidates = hinted;
+      }
+
+      let selected: QuranCandidate | undefined;
+
+      const hintId = (v.item as any).ai_match_hint?.candidate_id as string | undefined;
+      if (hintId) {
+        selected = candidates.find(c => c.id === hintId);
+      }
+
+      if (!selected && candidates.length > 0) {
+        selected = candidates[0];
+      }
+
+      if (selected) {
+        // Populate the canonical surah name from the live candidate set where possible.
+        const aiCandidates = candidates.map(c => ({
+          id: c.id,
+          source: c.source,
+          title: c.title,
+          text: c.text
+        }));
+        if (aiEnabled && aiCandidates.length > 1 && !hintId) {
+          const ai = await rankCandidatesWithAI('quran', queryToSearch, aiCandidates);
+          if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
+            selected = candidates.find(c => c.id === ai.candidate_id) || selected;
+            v.ai_match = {
+              provider: 'groq',
+              candidate_id: ai.candidate_id,
+              relation: ai.relation,
+              confidence: ai.confidence
+            };
+          }
+        }
+
+        // The final decision is based only on the source-returned canonical text.
+        const quranDecision = buildQuranDecision(v.item, selected);
+        if (quranDecision.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') {
+          Object.assign(v, quranDecision);
+          delete r._needs_live_search;
+          return;
+        }
+      }
+
+      // No sufficient Quranic evidence. Continue to the hadith path below so
+      // misattributed hadiths can still be detected.
+    }
+
     if (isTafsirQuestion || isAqeedahQuestion) {
       const isAqeedah = isAqeedahQuestion;
       const found = isAqeedah
@@ -213,30 +271,69 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
     }
 
     if (v.item.type === 'term') {
-      const found = await searchJamharaLive(queryToSearch);
-      if (found?.found) {
+      const queries = aiEnabled
+        ? await generateSourceSearchQueriesWithAI('terminology', queryToSearch)
+        : [];
+
+      const collected = new Map<string, { title: string; text: string; url: string; source: string }>();
+      const searchQueries = [...new Set([queryToSearch, ...queries])].slice(0, 6);
+
+      for (const query of searchQueries) {
+        const found = await searchJamharaLive(query);
+        if (!found?.found) continue;
+        const key = found.url || `${found.title}::${found.text.slice(0, 120)}`;
+        if (!collected.has(key)) collected.set(key, found);
+      }
+
+      const candidates = Array.from(collected.values()).map((row, index) => ({
+        id: `term-${index}`,
+        source: 'jamhara-terms',
+        title: row.title,
+        text: row.text,
+        row
+      }));
+
+      let selected = candidates[0];
+      if (selected && aiEnabled && candidates.length > 1) {
+        const ai = await rankCandidatesWithAI(
+          'terminology',
+          queryToSearch,
+          candidates.map(({ id, source, title, text }) => ({ id, source, title, text }))
+        );
+        if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
+          selected = candidates.find(c => c.id === ai.candidate_id) || selected;
+          v.ai_match = {
+            provider: 'groq',
+            candidate_id: ai.candidate_id,
+            relation: ai.relation,
+            confidence: ai.confidence
+          };
+        }
+      }
+
+      if (selected) {
         v.status = 'NEEDS_REVIEW';
-        v.status_label_ar = 'مصطلح من مصدر الجمهرة المعتمد — يحتاج مراجعة';
-        v.status_label_en = 'Jamhara Source Found — Review Required';
-        v.reason = `تم العثور على مادة للمصطلح في موسوعة الجمهرة («${found.title}»). تعرض بصيرة مادة المصدر والرابط، ولا تنشئ تعريفًا من النموذج خارج المرجع.`;
-        v.canonical_text = found.text || found.title;
+        v.status_label_ar = 'مادة مصدرية من الجمهرة — تحتاج مراجعة';
+        v.status_label_en = 'Approved Jamhara Source Found — Review Required';
+        v.reason = 'تم العثور على مادة في المصدر المعتمد. لا ينشئ النموذج تعريفًا أو حكمًا من معرفته الخاصة.';
+        v.canonical_text = selected.row.text || selected.row.title;
         v.decision_level = 'B';
         v.citation = {
           source_id: 'jamhara-terms',
           source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
-          authority: 'منصة islamic-content.com / الحزمة المرجعية المعتمدة',
-          book: found.title,
-          url: found.url
+          authority: 'islamic-content.com',
+          book: selected.row.title,
+          url: selected.row.url
         };
       } else {
         v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
         v.status_label_ar = 'لم يُعثر على المصطلح في مصدر الجمهرة المفحوص';
         v.status_label_en = 'Term Not Found in Checked Jamhara Source';
-        v.reason = 'لم يُعثر على مادة مطابقة في البحث المباشر بموسوعة الجمهرة. لا تُنشئ بصيرة تعريفًا بديلًا من النموذج.';
+        v.reason = 'لم يُعثر على مادة مطابقة في البحث المباشر بالمصدر المعتمد. لا ينشئ النموذج تعريفًا بديلاً.';
         v.citation = {
           source_id: 'jamhara-terms',
           source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
-          authority: 'منصة islamic-content.com',
+          authority: 'islamic-content.com',
           url: buildJamharaSearchUrl(queryToSearch)
         };
       }
@@ -244,11 +341,12 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       return;
     }
 
+
     if (isFiqhQuestion) {
       console.log('[BASEERA][FIQH][ENTER]', JSON.stringify({ requestId: (v as any)._requestId || null, query: queryToSearch, aiEnabled }));
       // ── FIQH PATH: Dorar Fiqh Encyclopedia (dorar.net/feqhia) ─────────────────
       const fiqhSearchUrl = r._fiqh_url || buildDorarFiqhUrl(queryToSearch);
-      const contentWords: string[] = r._content_words || generateFiqhSearchKeywords(queryToSearch);
+      const contentWords: string[] = [queryToSearch];
       
       // Step 1: Retrieve from the approved Dorar Fiqh Encyclopedia.
       // If the literal question is too broad for the source search, Groq
@@ -486,7 +584,10 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       }
     } else {
       // ── HADITH / CLAIM PATH: Dorar Hadith Encyclopedia (dorar.net) ───────────
-      const smart = await searchDorarWithSmartQueries(queryToSearch);
+      const hadithAIQueries = aiEnabled
+        ? await generateSourceSearchQueriesWithAI('hadith', queryToSearch)
+        : [];
+      const smart = await searchDorarWithSmartQueries(queryToSearch, hadithAIQueries);
 
       if (smart.topResult) {
         let top = smart.topResult;
@@ -921,6 +1022,30 @@ ${extractedText}
     // ── UNIFIED APPROVED SOURCES LIVE SEARCH ──────────────────────────────
     for (const v of report.verifications) {
       await resolveVerificationWithLiveSearch(v, extractedText);
+
+      // Final deterministic policy gate: a MATCHED result must have actual
+      // source-returned evidence and a valid, source-specific citation.
+      const policy = enforceDecisionPolicy({
+        result: v,
+        sourceEvidenceValidated: Boolean(
+          v.canonical_text?.trim() &&
+          v.citation?.url &&
+          isApprovedCitation(v.citation)
+        )
+      });
+
+      if (policy.status !== v.status) {
+        v.status = policy.status;
+        if (policy.status === 'NOT_FOUND_IN_CHECKED_SOURCES') {
+          v.status_label_ar = 'لم يُثبت في المصدر المعتمد — امتناع';
+          v.status_label_en = 'Not Proven in Approved Source — Abstention';
+          v.reason = 'منعت سياسة القرار النتيجة لأن الدليل المصدرّي المطلوب أو التتبع الكامل غير مكتمل.';
+          delete v.canonical_text;
+          delete v.verified_translation;
+          delete v.school_positions;
+          delete v.diff;
+        }
+      }
     }
 
     // ── RECALCULATE OVERALL STATUS & STATISTICS ────────────────────────────
@@ -1204,9 +1329,30 @@ async function performExtensionLookup(text: string, context: string = ''): Promi
 
   const report = verifyExtractedItems(items, context || text, 'text');
 
-  // Dorar live fallback — routes to CORRECT canonical source per item type
+  // Live source retrieval + deterministic final decision policy.
   for (const v of report.verifications) {
     await resolveVerificationWithLiveSearch(v, context || text);
+
+    const policy = enforceDecisionPolicy({
+      result: v,
+      sourceEvidenceValidated: Boolean(
+        v.canonical_text?.trim() &&
+        v.citation?.url &&
+        isApprovedCitation(v.citation)
+      )
+    });
+
+    if (policy.status !== v.status) {
+      v.status = policy.status;
+      if (policy.status === 'NOT_FOUND_IN_CHECKED_SOURCES') {
+        v.status_label_ar = 'لم يُثبت في المصدر المعتمد — امتناع';
+        v.status_label_en = 'Not Proven in Approved Source — Abstention';
+        v.reason = 'منعت سياسة القرار النتيجة لأن الدليل المصدرّي المطلوب أو التتبع الكامل غير مكتمل.';
+        delete v.canonical_text;
+        delete v.school_positions;
+        delete v.diff;
+      }
+    }
   }
 
   // Recalculate overall status & summary

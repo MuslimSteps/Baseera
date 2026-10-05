@@ -31,34 +31,45 @@ function getGroqKey(): string | null {
 }
 
 
-export async function generateFiqhSearchQueriesWithAI(question: string): Promise<string[]> {
+export type SearchDomain = 'quran' | 'hadith' | 'fiqh' | 'terminology';
+
+export async function generateSourceSearchQueriesWithAI(
+  domain: SearchDomain,
+  question: string
+): Promise<string[]> {
   if (!question.trim()) return [];
 
-  console.log('[BASEERA][AI][FIQH_QUERY_GEN][START]', JSON.stringify({ question: question.slice(0, 200), model: GROQ_TEXT_MODEL }));
+  const instructions = {
+    quran: 'تحليل النص للبحث في المصدر القرآني المعتمد فقط. استخرج عبارات قصيرة مميزة من النص أو المعنى المطلوب، دون تحديد سورة أو آية من معرفتك ودون إنشاء نص قرآني.',
+    hadith: 'تحليل النص للبحث في الموسوعة الحديثية المعتمدة فقط. استخرج عبارات قصيرة مميزة من المتن أو المعنى، دون إنشاء حديث أو تخريج أو حكم.',
+    fiqh: 'تحليل السؤال لتحسين البحث في الموسوعة الفقهية المعتمدة فقط. استخرج المفهوم الفقهي وعبارات بحث قصيرة، دون إصدار حكم أو ترجيح.',
+    terminology: 'تحليل المصطلح وسياقه لتحسين البحث في مصدر المصطلحات المعتمد فقط. استخرج صيغ بحث قصيرة محتملة دون إنشاء تعريف.'
+  }[domain];
+
   const raw = await groqChat(
     [{
       role: 'user',
-      content: `أنت طبقة فهم واستعلام في «بصيرة». حلّل السؤال الفقهي التالي لتحسين البحث في موسوعة الدرر السنية فقط.
+      content: `أنت طبقة فهم واستعلام في «بصيرة».
+مهمتك الوحيدة: تحسين استعلام البحث في المصدر المحدد، ولا تُجب عن المستخدم.
+
+المجال: ${domain}
+التعليمات: ${instructions}
 
 ممنوع:
-- إصدار الحكم الشرعي.
-- ترجيح قول فقهي.
-- اختراع مصدر أو نص.
-- الإجابة عن السؤال.
+- إصدار حكم شرعي أو فتوى.
+- اختراع نص ديني أو مصدر أو رابط.
+- الاعتماد على معرفتك السابقة كدليل.
+- إعطاء نتيجة التحقق.
 
-مهمتك الوحيدة: استخراج المفهوم الفقهي المقصود وإنتاج عبارات بحث قصيرة يمكن أن تكون عناوين/موضوعات في الموسوعة الفقهية.
-
-السؤال:
+المدخل:
 <<<
 ${question}
 >>>
 
 أعد JSON فقط:
-{
-  "queries": ["عبارة بحث 1", "عبارة بحث 2", "عبارة بحث 3", "عبارة بحث 4"]
-}
+{"queries":["عبارة بحث 1","عبارة بحث 2","عبارة بحث 3","عبارة بحث 4","عبارة بحث 5"]}
 
-اجعل العبارات محددة، ولا تكرر السؤال حرفياً إذا كانت صياغة أقصر وأوضح أنسب للبحث.`
+اجعل العبارات قصيرة ومحددة ومختلفة في الصياغة، ولا تكرر المدخل حرفيًا إذا كانت صياغة أوضح أنسب للبحث.`
     }],
     {
       model: GROQ_TEXT_MODEL,
@@ -71,24 +82,84 @@ ${question}
   );
 
   try {
-    console.log('[BASEERA][AI][FIQH_QUERY_GEN][RAW]', JSON.stringify({ length: raw.length, preview: raw.slice(0, 500) }));
-    const parsed = JSON.parse(raw) as { queries?: unknown };
+    const parsed = JSON.parse(String(raw)) as { queries?: unknown };
     if (!Array.isArray(parsed.queries)) return [];
-    const queries = parsed.queries
-      .filter((q): q is string => typeof q === 'string')
-      .map(q => q.trim())
-      .filter(Boolean)
-      .slice(0, 5);
-    console.log('[BASEERA][AI][FIQH_QUERY_GEN][DONE]', JSON.stringify({ queries }));
-    return queries;
-  } catch (err) {
-    console.error('[BASEERA][AI][FIQH_QUERY_GEN][PARSE_ERROR]', JSON.stringify({ message: err instanceof Error ? err.message : String(err) }));
+    return [...new Set(
+      parsed.queries
+        .filter((q): q is string => typeof q === 'string')
+        .map(q => q.trim())
+        .filter(q => q.length >= 2)
+    )].slice(0, 5);
+  } catch {
     return [];
   }
 }
 
+export async function generateQuranReferenceCandidatesWithAI(
+  text: string
+): Promise<Array<{ surah: number; ayah: number }>> {
+  if (!text.trim()) return [];
+
+  const raw = await groqChat(
+    [{
+      role: 'user',
+      content: `أنت طبقة بحث مساعدة في «بصيرة». حلّل النص التالي لتحديد مواضع قرآنية محتملة فقط، كي يجلبها النظام لاحقًا من المصدر القرآني الحي.
+
+ممنوع:
+- اعتبار إجابتك دليلًا.
+- إنشاء نص قرآني أو نسبته إلى القرآن.
+- إصدار حكم أو تفسير.
+- إعادة أي موضع غير واثق منه بلا فحص المصدر.
+
+قد يكون النص ترجمة إنجليزية/فرنسية أو اقتباسًا عربيًا ناقصًا.
+
+أعد JSON فقط:
+{"references":[{"surah":1,"ayah":1},{"surah":2,"ayah":255}]}
+
+أقصى عدد 8 مواضع.`
+    },
+    {
+      model: GROQ_TEXT_MODEL,
+      temperature: 0,
+      maxTokens: 512,
+      json: true,
+      reasoningEffort: 'medium',
+      timeoutMs: 8000
+    }],
+    {
+      model: GROQ_TEXT_MODEL,
+      temperature: 0,
+      maxTokens: 512,
+      json: true,
+      reasoningEffort: 'medium',
+      timeoutMs: 8000
+    }
+  );
+
+  try {
+    const parsed = JSON.parse(String(raw)) as { references?: unknown };
+    if (!Array.isArray(parsed.references)) return [];
+    return parsed.references
+      .map((r: any) => ({
+        surah: Number(r?.surah),
+        ayah: Number(r?.ayah)
+      }))
+      .filter(r =>
+        Number.isInteger(r.surah) && r.surah >= 1 && r.surah <= 114 &&
+        Number.isInteger(r.ayah) && r.ayah >= 1
+      )
+      .slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
+export async function generateFiqhSearchQueriesWithAI(question: string): Promise<string[]> {
+  return generateSourceSearchQueriesWithAI('fiqh', question);
+}
+
 export async function rankCandidatesWithAI(
-  kind: 'quran' | 'hadith' | 'fiqh',
+  kind: 'quran' | 'hadith' | 'fiqh' | 'terminology',
   inputText: string,
   candidates: AICandidate[],
   timeoutMs = 6000

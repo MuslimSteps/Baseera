@@ -114,7 +114,7 @@ export async function searchJamharaLive(query: string): Promise<JamharaLiveResul
     // accept only an actual /dictionary/word/<id> result.
     if (!best) {
       const fallbackUrls = [
-        'https://islamic-content.com/dictionary/term/1792',
+        'https://islamic-content.com/dictionary',
         'https://islamic-content.com/terms-index'
       ];
 

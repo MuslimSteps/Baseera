@@ -9,8 +9,7 @@
  * │  Topic + Audience + Language                                           │
  * │       ↓                                                                │
  * │  dawa.center       → الموضوعات والمحتوى الإسلامي المعتمد              │
- * │  quran.json        → النص القرآني المعتمد (مجمع الملك فهد)            │
- * │  quran_translations.json → الترجمات المفهرسة حالياً (الإنجليزية فقط)     │
+ * │  Quranpedia API    → النص القرآني والترجمات المسترجعة مباشرة            │
  * │  dorar.net/hadith  → الأحاديث الموثقة وأحكامها المعتمدة                │
  * │  islamic-content   → موسوعة الجمهرة للمصطلحات والترجمة الشرعية         │
  * │  dorar.net/feqhia  → الموسوعة الفقهية المقارنة عند الحاجة              │
@@ -21,11 +20,12 @@
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
-import quranData from '../../sources/quran.json' with { type: 'json' };
-import terminologyData from '../../sources/terminology.json' with { type: 'json' };
 import { normalizeArabic } from './normalizer.ts';
-import { searchDorarApiLive, searchDorarWithSmartQueries, generateSearchQueries, buildDorarFiqhUrl, cleanSearchQuery } from './dorarClient.ts';
-import { getAyahTranslations } from './quranpediaClient.ts';
+import { searchDorarWithSmartQueries, buildDorarFiqhUrl, cleanSearchQuery } from './dorarClient.ts';
+import { searchJamharaLive } from './jamharaClient.ts';
+import { generateSourceSearchQueriesWithAI } from './aiMatcher.ts';
+import { groqChat, GROQ_TEXT_MODEL } from './groqClient.ts';
+import { getAyahTranslations, getHafsMushaf } from './quranpediaClient.ts';
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -104,63 +104,159 @@ export interface DawahContent {
 // Source Retrieval Functions
 // ──────────────────────────────────────────────────────────────
 
-function findRelevantVerses(topic: string, limit = 4): Array<{
+async function findRelevantVerses(topic: string, limit = 4): Promise<Array<{
   text_uthmani: string;
   text_clean: string;
   surah_name_ar: string;
   ayah_number: number;
   surah_number: number;
-}> {
-  const normTopic = normalizeArabic(topic);
-  const words = normTopic.split(/\s+/).filter(w => w.length > 2);
-  const synonyms = generateSearchQueries(topic).flatMap(q => q.split(/\s+/).filter(w => w.length > 2));
-  const allTerms = [...new Set([...words, ...synonyms].map(normalizeArabic))];
+}>> {
+  const mushaf = await getHafsMushaf();
+  const aiQueries = process.env.GROQ_API_KEY?.trim()
+    ? await generateSourceSearchQueriesWithAI('quran', topic)
+    : [];
 
-  const scored: Array<{ v: any; score: number }> = [];
-  for (const verse of quranData.verses) {
-    const normClean = normalizeArabic(verse.text_clean || '');
-    let score = 0;
-    for (const term of allTerms) {
-      if (normClean.includes(term)) {
-        score += term.length > 5 ? 4 : 2;
-      }
-    }
-    if (score > 0) scored.push({ v: verse, score });
-  }
+  const terms = [...new Set(
+    [topic, ...aiQueries]
+      .flatMap(q => normalizeArabic(q).split(/\s+/))
+      .filter(w => w.length > 2)
+  )];
+
+  const scored = mushaf.surahs.flatMap(surah =>
+    surah.ayahs.map(ayah => {
+      const normText = normalizeArabic(ayah.text);
+      const score = terms.reduce(
+        (sum, term) => sum + (normText.includes(term) ? (term.length >= 5 ? 4 : 2) : 0),
+        0
+      );
+      return { surah, ayah, score };
+    })
+  );
 
   return scored
+    .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map(x => x.v);
+    .map(x => ({
+      text_uthmani: x.ayah.text,
+      text_clean: normalizeArabic(x.ayah.text),
+      surah_name_ar: x.surah.name,
+      ayah_number: x.ayah.number,
+      surah_number: x.ayah.surah
+    }));
 }
 
 async function findRelevantHadiths(topic: string, limit = 3): Promise<any[]> {
-  const queries = Array.from(new Set([topic].concat(generateSearchQueries(topic)).filter(Boolean))).slice(0, 8);
+  const aiQueries = process.env.GROQ_API_KEY?.trim()
+    ? await generateSourceSearchQueriesWithAI('hadith', topic)
+    : [];
+  const search = await searchDorarWithSmartQueries(topic, aiQueries);
   const found: any[] = [];
   const seen = new Set<string>();
 
-  for (const q of queries) {
-    const results = await searchDorarApiLive(q);
-    for (const h of results) {
-      if (h.gradeCategory !== 'sahih' && h.gradeCategory !== 'hasan') continue;
-      const key = String(h.text) + '|' + String(h.book) + '|' + String(h.numberOrPage);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      found.push(h);
-      if (found.length >= limit) return found;
-    }
+  for (const h of search.allResults || []) {
+    if (h.gradeCategory !== 'sahih' && h.gradeCategory !== 'hasan') continue;
+    const key = String(h.text) + '|' + String(h.book) + '|' + String(h.numberOrPage);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    found.push(h);
+    if (found.length >= limit) break;
   }
 
   return found;
 }
 
-function findJamharaTerm(topic: string): any | null {
-  const normTopic = normalizeArabic(topic);
-  const terms = (terminologyData as any).terms || [];
-  return terms.find((t: any) => {
-    const termAr = normalizeArabic(t.term_ar || '');
-    return normTopic.includes(termAr) || termAr.includes(normTopic.split(' ')[0]);
-  }) || null;
+async function findJamharaTerm(topic: string): Promise<any | null> {
+  const aiQueries = process.env.GROQ_API_KEY?.trim()
+    ? await generateSourceSearchQueriesWithAI('terminology', topic)
+    : [];
+  const queries = [...new Set([topic, ...aiQueries])].filter(Boolean).slice(0, 6);
+
+  for (const query of queries) {
+    const found = await searchJamharaLive(query);
+    if (found?.found) return found;
+  }
+
+  return null;
+}
+
+async function generateEditorialNarrative(
+  topic: string,
+  contentType: ContentType,
+  audience: TargetAudience,
+  language: ContentLanguage,
+  evidence: Array<{ type: string; text: string }>
+): Promise<{
+  introAr: string;
+  applicationAr: string;
+  closingAr: string;
+  translated?: string;
+}> {
+  const fallback = {
+    introAr: `الموضوع: «${topic}»\\n\\nهذه مسودة تحريرية مبنية على المواد المسترجعة من المصادر المعتمدة، وليست فتوى أو حكمًا صادرًا عن بصيرة.`,
+    applicationAr: `الإطار التطبيقي: تُراجع النقاط العملية في ضوء الأدلة المصدرية المسترجعة أعلاه، ولا تُنسب إلى المصدر أي نتيجة غير موجودة فيه.`,
+    closingAr: `خاتمة المسودة: تُراجع النصوص المصدرية والاستدلالات قبل النشر، ويُحال ما يحتاج فتوى أو ترجيحًا إلى أهل الاختصاص.`
+  };
+
+  if (!process.env.GROQ_API_KEY?.trim()) return fallback;
+
+  try {
+    const raw = await groqChat(
+      [{
+        role: 'user',
+        content: `أنت محرر في «بصيرة». اكتب نصًا إنشائيًا فقط حول الموضوع التالي باستخدام الأدلة المصدرية المرفقة.
+
+قيود صارمة:
+- لا تضف آية أو حديثًا أو حكمًا أو فتوى أو معلومة دينية جديدة.
+- لا تنسب إلى القرآن أو السنة أو أي عالم شيئًا غير موجود حرفيًا في الأدلة المرفقة.
+- لا تذكر أرقام آيات أو أحاديث أو أسماء مصادر من معرفتك.
+- لا تحوّل النص إلى فتوى أو ترجيح فقهي.
+- المطلوب مجرد صياغة انتقالات تحريرية للمقدمة والتطبيق والخاتمة.
+- إذا كانت الأدلة غير كافية، قل ذلك بدل ملء الفراغ من المعرفة العامة.
+- أعطِ النص العربي، وإن كانت لغة الإخراج غير العربية فأعطِ ترجمة هذه الانتقالات فقط.
+
+الموضوع: ${topic}
+نوع المحتوى: ${contentType}
+الجمهور: ${audience}
+لغة الإخراج: ${language}
+
+الأدلة المصدرية المتاحة:
+${JSON.stringify(evidence.slice(0, 8), null, 2)}
+
+JSON فقط:
+{
+  "intro_ar": "...",
+  "application_ar": "...",
+  "closing_ar": "...",
+  "translated": "..."
+}`
+      }],
+      {
+        model: GROQ_TEXT_MODEL,
+        temperature: 0.2,
+        maxTokens: 1200,
+        json: true,
+        reasoningEffort: 'medium',
+        timeoutMs: 10000
+      }
+    );
+
+    const parsed = JSON.parse(String(raw)) as Partial<{
+      intro_ar: string;
+      application_ar: string;
+      closing_ar: string;
+      translated: string;
+    }>;
+
+    return {
+      introAr: typeof parsed.intro_ar === 'string' && parsed.intro_ar.trim() ? parsed.intro_ar.trim() : fallback.introAr,
+      applicationAr: typeof parsed.application_ar === 'string' && parsed.application_ar.trim() ? parsed.application_ar.trim() : fallback.applicationAr,
+      closingAr: typeof parsed.closing_ar === 'string' && parsed.closing_ar.trim() ? parsed.closing_ar.trim() : fallback.closingAr,
+      translated: typeof parsed.translated === 'string' && parsed.translated.trim() ? parsed.translated.trim() : undefined
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -173,7 +269,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   const now = new Date().toISOString();
 
   // 1. Retrieve Quran Verses
-  const relevantVerses = findRelevantVerses(topic, 4);
+  const relevantVerses = await findRelevantVerses(topic, 4);
 
   // 2. Retrieve authenticated Hadith candidates only from approved Dorar.net
   const verifiedHadiths = await findRelevantHadiths(topic, 3);
@@ -181,46 +277,35 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   // 3. Retrieved hadiths come only from the approved Dorar source.
 
   // 4. Retrieve Terminology from Jamhara
-  const termDef = findJamharaTerm(topic);
+  const termDef = await findJamharaTerm(topic);
 
   // 5. Resolve the requested translation from the approved live Quranpedia source.
   // Never fall back to model-generated religious translation.
-  const verseTranslations = new Map<number, string>();
+  const verseTranslations = new Map<string, string>();
   for (const v of relevantVerses) {
     if (language === 'ar') continue;
     try {
       const rows = await getAyahTranslations(v.surah_number, v.ayah_number, language);
       const first = Array.isArray(rows) ? rows[0] : undefined;
-      if (first?.text) verseTranslations.set(v.ayah_number, first.text);
+      if (first?.text) verseTranslations.set(`${v.surah_number}:${v.ayah_number}`, first.text);
     } catch {
       // Source unavailable: leave translation absent rather than inventing it.
     }
   }
 
-  // 6. Build Citations List (All verified per Scientific Package registry)
+  // 6. Build Citations List: only source evidence that was actually retrieved.
   const allCitations: VerifiedCitation[] = [];
-
-  // Dawa.center main topical reference
-  allCitations.push({
-    type: 'dawah_center',
-    arabic_text: `موضوع: «${topic}» بالمستودع الدعوي الرقمي`,
-    source_name: 'المستودع الدعوي الرقمي — dawa.center',
-    source_url: `https://dawa.center/search?q=${encodeURIComponent(cleanSearchQuery(topic))}`,
-    authority: 'المرجعية المعتمدة للموضوعات الدعوية والمحتوى الإسلامي بالحزمة العلمية',
-    verified: true,
-    source_id: 'dawa-center'
-  });
 
   // Quran citations
   for (const v of relevantVerses.slice(0, 3)) {
-    const tr = verseTranslations.get(v.ayah_number);
+    const tr = verseTranslations.get(`${v.surah_number}:${v.ayah_number}`);
     allCitations.push({
       type: 'ayah',
       arabic_text: v.text_uthmani || v.text_clean,
       translation: tr,
       source_name: `القرآن الكريم — سورة ${v.surah_name_ar}، آية ${v.ayah_number} (المصدر القرآني المعتمد)`,
-      source_url: 'https://qurancomplex.gov.sa/',
-      authority: 'النص القرآني المحلي المسجل ضمن المصادر المعتمدة',
+      source_url: `https://quranpedia.net/verse/${v.surah_number}/${v.ayah_number}`,
+      authority: 'Quranpedia — المصحف الحفصي المسترجع مباشرة من واجهة API',
       verified: true,
       source_id: 'quran-uthmani'
     });
@@ -228,7 +313,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
 
   // Approved translation citations (one per selected language verse).
   for (const v of relevantVerses.slice(0, 3)) {
-    const tr = verseTranslations.get(v.ayah_number);
+    const tr = verseTranslations.get(`${v.surah_number}:${v.ayah_number}`);
     if (!tr) continue;
     allCitations.push({
       type: 'ayah',
@@ -261,140 +346,126 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   if (termDef) {
     allCitations.push({
       type: 'term',
-      arabic_text: termDef.term_ar,
-      translation: language === 'ru' ? undefined : termDef.approved_translations?.[0],
+      arabic_text: termDef.title,
+      translation: undefined,
       source_name: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي',
-      source_url: 'https://islamic-content.com/dictionary',
-      authority: 'المرجعية المعتمدة للمصطلحات الشرعية الحساسة بالحزمة العلمية',
+      source_url: termDef.url,
+      authority: termDef.source || 'موسوعة الجمهرة — islamic-content.com',
       verified: true,
       source_id: 'jamhara-terms'
     });
   }
 
   // 7. Compose Structured Sections
+  const isKhutba = contentType === 'khutba_friday';
   const sections: DawahContentSection[] = [];
   const mainVerse = relevantVerses[0];
   const secondVerse = relevantVerses[1];
   const mainHadith = verifiedHadiths[0] || null;
   const secondHadith = verifiedHadiths[1];
 
-  const mainVerseTr = mainVerse ? verseTranslations.get(mainVerse.ayah_number) : undefined;
-  const secondVerseTr = secondVerse ? verseTranslations.get(secondVerse.ayah_number) : undefined;
+  const mainVerseTr = mainVerse ? verseTranslations.get(`${mainVerse.surah_number}:${mainVerse.ayah_number}`) : undefined;
+  const secondVerseTr = secondVerse ? verseTranslations.get(`${secondVerse.surah_number}:${secondVerse.ayah_number}`) : undefined;
   
-  // ── Section 1: Introduction ──
-  const isKhutba = contentType === 'khutba_friday';
-  const introAr = isKhutba
-    ? `إن الحمد لله، نحمده ونستعينه ونستغفره، ونعوذ بالله من شرور أنفسنا ومن سيئات أعمالنا، من يهده الله فلا مضل له، ومن يضلل فلا هادي له، وأشهد أن لا إله إلا الله وحده لا شريك له، وأشهد أن محمداً عبده ورسوله ﷺ.\n\nأما بعد فيا عباد الله: أوصيكم ونفسي الخاطئة بتقوى الله عز وجل، فإن تقوى الله خير زاد، قال تعالى: ﴿يَا أَيُّهَا الَّذِينَ آمَنُوا اتَّقُوا اللَّهَ حَقَّ تُقَاتِهِ وَلَا تَمُوتُنَّ إِلَّا وَأَنتُم مُّسْلِمُونَ﴾ [آل عمران: 102].\n\nأيها المؤمنون: إن حديثنا في هذه الجمعة المباركة يدور حول أصل عظيم من أصول هذا الدين الحنيف، ألا وهو موضوع: «${topic}».${additionalContext ? `\n\n${additionalContext}` : ''}`
-    : `بسم الله الرحمن الرحيم، الحمد لله رب العالمين، والصلاة والسلام على المبعوث رحمة للعالمين، نبينا محمد وعلى آله وصحبه أجمعين.\n\nيُعدّ موضوع «${topic}» من الركائز الأساسية في بناء الشخصية المسلمة وتوجيه السلوك الفردي والاجتماعي وفق المنهج القرآني والنبوي القويم.${additionalContext ? `\n\n${additionalContext}` : ''}`;
-
-  let introTranslated: string | undefined;
-  if (language === 'ru') {
-    introTranslated = isKhutba
-      ? `Хвала Аллаху, Которого мы восхваляем, к Которому взываем о помощи и прощении! Мы прибегаем к Нему от зла наших душ и дурных поступков. Кого Аллах ведёт прямым путём, того никто не введёт в заблуждение, а кого Он оставляет без руководства, тому нет наставника. Свидетельствую, что нет божества, кроме Единого Аллаха, и что Мухаммад — Его раб и Посланник ﷺ.\n\nО рабы Аллаха! Призываю вас и самого себя к богобоязненности (таква), ибо она — лучший припас для вечной жизни. Всевышний Аллах сказал: «О те, которые уверовали! Бойтесь Аллаха должным образом и умирайте не иначе, как будучи мусульманами!» (Сура «Али Имран», аят 102).\n\nДорогие братья и сёстры! Тема нашей сегодняшней пятничной хутбы посвящена фундаментальной ценности Ислама — «${topic}».`
-      : `Во имя Аллаха, Милостивого, Милосердного. Хвала Аллаху, Господу миров, и мир и благословение Посланнику Аллаха Мухаммаду ﷺ.\n\nТема «${topic}» является одной из ключевых основ в формировании личности мусульманина и праведного поведения в обществе в свете Священного Корана и благородной Сунны.`;
-  } else if (language === 'en') {
-    introTranslated = isKhutba
-      ? `All praise is due to Allah, we praise Him, seek His help, and ask for His forgiveness. We bear witness that none has the right to be worshipped except Allah alone, and that Muhammad is His servant and Messenger ﷺ.\n\nDear believers, I advise you and myself to adhere to the consciousness of Allah (Taqwa). Our Friday reflection today focuses on a great foundation of faith: "${topic}".`
-      : `In the name of Allah, the Most Gracious, the Most Merciful. All praise is due to Allah, Lord of all creation.\n\nThe topic of "${topic}" stands as a cornerstone in guiding personal character and community ethics according to the Quran and Prophetic Sunnah.`;
-  }
+  // ── Section 1: Editorial Introduction ──
+  const evidenceForEditor = [
+    ...relevantVerses.slice(0, 2).map(v => ({ type: 'ayah', text: v.text_uthmani })),
+    ...verifiedHadiths.slice(0, 2).map(h => ({ type: 'hadith', text: h.text_full || h.text })),
+    ...(termDef ? [{ type: 'term', text: termDef.text }] : [])
+  ];
+  const editorial = await generateEditorialNarrative(
+    topic,
+    contentType,
+    audience,
+    language,
+    evidenceForEditor
+  );
 
   sections.push({
     section_key: 'intro',
-    section_label_ar: isKhutba ? 'خطبة الافتتاح والوصية بالتقوى' : 'المقدمة والتأصيل',
-    section_label_translated: language === 'ru' ? (isKhutba ? 'Вступление и призыв к богобоязненности' : 'Введение') : undefined,
-    content_ar: introAr,
-    content_translated: introTranslated,
+    section_label_ar: isKhutba ? 'مقدمة المسودة التحريرية' : 'المقدمة التحريرية',
+    section_label_translated: language === 'ru' ? 'Редакционное введение' : undefined,
+    content_ar: editorial.introAr,
+    content_translated: editorial.translated,
     citations: []
   });
 
-  // ── Section 2: Quranic Foundation ──
+  // ── Section 2: Retrieved Quran Evidence ──
   if (mainVerse) {
-    const quranAr = `الدليل والتأصيل من كتاب الله جل وعلا:\n\nلقد أنزل الله تبارك وتعالى كتابه هدى ونوراً، وبيّن فيه منزلة «${topic}» بياناً شافياً:\n\nقال الله تعالى في محكم التنزيل:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [سورة ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]\n\n${secondVerse ? `ويؤكد هذا المعنى العظيم قول الحق سبحانه في موضع آخر:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [سورة ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]\n\n` : ''}وتُعرض هذه الآيات هنا بوصفها نصوصًا مصدرية ذات صلة بالموضوع؛ أما الربط التفسيري والحكم على دلالة الموضوع فيحتاج إلى مراجعة بشرية.`;
-
-    let quranTranslated: string | undefined;
-    if (language === 'ru') {
-      quranTranslated = `Коранический источник по теме:\n\nВсевышний Аллах ниспослал Своё Писание верным руководством и светом, разъяснив величие и достоинство темы «${topic}».\n\nВсевышний Аллах говорит:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾\n[Сура «${mainVerse.surah_name_ar}», аят ${mainVerse.ayah_number}]\n\n📖 Перевод смыслов (указанный переводчик):\n«${mainVerseTr || 'Для этого аята не была получена запрошенная утверждённая переводная версия из источника.'}»\n\n${secondVerse && secondVerseTr ? `Также Аллах подтверждает это в другом аяте:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Сура «${secondVerse.surah_name_ar}», аят ${secondVerse.ayah_number}]\n«${secondVerseTr}»\n\n` : ''}Связь этих аятов с выбранной темой представлена как рабочая редакционная связь и требует проверки перед публикацией.`;
-    } else if (language === 'en') {
-      quranTranslated = `Quranic Foundation:\n\nAllah ﷻ says in the Noble Quran:\n﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [Surah ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]\n\n📖 Translation of Meanings (local approved translation catalog, when available):\n"${mainVerseTr || 'No approved translation was retrieved from the selected source.'}"\n\n${secondVerse && secondVerseTr ? `Allah also affirms:\n﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [Surah ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]\n"${secondVerseTr}"\n\n` : ''}These verses are presented as source material related to the topic; the editorial linkage should be reviewed before publication.`;
-    }
+    const quranLines = [
+      'المادة القرآنية المسترجعة مباشرة من المصدر المعتمد:',
+      '',
+      `﴿${mainVerse.text_uthmani || mainVerse.text_clean}﴾ [سورة ${mainVerse.surah_name_ar}: ${mainVerse.ayah_number}]`,
+      secondVerse
+        ? `﴿${secondVerse.text_uthmani || secondVerse.text_clean}﴾ [سورة ${secondVerse.surah_name_ar}: ${secondVerse.ayah_number}]`
+        : '',
+      mainVerseTr
+        ? `الترجمة المسترجعة من المصدر: «${mainVerseTr}»`
+        : 'لم تُسترجع ترجمة مطلوبة لهذا الموضع من المصدر.',
+      '',
+      'هذه مادة مصدرية؛ لا تُنشئ بصيرة تفسيرًا أو حكمًا من خارجها.'
+    ].filter(Boolean);
 
     sections.push({
       section_key: 'quran_daleel',
-      section_label_ar: 'الاستدلال القرآني المعتمد (مصحف مجمع الملك فهد)',
-      section_label_translated: language === 'ru' ? 'Кораническое свидетельство (Издание Короля Фахда)' : undefined,
-      content_ar: quranAr,
-      content_translated: quranTranslated,
+      section_label_ar: 'النص القرآني المسترجع من المصدر',
+      section_label_translated: language === 'ru' ? 'Коранский текст из источника' : undefined,
+      content_ar: quranLines.join('\\n'),
+      content_translated: language === 'ru' && mainVerseTr
+        ? `Текст из утвержденного источника:\\n\\n«${mainVerseTr}»`
+        : language === 'en' && mainVerseTr
+          ? `Text retrieved from the approved source:\\n\\n"${mainVerseTr}"`
+          : undefined,
       citations: allCitations.filter(c => c.type === 'ayah')
     });
   }
 
-  // ── Section 3: Hadith Foundation ──
+  // ── Section 3: Retrieved Hadith Evidence ──
   if (mainHadith) {
-    const hadithAr = `الهدي النبوي من السنة المطهرة (الموسوعة الحديثية — الدرر السنية):\n\nلقد فصّل المصطفى ﷺ معالم «${topic}» بقوله وعمله وخلقه العظيم:\n\nعن النبي صلى الله عليه وسلم أنه قال:\n«${mainHadith.text_full || mainHadith.text_clean}»\n[المصدر: ${mainHadith.source_book || 'صحيح السنة'} (${mainHadith.number_or_page || ''}) — خلاصة حكم المحدث: ${mainHadith.grade || 'صحيح'}]\n\n${secondHadith ? `وجاء في حديث آخر يؤكد هذا المنهج الشريف:\n«${secondHadith.text_full || secondHadith.text_clean}»\n[المصدر: ${secondHadith.source_book || ''} — حكم المحدث: ${secondHadith.grade || 'صحيح'}]\n\n` : ''}ويُعرض هذا الحديث بوصفه مادة مصدرية مرتبطة بالموضوع، مع ترك الاستنباط والترجيح التفصيلي للمراجع المختصة.`;
-
-    let hadithTranslated: string | undefined;
-    if (language === 'ru') {
-      hadithTranslated = `Руководство из благородной Пророческой Сунны:\n\nПосланник Аллаха ﷺ разъяснил суть темы «${topic}» своими словами и личным примером.\n\nПророк Мухаммад ﷺ сказал:\n«${mainHadith.text_full || mainHadith.text_clean}»\n\n📚 Источник: ${mainHadith.source_book || 'Хадисный сборник'} (${mainHadith.number_or_page || ''})\nСтепень достоверности: ${mainHadith.grade || 'Сахих (достоверный)'}\n\nЭта передача показана как источник по теме согласно указанной степени достоверности.`;
-    } else if (language === 'en') {
-      hadithTranslated = `Prophetic Sunnah Guidance:\n\nThe Prophet Muhammad ﷺ taught the reality of "${topic}" through authentic instruction.\n\nThe Prophet ﷺ said:\n«${mainHadith.text_full || mainHadith.text_clean}»\n[Source: ${mainHadith.source_book || 'Sunnah corpus'} — Grade: ${mainHadith.grade || 'Sahih'}]\n\nThis narration is presented as source material; detailed application should be reviewed before publication.`;
-    }
+    const hadithLines = [
+      'المادة الحديثية المسترجعة مباشرة من الموسوعة الحديثية المعتمدة:',
+      '',
+      `«${mainHadith.text_full || mainHadith.text_clean}»`,
+      `المصدر: ${mainHadith.source_book || 'المصدر الحديثي المسترجع'}`,
+      `الدرجة كما وردت في المصدر: ${mainHadith.grade || 'غير محددة'}`,
+      secondHadith
+        ? `حديث إضافي مسترجع: «${secondHadith.text_full || secondHadith.text_clean}»`
+        : '',
+      '',
+      'هذه مادة مصدرية؛ لا تُنشئ بصيرة حكمًا أو ترجيحًا من خارج المصدر.'
+    ].filter(Boolean);
 
     sections.push({
       section_key: 'hadith_daleel',
-      section_label_ar: 'الاستدلال من السنة النبوية الصحيحة (الدرر السنية)',
-      section_label_translated: language === 'ru' ? 'Доказательство из достоверной Сунны (Дорар ас-Сунния)' : undefined,
-      content_ar: hadithAr,
-      content_translated: hadithTranslated,
+      section_label_ar: 'الحديث المسترجع من المصدر',
+      section_label_translated: language === 'ru' ? 'Хадис из источника' : undefined,
+      content_ar: hadithLines.join('\\n'),
+      content_translated: language === 'ru'
+        ? 'Материал хадиса получен напрямую из утвержденного источника.'
+        : language === 'en'
+          ? 'Hadith material retrieved directly from the approved source.'
+          : undefined,
       citations: allCitations.filter(c => c.type === 'hadith')
     });
   }
 
-  // ── Section 4: Practical Application & Terminology ──
-  const termArBlock = termDef
-    ? `\n\n📌 الضبط المصطلحي من موسوعة الجمهرة لمفردات المحتوى الإسلامي:\n«${termDef.term_ar}» شرعاً: ${termDef.jamhara_definition || termDef.approved_translations?.[0]}.\nتنبيه: يُحذر من الاختزال الدلالي للمصطلح أو استبداله بمفاهيم مادية تغفل البعد الإيماني.`
-    : '';
-
-  const audienceLabel = audience === 'youth' ? 'معاشر الشباب والناشئة' : audience === 'revert' ? 'أيها الإخوة المهتدون إلى نور الإسلام' : 'أيها المسلمون الكرام';
-  const applicationAr = `الثمرات والتطبيق العملي في واقع المسلم:\n\nيا ${audienceLabel}، إن العلم الشرعي إنما يُراد للعمل، وإن ثمار «${topic}» لا تتحقق إلا بمجاهدة النفس والتزام الضوابط التالية:\n\n١. الإخلاص لله وحده وموافقة السنة النبوية المطهرة في كل قول وعمل.\n٢. المحاسبة اليومية للنفس ومراجعة أثر «${topic}» في المعاملات مع الأهل والجيران والمجتمع.\n٣. الثبات والاستقامة والدعوة إلى الله بالحكمة والموعظة الحسنة دون غلو ولا تفريط.${termArBlock}`;
-
-  let applicationTranslated: string | undefined;
-  if (language === 'ru') {
-    applicationTranslated = `Практическое применение в жизни мусульманина:\n\nЗнание в Исламе требует искреннего воплощения в делах. Плоды темы «${topic}» реализуются через следующие практические шаги:\n\n1. Искренность (ихлас) ради Единого Аллаха и строгое следование Сунне Пророка ﷺ.\n2. Ежедневный самоконтроль и соблюдение этики в семье, на работе и в обществе.\n3. Стойкость на прямом пути и призыв к добру с мудростью и добрым увещеванием.\n\n`;
-  } else if (language === 'en') {
-    applicationTranslated = `Practical Application in the Believer's Life:\n\nIslamic knowledge is intended for righteous action. To realize the fruits of "${topic}", we must commit to:\n\n1. Pure sincerity (Ikhlas) for Allah alone and adherence to the Sunnah.\n2. Daily self-reckoning and ethical conduct with family and community.\n3. Steadfastness and gentle dawah with wisdom and good manners.\n\n${termDef ? `📌 Terminology Precision (Jamhara Encyclopedia):\n"${termDef.term_en || termDef.term_ar}": ${termDef.jamhara_definition || termDef.approved_translations?.[0]}` : ''}`;
-  }
-
+  // ── Section 4: Editorial Application Frame ──
   sections.push({
     section_key: 'application',
-    section_label_ar: 'التطبيق العملي والضبط المصطلحي (موسوعة الجمهرة)',
-    section_label_translated: language === 'ru' ? 'Практическое применение и точность терминов (Джамхара)' : undefined,
-    content_ar: applicationAr,
-    content_translated: applicationTranslated,
+    section_label_ar: 'إطار التطبيق والمراجعة',
+    section_label_translated: language === 'ru' ? 'Практическое применение и проверка' : undefined,
+    content_ar: editorial.applicationAr,
+    content_translated: language === 'ar' ? undefined : editorial.translated,
     citations: termDef ? allCitations.filter(c => c.type === 'term') : []
   });
 
-  // ── Section 5: Conclusion & Dua ──
-  const khatimahAr = isKhutba
-    ? `الخاتمة والدعاء المستجاب:\n\nأقول قولي هذا، وأستغفر الله العظيم الجليل لي ولكم ولسائر المسلمين من كل ذنب، فاستغفروه وتوبوا إليه، إنه هو الغفور الرحيم.\n\n(جلسة الاستراحة بين الخطبتين ثم استئناف الخطبة الثانية)\n\nالحمد لله وكفى، وسلام على عباده الذين اصطفى.\n\nاللهم يا مقلب القلوب ثبت قلوبنا على دينك، اللهم وفقنا للعمل بكتابك وسنة نبيك ﷺ، واجعلنا من الهداة المهتدين غير الضالين ولا المضلين.\n\nاللهم اغفر للمسلمين والمسلمات، والمؤمنين والمؤمنات، الأحياء منهم والأموات. وصلّ اللهم وسلم وبارك على نبينا محمد وعلى آله وصحبه أجمعين، وأقم الصلاة.`
-    : `الخاتمة:\n\nنسأل الله تعالى بأسمائه الحسنى وصفاته العلى أن يوفقنا لما يحب ويرضى، وأن يجعل ما تعلمناه حجة لنا لا علينا، وأن ينفع بهذه الكلمات المسلمين في كل مكان. والحمد لله رب العالمين.`;
-
-  let khatimahTranslated: string | undefined;
-  if (language === 'ru') {
-    khatimahTranslated = isKhutba
-      ? `Заключение и мольба (дуа):\n\nЯ говорю эти слова и прошу у Всевеликого Аллаха прощения для себя, для вас и для всех мусульман за все грехи. Просите же у Него прощения и кайтесь перед Ним, поистине, Он — Прощающий, Милосердный!\n\nО Аллах, направляющий сердца, укрепи наши сердца на Твоей религии! О Аллах, помоги нам поступать согласно Твоей Книге и Сунне Твоего Пророка ﷺ!\nО Аллах, прости верующих мужчин и женщин, живых и умерших! Мир и благословение нашему Пророку Мухаммаду, его семье и всем его сподвижникам!`
-      : `Заключение:\n\nМы просим Всевышнего Аллаха даровать нам успех в том, что Он любит и чем доволен, и сделать эти знания полезными для нас в обоих мирах. Хвала Аллаху, Господу миров!`;
-  } else if (language === 'en') {
-    khatimahTranslated = isKhutba
-      ? `Conclusion & Supplication:\n\nI say these words and ask Allah the Almighty for forgiveness for myself and for you. Repent to Him, for He is the Most Forgiving, Most Merciful.\n\nO Allah, Turner of hearts, keep our hearts firm upon Your religion! Guide us to follow Your Book and the Sunnah of Your Prophet ﷺ. Ameen.`
-      : `Conclusion:\n\nWe pray to Allah ﷻ to grant us righteousness and to bless this reminder for believers worldwide. All praise is due to Allah, Lord of all worlds.`;
-  }
-
+  // ── Section 5: Editorial Closing ──
   sections.push({
     section_key: 'khatimah',
-    section_label_ar: isKhutba ? 'الخطبة الثانية والدعاء' : 'الخاتمة',
-    section_label_translated: language === 'ru' ? (isKhutba ? 'Вторая хутба и дуа' : 'Заключение') : undefined,
-    content_ar: khatimahAr,
-    content_translated: khatimahTranslated,
+    section_label_ar: 'خاتمة المسودة',
+    section_label_translated: language === 'ru' ? 'Заключение' : undefined,
+    content_ar: editorial.closingAr,
+    content_translated: language === 'ar' ? undefined : editorial.translated,
     citations: []
   });
 
@@ -419,7 +490,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     dawa_center_url: `https://dawa.center/search?q=${encodeURIComponent(cleanSearchQuery(topic))}`,
     feqhia_url: buildDorarFiqhUrl(topic),
     generated_at: now,
-    verification_note: `المراجع المستعملة في الاستشهادات مقيدة بسجل المصادر المعتمد: النص القرآني من القاعدة القرآنية المحلية، والترجمات من سجل الترجمات المفهرس المتاح حالياً، والأحاديث من بحث الدرر السنية، والمصطلحات من موسوعة الجمهرة. أما النص الإنشائي والتطبيقات المقترحة فهي مسودة مولدة تحتاج مراجعة بشرية قبل النشر.`,
+    verification_note: `المراجع المستعملة في الاستشهادات مقيدة بسجل المصادر المعتمد: النصوص المصدرية المستعملة في المادة استُرجعت من واجهات المصادر المعتمدة مباشرة، والنص الإنشائي مسودة تحتاج مراجعة بشرية قبل النشر. أما النص الإنشائي والتطبيقات المقترحة فهي مسودة مولدة تحتاج مراجعة بشرية قبل النشر.`,
     infographic_suggestion: infographicSuggestion,
     video_reel_script: videoReelScript
   };

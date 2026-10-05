@@ -13,6 +13,100 @@ const API_BASE = 'https://api.quranpedia.net/v1';
 const WEB_BASE = 'https://quranpedia.net';
 const cache = new Map<string, any>();
 
+
+export interface QuranMushafIndex {
+  id: number;
+  name: string;
+  rawi?: { id?: number; name?: string; full_name?: string; };
+}
+
+export interface QuranMushafAyah {
+  id: number;
+  number: number;
+  surah: number;
+  page_number?: number;
+  text: string;
+  marker?: string;
+  options?: string[];
+}
+
+export interface QuranMushafSurah {
+  id: number;
+  name: string;
+  coded_name?: string;
+  ayahs: QuranMushafAyah[];
+}
+
+export interface QuranMushaf {
+  id: number;
+  name: string;
+  surahs: QuranMushafSurah[];
+}
+
+let hafsMushafPromise: Promise<QuranMushaf> | null = null;
+let hafsMushafIdPromise: Promise<number> | null = null;
+
+async function getHafsMushafId(): Promise<number> {
+  if (!hafsMushafIdPromise) {
+    hafsMushafIdPromise = getJson('/mushafs')
+      .then((rows: unknown) => {
+        if (!Array.isArray(rows)) {
+          throw new Error('Quranpedia returned an invalid mushaf index');
+        }
+
+        const hafs = rows.find((row: any) => {
+          const rawiName = String(row?.rawi?.full_name || row?.rawi?.name || '').toLowerCase();
+          const name = String(row?.name || '').toLowerCase();
+          return rawiName.includes('حفص') || name.includes('حفص');
+        });
+
+        const id = Number(hafs?.id);
+        if (!Number.isInteger(id) || id < 1) {
+          throw new Error('Hafs mushaf was not found in Quranpedia metadata');
+        }
+        return id;
+      })
+      .catch(error => {
+        hafsMushafIdPromise = null;
+        throw error;
+      });
+  }
+
+  return hafsMushafIdPromise;
+}
+
+/**
+ * Fetch the Hafs mushaf dynamically from Quranpedia metadata.
+ * The application does not assume a fixed mushaf ID.
+ */
+export async function getHafsMushaf(): Promise<QuranMushaf> {
+  if (!hafsMushafPromise) {
+    hafsMushafPromise = getHafsMushafId()
+      .then(id => getJson(`/mushafs/${id}`, 10_000_000))
+      .then((data: any) => {
+        if (!data || !Array.isArray(data.surahs)) {
+          throw new Error('Quranpedia returned an invalid Hafs mushaf payload');
+        }
+        return data as QuranMushaf;
+      })
+      .catch(error => {
+        hafsMushafPromise = null;
+        throw error;
+      });
+  }
+  return hafsMushafPromise;
+}
+
+export async function getHafsAyah(surah: number, ayah: number): Promise<QuranMushafAyah | null> {
+  try {
+    const mushafId = await getHafsMushafId();
+    const data = await getJson(`/mushafs/${mushafId}/${surah}/${ayah}`);
+    if (!data || typeof data.text !== 'string') return null;
+    return data as QuranMushafAyah;
+  } catch {
+    return null;
+  }
+}
 export interface QuranTranslationLanguage {
   id: number;
   name: string;
@@ -30,14 +124,14 @@ export interface QuranTranslation {
   text: string;
 }
 
-async function getJson(path: string): Promise<any> {
+async function getJson(path: string, maxBytes = 2_000_000): Promise<any> {
   const url = `${API_BASE}${path}`;
   if (cache.has(url)) return cache.get(url);
   const response = await fetchRemoteSafely(url, {
     headers: { 'User-Agent': 'Baseera/1.0', Accept: 'application/json' }
   });
   if (!response.ok) throw new Error(`Quranpedia API returned ${response.status}`);
-  const data = JSON.parse(await readTextWithLimit(response, 2_000_000));
+  const data = JSON.parse(await readTextWithLimit(response, maxBytes));
   cache.set(url, data);
   return data;
 }

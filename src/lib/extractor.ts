@@ -4,7 +4,6 @@
  */
 
 import { ExtractedItem, ItemType } from '../types/baseera.ts';
-import termData from '../../sources/terminology.json' with { type: 'json' };
 
 /**
  * Deterministic rule-based extraction for Quran, Hadith, Terms and Fiqh questions.
@@ -195,61 +194,37 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
     });
   }
 
-  // 3. Sensitive Term patterns (Jamhara terms: Tawhid, Sharia, Jihad, Worship, etc.)
-  for (const termObj of termData.terms) {
-    const termAr = termObj.term_ar;
-    const termEn = termObj.term_en.split('/')[0].trim();
+  // 3. Terminology candidates are identified from user phrasing only.
+  // No local dictionary is consulted here; the live Jamhara source is the authority.
+  const termPatterns = [
+    /(?:مصطلح|مفهوم|تعريف|المقصود\s+ب)\s*[:：]?\s*[«"“]?([\u0621-\u064A]{3,})[»"”]?/gi,
+    /\b(?:term|concept|definition)\s*[:：]?\s*["']?([A-Za-z][A-Za-z_-]{2,})["']?/gi
+  ];
 
-    const containsAr = text.includes(termAr);
-    const regexEn = new RegExp(`\\b${termEn}\\b`, 'i');
-    const containsEn = regexEn.test(text);
+  for (const pattern of termPatterns) {
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const term = match[1]?.trim();
+      if (!term) continue;
+      const start = match.index;
+      const end = start + match[0].length;
+      if (isOverlapping(start, end)) continue;
 
-    if (containsAr || containsEn) {
-      const foundIdx = containsAr ? text.indexOf(termAr) : text.search(regexEn);
-      const termEnd = foundIdx + (containsAr ? termAr.length : termEn.length);
-      if (foundIdx >= 0 && isOverlapping(foundIdx, termEnd)) continue;
-      const surroundingContext = text.slice(Math.max(0, foundIdx - 60), Math.min(text.length, foundIdx + 140));
-
+      coveredRanges.push({ start, end });
       items.push({
         type: 'term',
-        text: containsAr ? termAr : termEn,
-        context: surroundingContext,
-        language: containsAr ? 'ar' : 'en',
-        location_in_input: `term match at ${foundIdx}`,
-        confidence: 0.92
+        text: term,
+        context: match[0],
+        language: /[A-Za-z]/.test(term) ? 'en' : 'ar',
+        location_in_input: `chars ${start}-${end}`,
+        confidence: 0.85
       });
     }
   }
 
-  // 4. Tafsir / Aqeedah question patterns
-  const isTafsirQuestion =
-    /(?:تفسير|يفسر|فسر|معنى\s+(?:هذه|الآية|الآيه)|ما\s+معنى\s+(?:هذه|الآية|الآيه)|سبب\s+النزول|أسباب\s+النزول|شرح\s+(?:الآية|الآيه))/i.test(text);
+  // A short standalone expression can be a terminology candidate, but it is
+  // still verified against the live approved source before being accepted.
 
-  const isAqeedahQuestion =
-    /(?:ما\s+(?:هي|هو)\s+(?:العقيدة|عقيدة|عقيدة\s+أهل\s+السنة)|في\s+العقيدة|مسألة\s+عقدية|التوحيد|الإيمان|القدر|أسماء\s+الله\s+وصفاته|صفات\s+الله|الملائكة|الشرك|الردة)/i.test(text) &&
-    /(?:ما|كيف|هل|ما\s+(?:هو|هي)|اشرح|أثبت|إثبات|حكم)/i.test(text);
-
-  if (isTafsirQuestion) {
-    items.push({
-      type: 'tafsir_question',
-      text,
-      context: text,
-      language: /[a-zA-Z]/.test(text) ? 'en' : 'ar',
-      location_in_input: 'full question',
-      confidence: 0.96
-    });
-  }
-
-  if (isAqeedahQuestion && !isTafsirQuestion) {
-    items.push({
-      type: 'aqeedah_question',
-      text,
-      context: text,
-      language: /[a-zA-Z]/.test(text) ? 'en' : 'ar',
-      location_in_input: 'full question',
-      confidence: 0.96
-    });
-  }
 
   // 4. Fiqh Question patterns
   // High-consequence religious/legal terms are routed to the fiqh safety path

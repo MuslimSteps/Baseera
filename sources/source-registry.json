@@ -1,7 +1,7 @@
 {
   "project": "بصيرة — Baseera",
   "version": "1.0.0",
-  "description": "سجل المصادر المعتمدة وفق الحزمة العلمية. يوضح السجل نطاق الاعتماد؛ وقد يكون بعض المصادر مفعلاً في مسارات تحقق مباشرة، بينما تكون مصادر أخرى مراجع اعتماد أو إحالة فقط.",
+  "description": "سجل المصادر المعتمدة. لا يحتوي على نصوص دينية أو قواعد مطابقة؛ يحدد فقط هوية المصدر وسياسة الوصول والنطاق.",
   "governing_principle": "النموذج اللغوي لا يصدر الحكم الشرعي ولا يختلق المصدر. الحكم يُسترجع من المصادر المعتمدة حصرًا، وعند عدم كفاية المرجع: الامتناع (لم يُعثر عليه في المراجع المفحوصة) أو الإحالة إلى مختص.",
   "prohibited_sources": [
     "Wikipedia",
@@ -18,11 +18,10 @@
       "name_en": "Noble Quran - Approved Uthmani Text",
       "authority": "مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة",
       "scope": "النص القرآني الكامل، التشكيل، أرقام الآيات وأسماء السور",
-      "access_method": "قاعدة بيانات محلية موثقة ومطابقة لمصحف المدينة",
-      "access_date": "2026-09-30",
+      "access_method": "Quranpedia API — live Hafs mushaf retrieval",
       "license": "وقف لله تعالى / مجمع الملك فهد",
       "rules": "لا يُقبل أي تحريف أو تبديل للألفاظ. عند وجود اختلاف يتم تمييز الفارق وإظهار النص الصحيح مع السورة والآية.",
-      "implementation_status": "active_local_verifier"
+      "implementation_status": "active_live_quranpedia_api"
     },
     {
       "id": "quran-translations",
@@ -31,12 +30,11 @@
       "name_en": "Approved Quran Translations (King Fahd Complex / Quranpedia)",
       "authority": "مجمع الملك فهد لطباعة المصحف الشريف / مشروع quranpedia",
       "scope": "الترجمات المعتمدة باللغات الإنجليزية (Saheeh International / Hilali-Khan) والفرنسية (Muhammad Hamidullah) وغيرها",
-      "access_method": "قاعدة بيانات الترجمات المفهرسة حسب السورة والآية",
-      "access_date": "2026-09-30",
+      "access_method": "Quranpedia API — live per-ayah translations",
       "license": "مجمع الملك فهد / الاستخدام الدعوي والمعرفي المعتمد",
       "rules": "الترجمة اجتهاد بشري لبيان المعاني ولا تُعامل كنص قرآني مقدس، وتُنسب لمترجمها المعتمد.",
       "official_url": "https://quranpedia.net/",
-      "implementation_status": "active_live_quranpedia_plus_local_english_snapshot"
+      "implementation_status": "active_live_quranpedia_api"
     },
     {
       "id": "quran-tafsir-salaf",
@@ -94,11 +92,10 @@
       "name_en": "Al-Jamhara Encyclopedia for Islamic Terminology",
       "authority": "موسوعة الجمهرة المعتمدة في الحزمة العلمية",
       "scope": "المصطلحات والمفاهيم الإسلامية الحساسة وترجماتها وسياقاتها الشرعية والدعوية لمنع الاختزال والتشويه",
-      "access_method": "فهرس المصطلحات المعتمدة مع التعريف الدقيق والتحذيرات التوضيحية",
-      "access_date": "2026-09-30",
+      "access_method": "بحث حي مباشر في منصة الجمهرة",
       "license": "حزمة المعرفة المعتمدة للتعريف بالإسلام",
       "rules": "منع الترجمة الآلية المسطحة للمصطلحات الحساسة (مثل اختزال التوحيد إلى Oneness فقط، أو اختزال الشريعة في العقوبات، أو اختزال العبادة في الطقوس).",
-      "implementation_status": "active_local_plus_live_fallback"
+      "implementation_status": "active_live_jamhara"
     },
     {
       "id": "fiqh-madhahib-dorar",
@@ -107,10 +104,9 @@
       "name_en": "Comparative Fiqh (Dorar & Four Sunni Madhhabs Standard Manuals)",
       "authority": "المذاهب الفقهية الأربعة (الحنفي، المالكي، الشافعي، الحنبلي) ومنصة الدرر",
       "scope": "مسائل الإجماع، والمسائل الخلافية السائغة بين المذاهب دون ترجيح آلي مسبق",
-      "access_method": "فهرس المسائل الفقهية المعتمدة",
-      "access_date": "2026-09-30",
+      "access_method": "بحث حي مباشر في الموسوعة الفقهية بالدرر السنية",
       "rules": "عرض الخلاف بتجرد وأدلة كل مذهب أو الإحالة إلى الهيئات والمجامع المعتمدة، مع المنع التام للفتوى الشخصية في النوازل.",
-      "implementation_status": "active_local_policy_plus_live_dorar"
+      "implementation_status": "active_live_dorar_fiqh"
     },
     {
       "id": "dawa-center",

@@ -56,7 +56,7 @@ function pathAllowedForSource(sourceId: string, rawUrl?: string): boolean {
 }
 
 const SOURCE_ALLOWED_HOSTS: Record<string, string[]> = {
-  'quran-uthmani': ['qurancomplex.gov.sa'],
+  'quran-uthmani': ['quranpedia.net', 'qurancomplex.gov.sa'],
   'quran-translations': ['quranpedia.net', 'qurancomplex.gov.sa'],
   'quran-tafsir-salaf': ['dorar.net'],
   'dorar-aqeedah': ['dorar.net'],

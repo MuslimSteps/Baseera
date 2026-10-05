@@ -38,138 +38,18 @@ export function cleanSearchQuery(query: string): string {
  * Generate smart candidate search queries for any question, quote, or claim
  */
 export function generateSearchQueries(rawText: string): string[] {
-  const text = (rawText || '').trim();
-  const queries: string[] = [];
+  const cleanQ = cleanSearchQuery(rawText);
+  if (!cleanQ) return [];
 
-  const cleanQ = cleanSearchQuery(text);
-  if (cleanQ) queries.push(cleanQ);
+  const words = cleanQ
+    .split(/\s+/)
+    .filter(w => w.length >= 3);
 
-  const norm = cleanQ.replace(/\s+/g, ' ');
+  const queries = [cleanQ];
+  if (words.length >= 2) queries.push(words.slice(0, 3).join(' '));
+  if (words.length >= 4) queries.push(words.slice(-3).join(' '));
 
-  // ── Purification & Prayer ───────────────────────────────────────────
-  if (norm.includes('الصلاة بغير وضوء') || norm.includes('صلاة بغير وضوء') || norm.includes('صلاة بدون وضوء')) {
-    queries.push('لا تقبل صلاة بغير طهور');
-    queries.push('صلاة بغير طهور');
-  }
-  if (norm.includes('لحم الإبل') || norm.includes('لحوم الإبل')) {
-    queries.push('الوضوء من لحوم الإبل');
-    queries.push('أأتوضأ من لحوم الإبل');
-  }
-  if (norm.includes('قنوت') && (norm.includes('فجر') || norm.includes('صبح'))) {
-    queries.push('القنوت في صلاة الفجر');
-    queries.push('قنت في صلاة الصبح');
-  }
-  if (norm.includes('المسح على الخفين') || norm.includes('مسح على الجوارب') || norm.includes('مسح على الخفين')) {
-    queries.push('المسح على الخفين');
-  }
-
-  // ── Oaths & Vows ────────────────────────────────────────────────────
-  if (norm.includes('الحلف بغير الله') || norm.includes('حلف بغير الله') || norm.includes('القسم بغير الله')) {
-    queries.push('من حلف بغير الله');
-    queries.push('حلف بغير الله');
-  }
-  if (norm.includes('النذر') || norm.includes('نذر')) {
-    queries.push('من نذر أن يطيع الله');
-    queries.push('النذر');
-    queries.push('الوفاء بالنذر');
-  }
-
-  // ── Social Ethics (Backbiting, Lying, etc.) ─────────────────────────
-  if (norm.includes('الغيبة') || norm.includes('غيبة')) {
-    queries.push('اغتاب');
-    queries.push('الغيبة ذكرك أخاك');
-    queries.push('يغتاب');
-    queries.push('لا يغتب بعضكم بعضا');
-  }
-  if (norm.includes('النميمة') || norm.includes('نميمة')) {
-    queries.push('لا يدخل الجنة نمام');
-    queries.push('النميمة');
-  }
-  if (norm.includes('الكذب') || norm.includes('كذب')) {
-    queries.push('إن الكذب يهدي إلى الفجور');
-    queries.push('عليكم بالصدق');
-  }
-  if (norm.includes('الحسد') || norm.includes('حسد')) {
-    queries.push('إياكم والحسد');
-    queries.push('لا حسد إلا في اثنتين');
-  }
-  if (norm.includes('الغضب') || norm.includes('غضب')) {
-    queries.push('لا تغضب');
-    queries.push('الغضب جمرة');
-  }
-
-  // ── Finance & Trade ─────────────────────────────────────────────────
-  if (norm.includes('الربا') || norm.includes('ربا')) {
-    queries.push('لعن الله آكل الربا');
-    queries.push('الربا سبعون');
-  }
-  if (norm.includes('بيع الغرر') || norm.includes('الغرر')) {
-    queries.push('نهى عن بيع الغرر');
-  }
-  if (norm.includes('بيع العينة') || norm.includes('العينة')) {
-    queries.push('تبايعتم بالعينة');
-  }
-  if (norm.includes('الزكاة')) {
-    queries.push('فريضة الزكاة');
-    queries.push('الزكاة');
-  }
-  if (norm.includes('الرشوة') || norm.includes('رشوة')) {
-    queries.push('لعن الله الراشي والمرتشي');
-  }
-
-  // ── Entertainment & Modern Issues ───────────────────────────────────
-  if (norm.includes('الغناء') || norm.includes('غناء') || norm.includes('الموسيقى') || norm.includes('موسيقى')) {
-    queries.push('المعازف');
-    queries.push('الكبائر الغناء');
-    queries.push('لا تبيعوا القينات');
-  }
-  if (norm.includes('ألعاب الفيديو') || norm.includes('لعب الفيديو') || norm.includes('فيديو')) {
-    queries.push('اللهو الباطل');
-    queries.push('كل لهو يلهو به الرجل حرام');
-    queries.push('اللهو المباح');
-    queries.push('من لهو الحديث');
-  }
-  if (norm.includes('التصوير') || norm.includes('الصور') || norm.includes('الصورة')) {
-    queries.push('إن أشد الناس عذابا عند الله المصورون');
-    queries.push('المصورون');
-  }
-  if (norm.includes('الدخان') || norm.includes('التدخين') || norm.includes('السجائر')) {
-    queries.push('لا ضرر ولا ضرار');
-    queries.push('كل مسكر حرام');
-  }
-
-  // ── Family & Social ─────────────────────────────────────────────────
-  if (norm.includes('الطلاق')) {
-    queries.push('أبغض الحلال إلى الله الطلاق');
-    queries.push('الطلاق');
-  }
-  if (norm.includes('الصلة') || norm.includes('صلة الرحم')) {
-    queries.push('صل رحمك');
-    queries.push('من أحب أن يبسط له في رزقه');
-  }
-  if (norm.includes('العقوق') || norm.includes('عقوق الوالدين')) {
-    queries.push('ألا أنبئكم بأكبر الكبائر');
-    queries.push('عقوق الوالدين');
-  }
-
-  // ── Fasting ─────────────────────────────────────────────────────────
-  if (norm.includes('صيام التطوع') || (norm.includes('صيام') && norm.includes('التطوع'))) {
-    queries.push('من صام يوما في سبيل الله');
-    queries.push('صيام التطوع');
-  }
-  if (norm.includes('صيام الدهر') || (norm.includes('صيام') && norm.includes('الدهر'))) {
-    queries.push('لا صام من صام الدهر');
-  }
-
-  // Extract first meaningful content words as additional queries
-  const words = cleanQ.split(/\s+/).filter(w => w.length > 2);
-  if (words.length >= 2) {
-    queries.push(words.slice(0, 3).join(' '));
-  } else if (words.length === 1) {
-    queries.push(words[0]);
-  }
-
-  return [...new Set(queries.filter(q => q && q.length >= 2))];
+  return [...new Set(queries)].filter(q => q.length >= 2);
 }
 
 /**
@@ -384,35 +264,6 @@ type DorarFiqhLiveResult = {
   source: string;
   allResults: Array<{ title: string; text: string; url: string }>;
 };
-
-const CANONICAL_FIQH_SECTION_ANCHORS: Array<{ subject: string; intent: 'ruling'; title: string; url: string }> = [
-  {
-    subject: 'ختان',
-    intent: 'ruling',
-    title: 'المبحث الرابع: حكم الختان',
-    url: 'https://dorar.net/feqhia/218'
-  },
-  {
-    subject: 'وضوء',
-    intent: 'ruling',
-    title: 'المبحث الثالث: مواطن مشروعيته — حكم الوضوء للصلاة',
-    url: 'https://dorar.net/feqhia/240'
-  }
-];
-
-function getCanonicalFiqhAnchor(query: string): { title: string; url: string } | null {
-  const normalized = normalizeArabic(query || '');
-  const isRulingQuestion =
-    /ما\s+(?:هو\s+)?حكم|هل\s+(?:يجوز|يجب|يصح)|(?:حكم|واجب|فرض|حرام|مكروه|مستحب|جائز)/i.test(normalized);
-
-  if (!isRulingQuestion) return null;
-
-  const anchor = CANONICAL_FIQH_SECTION_ANCHORS.find(
-    candidate => normalized.includes(candidate.subject) || normalized.includes('ال' + candidate.subject)
-  );
-
-  return anchor ? { title: anchor.title, url: anchor.url } : null;
-}
 
 async function fetchDorarFiqhArticle(url: string): Promise<{ title: string; text: string } | null> {
   try {
@@ -677,58 +528,11 @@ export async function searchDorarFiqhLive(query: string): Promise<DorarFiqhLiveR
       return httpFallback;
     }
 
-    // Final server-side fallback: canonical official section + direct article fetch.
-    // This path is independent of the Python connector and the site's search
-    // ranking, while still using Dorar.net itself as the sole religious source.
-    const anchor = getCanonicalFiqhAnchor(cleanQ);
-    if (anchor) {
-      const article = await fetchDorarFiqhArticle(anchor.url);
-      if (article && article.text) {
-        const fallbackResult: DorarFiqhLiveResult = {
-          found: true,
-          title: article.title || anchor.title,
-          text: article.text,
-          detailedRuling: article.text,
-          url: anchor.url,
-          source: 'الموسوعة الفقهية المقارنة — الدرر السنية',
-          allResults: [{
-            title: article.title || anchor.title,
-            text: article.text,
-            url: anchor.url
-          }]
-        };
-        dorarFiqhMemoryCache.set(cacheKey, fallbackResult);
-        return fallbackResult;
-      }
-    }
-
     console.warn('[BASEERA][DORAR_FIQH][NO_RESULT]', JSON.stringify({ query: cleanQ }));
     dorarFiqhMemoryCache.set(cacheKey, null);
     return null;
   } catch (err) {
     console.error('searchDorarFiqhLive error:', err);
-
-    const anchor = getCanonicalFiqhAnchor(cleanQ);
-    if (anchor) {
-      const article = await fetchDorarFiqhArticle(anchor.url);
-      if (article && article.text) {
-        const fallbackResult: DorarFiqhLiveResult = {
-          found: true,
-          title: article.title || anchor.title,
-          text: article.text,
-          detailedRuling: article.text,
-          url: anchor.url,
-          source: 'الموسوعة الفقهية المقارنة — الدرر السنية',
-          allResults: [{
-            title: article.title || anchor.title,
-            text: article.text,
-            url: anchor.url
-          }]
-        };
-        dorarFiqhMemoryCache.set(cacheKey, fallbackResult);
-        return fallbackResult;
-      }
-    }
 
     return null;
   }
@@ -806,12 +610,20 @@ function analyzeDisputeStatus(targetText: string, allResults: DorarHadithResult[
 /**
  * Smart search that tests multiple candidate queries and ranks results by relevance and grade
  */
-export async function searchDorarWithSmartQueries(text: string): Promise<{
+export async function searchDorarWithSmartQueries(
+  text: string,
+  preferredQueries: string[] = []
+): Promise<{
   topResult: DorarHadithResult | null;
   queryUsed: string;
   allResults: DorarHadithResult[];
 }> {
-  const queries = generateSearchQueries(text);
+  const generated = generateSearchQueries(text);
+  const queries = [...new Set(
+    [...preferredQueries, ...generated]
+      .map(q => cleanSearchQuery(String(q || '')).trim())
+      .filter(q => q.length >= 2)
+  )].slice(0, 8);
   const normalizedInput = normalizeArabic(cleanSearchQuery(text)).trim();
   const inputWords = normalizedInput.split(/\s+/).filter(w => w.length > 2);
 

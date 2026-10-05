@@ -5,17 +5,20 @@
  * Baseera MCP Server (Model Context Protocol)
  * Enables any AI model (Claude, Cursor, Gemini, etc.) to query:
  * 1. Dorar.net Live Hadith API (approved source retrieval + grading)
- * 2. King Fahd Complex Quran Database (6,236 indexed verses)
- * 3. Jamhara Islamic Terminology Dictionary
- * 4. Four Madhahib Fiqh Consensus & Fatwa Guardrails
+ * 2. Quranpedia live Quran source
+ * 3. Jamhara live terminology source
+ * 4. Live comparative fiqh source + deterministic decision policy
  */
 
 import readline from 'readline';
 import { searchDorarWithSmartQueries } from './src/lib/dorarClient.ts';
 import { buildHadithDecision } from './src/lib/hadithVerifier.ts';
-import { verifyQuranAyah } from './src/lib/quranVerifier.ts';
+import { verifyQuranAyah, getQuranCandidatesForAI, buildQuranDecision } from './src/lib/quranVerifier.ts';
 import { verifyIslamicTerm } from './src/lib/terminologyEngine.ts';
 import { verifyFiqhQuestion } from './src/lib/fiqhEngine.ts';
+import { enforceDecisionPolicy } from './src/lib/decisionPolicy.ts';
+import { isApprovedCitation } from './src/lib/sourcePolicy.ts';
+import { searchDorarFiqhLive } from './src/lib/dorarClient.ts';
 import { getAvailableTranslationLanguages, getAyahTranslations } from './src/lib/quranpediaClient.ts';
 import { searchDorarAqeedahLive, searchDorarTafsirLive } from './src/lib/dorarEncyclopediaClient.ts';
 import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from './src/lib/dorarQueryUtils.ts';
@@ -170,57 +173,63 @@ async function handleToolCall(name: string, args: Record<string, any>) {
       const input = String(args.text || '').trim();
       if (!input) throw new Error('text is required');
 
-      const result = verifyQuranAyah({
-        type: 'ayah',
+      const item = {
+        type: 'ayah' as const,
         text: input,
         context: input,
-        language: 'ar',
+        language: /[A-Za-z]/.test(input) ? 'en' : 'ar',
         confidence: 1,
         claimed_surah: args.surah ? String(args.surah) : undefined,
         claimed_ayah: args.ayah_number ? Number(args.ayah_number) : undefined
+      };
+
+      const candidates = await getQuranCandidatesForAI(item, 12);
+      if (candidates.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: 'لم تثبت مطابقة للآية في المصدر القرآني الحي؛ لم تُصدر بصيرة نسبة قرآنية.'
+          }]
+        };
+      }
+
+      const result = buildQuranDecision(item, candidates[0]);
+      const policy = enforceDecisionPolicy({
+        result,
+        sourceEvidenceValidated: Boolean(
+          result.canonical_text?.trim() &&
+          result.citation?.url &&
+          isApprovedCitation(result.citation)
+        )
       });
 
       return {
         content: [{
           type: 'text',
           text:
-            `حالة التحقق: ${result.status_label_ar}\n` +
+            `حالة القرار: ${policy.status}\n` +
+            `المنهج: ${result.status_label_ar}\n` +
             `السبب: ${result.reason}\n` +
             (result.canonical_surah ? `السورة: ${result.canonical_surah}\n` : '') +
             (result.canonical_ayah_number ? `رقم الآية: ${result.canonical_ayah_number}\n` : '') +
-            (result.canonical_text ? `النص المرجعي: ${result.canonical_text}\n` : '') +
-            `المصدر: ${result.citation.source_name}`
+            (policy.allowed && result.canonical_text ? `النص المرجعي: ${result.canonical_text}\n` : '') +
+            `المصدر: ${result.citation.source_name}\n` +
+            (result.citation.url ? `الرابط: ${result.citation.url}` : '')
         }]
       };
     }
+
 
     case 'lookup_jamhara_term': {
       const term = String(args.term || '').trim();
       if (!term) throw new Error('term is required');
 
-      const result = verifyIslamicTerm({
-        type: 'term',
-        text: term,
-        context: String(args.context || term),
-        language: /[a-zA-Z]/.test(term) ? 'en' : 'ar',
-        confidence: 1
-      });
-
-      if (result.status === 'NOT_FOUND_IN_CHECKED_SOURCES') {
-        const live = await searchJamharaLive(term);
-        if (live?.found) {
-          return {
-            content: [{
-              type: 'text',
-              text:
-                `حالة المصدر: وُجدت مادة في موسوعة الجمهرة.\nالعنوان: ${live.title}\nالنص المصدرّي: ${live.text}\nالرابط: ${live.url}\nالمصدر: ${live.source}`
-            }]
-          };
-        }
+      const live = await searchJamharaLive(term);
+      if (!live?.found) {
         return {
           content: [{
             type: 'text',
-            text: `لم يُعثر على المصطلح في سجل بصيرة المحلي ولا في البحث المباشر بالجمهرة. راجع: ${buildJamharaSearchUrl(term)}`
+            text: `لم يُعثر على المصطلح في المصدر الحي. راجع: ${buildJamharaSearchUrl(term)}`
           }]
         };
       }
@@ -229,14 +238,15 @@ async function handleToolCall(name: string, args: Record<string, any>) {
         content: [{
           type: 'text',
           text:
-            `حالة التحقق: ${result.status_label_ar}\n` +
-            `السبب: ${result.reason}\n` +
-            (result.jamhara_definition ? `التعريف المعتمد: ${result.jamhara_definition}\n` : '') +
-            (result.verified_translation ? `المقابل المعتمد: ${result.verified_translation}\n` : '') +
-            `المصدر: ${result.citation.source_name}`
+            `حالة المصدر: وُجدت مادة في موسوعة الجمهرة.\n` +
+            `العنوان: ${live.title}\n` +
+            `النص المصدرّي: ${live.text}\n` +
+            `الرابط: ${live.url}\n` +
+            `المصدر: ${live.source}`
         }]
       };
     }
+
 
     case 'lookup_quran_translation': {
       const surah = Number(args.surah);
@@ -291,25 +301,57 @@ async function handleToolCall(name: string, args: Record<string, any>) {
       const question = String(args.question || '').trim();
       if (!question) throw new Error('question is required');
 
-      const result = verifyFiqhQuestion({
+      const policy = verifyFiqhQuestion({
         type: 'fiqh_question',
         text: question,
         context: question,
-        language: /[a-zA-Z]/.test(question) ? 'en' : 'ar',
+        language: /[A-Za-z]/.test(question) ? 'en' : 'ar',
         confidence: 1
+      });
+
+      const live = await searchDorarFiqhLive(question);
+      if (!live?.found) {
+        return {
+          content: [{
+            type: 'text',
+            text:
+              `حالة المنهج: ${policy.status_label_ar}\n` +
+              `السبب: لم يُعثر على مادة فقهية كافية في المصدر الحي.\n` +
+              `المصدر/البحث: ${policy.citation.url || policy.citation.source_name}`
+          }]
+        };
+      }
+
+      const evidenceResult = {
+        ...policy,
+        canonical_text: live.detailedRuling || live.text,
+        citation: {
+          source_id: 'fiqh-madhahib-dorar',
+          source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
+          authority: 'مؤسسة الدرر السنية',
+          book: live.title,
+          url: live.url
+        }
+      } as any;
+      const finalPolicy = enforceDecisionPolicy({
+        result: evidenceResult,
+        sourceEvidenceValidated: Boolean(evidenceResult.canonical_text && evidenceResult.citation.url && isApprovedCitation(evidenceResult.citation))
       });
 
       return {
         content: [{
           type: 'text',
           text:
-            `حالة المنهج: ${result.status_label_ar}\n` +
-            `المستوى: ${result.decision_level || 'غير محدد'}\n` +
-            `السبب: ${result.reason}\n` +
-            `المصدر/الإحالة: ${result.citation.url || result.citation.source_name}`
+            `حالة القرار: ${finalPolicy.status}\n` +
+            `حالة المنهج: ${policy.status_label_ar}\n` +
+            `مادة المصدر: ${live.title}\n` +
+            `النص المصدرّي: ${live.detailedRuling || live.text}\n` +
+            `الرابط: ${live.url}\n` +
+            `قاعدة القرار: لا يصدر النظام فتوى أو ترجيحًا آليًا في المسائل الفقهية.`
         }]
       };
     }
+
 
     default:
       throw new Error(`Unknown tool: ${name}`);

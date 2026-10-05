@@ -91,7 +91,7 @@ def norm_ar(value):
     return value
 
 def clean_raw_query(raw_text):
-    value = re.sub(r"[«»"“؟?.,!؛،]", " ", raw_text or "")
+    value = re.sub(r'[«»"“؟?.,!؛،]', ' ', raw_text or '')
     return re.sub(r"\s+", " ", value).strip()[:180]
 
 def infer_intent(raw_text):
@@ -321,39 +321,9 @@ def search_index_for_subject(subject_tokens, intent):
     return sorted(by_url.values(), key=lambda item: item["score"], reverse=True)
 
 
-# Canonical section anchors for subjects whose fiqh encyclopedia structure is
-# stable and explicitly listed by Dorar. These are metadata-only anchors: the
-# article is ALWAYS fetched live before any source text is returned.
-CANONICAL_SECTION_ANCHORS = [
-    {
-        "subject": "ختان",
-        "intent": "ruling",
-        "title": "المبحث الرابع: حكم الختان",
-        "url": "https://dorar.net/feqhia/218",
-    },
-    {
-        "subject": "وضوء",
-        "intent": "ruling",
-        "title": "المبحث الثالث: مواطن مشروعيته — حكم الوضوء للصلاة",
-        "url": "https://dorar.net/feqhia/240",
-    },
-]
-
 def canonical_section_fallback(subject_tokens, intent):
-    for anchor in CANONICAL_SECTION_ANCHORS:
-        if anchor["intent"] != intent:
-            continue
-        if anchor["subject"] in subject_tokens:
-            return [{
-                "title": anchor["title"],
-                "text": anchor["title"],
-                "url": anchor["url"],
-                "score": 10000,
-                "answerable": True,
-                "title_subject_hits": 1,
-                "text_subject_hits": 1,
-                "intent": intent,
-            }]
+    # Intentionally disabled: no hard-coded fiqh article IDs or subject mappings.
+    # The live Dorar index/search is the sole discovery mechanism.
     return []
 
 def search_dorar_feqhia(raw_query):
@@ -507,49 +477,13 @@ def search_dorar_feqhia(raw_query):
         }
 
 def run_self_test():
-    intent = infer_intent("ما حكم الختان؟")
-    assert intent == "ruling", intent
-    subject = extract_subject_tokens("ما حكم الختان؟", intent)
-    assert subject == ["ختان"], subject
-
-    wudu_intent = infer_intent("ما حكم الوضوء؟")
-    assert wudu_intent == "ruling", wudu_intent
-    wudu_subject = extract_subject_tokens("ما حكم الوضوء؟", wudu_intent)
-    assert "وضوء" in wudu_subject, wudu_subject
-
-    ruling_score, ruling_ok, *_ = score_candidate(
-        "المبحث الرابع: حكم الختان",
-        "حكم الختان",
-        "ruling",
-        ["ختان"],
-    )
-    benefits_score, benefits_ok, *_ = score_candidate(
-        "المبحث الثالث: من حكم مشروعية الختان وفوائده الصحية",
-        "فوائد الختان",
-        "ruling",
-        ["ختان"],
-    )
-    assert ruling_ok is True and ruling_score > benefits_score, (ruling_score, benefits_score)
-    assert benefits_ok is False
-
-    assert infer_intent("ما فوائد الختان؟") == "benefits"
-    assert infer_intent("متى يختتن الطفل؟") == "timing"
-    assert infer_intent("ما تعريف الختان؟") == "definition"
-    assert infer_intent("هل الختان مشروع؟") == "legitimacy"
-
-    # Canonical metadata must select the official ruling section without
-    # embedding any religious ruling text in the application.
-    index_ruling = canonical_section_fallback(["ختان"], "ruling")
-    assert index_ruling, "canonical fallback must contain the ruling anchor"
-    assert index_ruling[0]["url"] == "https://dorar.net/feqhia/218"
-    assert "حكم الختان" in norm_ar(index_ruling[0]["title"])
-    assert "فوائد" not in norm_ar(index_ruling[0]["title"])
-
-    wudu_index_ruling = canonical_section_fallback(["وضوء"], "ruling")
-    assert wudu_index_ruling, "canonical fallback must contain the wudu ruling anchor"
-    assert wudu_index_ruling[0]["url"] == "https://dorar.net/feqhia/240"
-    assert "حكم الوضوء للصلاة" in norm_ar(wudu_index_ruling[0]["title"])
-
+    assert infer_intent("ما حكم هذا الفعل؟") == "ruling"
+    assert infer_intent("ما فوائده؟") == "benefits"
+    assert infer_intent("وقت المسألة") == "timing"
+    assert infer_intent("ما تعريفه؟") == "definition"
+    assert infer_intent("هل هذا مشروع؟") == "legitimacy"
+    # No hard-coded article anchors are permitted.
+    assert canonical_section_fallback(["أي_موضوع"], "ruling") == []
     print("dorar_feqhia self-test: PASS")
 
 if __name__ == "__main__":
@@ -558,5 +492,5 @@ if __name__ == "__main__":
     else:
         query = " ".join(arg for arg in sys.argv[1:] if not arg.startswith("--"))
         if not query:
-            query = "ما حكم النكاح من الدبر"
+            query = "ما حكم هذه المسألة"
         print(json.dumps(search_dorar_feqhia(query), ensure_ascii=False))

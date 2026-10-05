@@ -2,17 +2,22 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * محرك الفقه والنوازل — Fiqh & Fatwa Decision Engine
+ * Live Fiqh Verification Gate
  *
- * القاعدة الحاكمة الصارمة:
- * «النموذج لا يصدر حكماً شرعياً ولا يختلق دليلاً، وعند عدم ثبوت النص الصريح المعتمد:
- *  الامتناع الصارم (لم يُعثر عليه في المراجع المفحوصة) أو الإحالة إلى جهة إفتاء رسمية.»
+ * قاعدة المصدر:
+ * - لا توجد قاعدة بيانات فقهية محلية داخل التطبيق.
+ * - لا تُضمَّن أحكام أو موضوعات أو روابط مقالات بعينها في الشفرة.
+ * - كل مادة فقهية تُسترجع حيًا من المصدر المعتمد، وتُستخدم طبقة الذكاء الاصطناعي
+ *   لفهم السؤال واختيار المرشح من نتائج المصدر فقط.
+ *
+ * طبقة الأمان:
+ * «النموذج لا يصدر حكمًا شرعيًا من معرفته الخاصة، ولا يختلق دليلاً أو مصدرًا».
  */
 
-import fiqhData from '../../sources/fiqh.json' with { type: 'json' };
 import { normalizeArabic } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
-import { cleanSearchQuery, buildDorarFiqhUrl } from './dorarQueryUtils.ts';
+import { buildDorarFiqhUrl } from './dorarQueryUtils.ts';
+
 const SENSITIVE_FIQH_PATTERNS: RegExp[] = [
   /سب\s+(?:الله|الدين|الرسول|النبي)/i,
   /شتم\s+(?:الله|الدين|الرسول|النبي)/i,
@@ -26,187 +31,66 @@ const SENSITIVE_FIQH_PATTERNS: RegExp[] = [
 
 /**
  * Questions involving takfir/apostasy, blasphemy, or other high-consequence
- * personal/legal matters are referral-only. Baseera may surface an approved
- * source for human review, but it never emits a ruling as its own conclusion.
+ * personal/legal matters are referral-only. This is safety policy, not a
+ * database of religious content.
  */
 export function isSensitiveFiqhQuestion(text: string): boolean {
   const normalized = normalizeArabic(text || '');
   return SENSITIVE_FIQH_PATTERNS.some(re => re.test(normalized));
 }
 
+function isPersonalDispute(text: string): boolean {
+  const normalized = normalizeArabic(text || '');
 
-// Stopwords to strip before searching
-const FIQH_STOPWORDS = new Set([
-  'ما', 'حكم', 'في', 'من', 'على', 'عن', 'هل', 'يجوز', 'يصح',
-  'الشرع', 'ماذا', 'كيف', 'رأي', 'الشريعة', 'الإسلام', 'الإسلامي',
-  'الفقه', 'الدين', 'الشرعي', 'المسلم', 'المسلمين', 'قول', 'هو', 'هي', 'أن'
-]);
-
-/**
- * Extract meaningful, specific content words from a fiqh question
- * Strips 'ال' prefix and filters out short words and generic stopwords
- */
-function extractMeaningfulWords(normText: string): string[] {
-  return normText
-    .split(/\s+/)
-    .map(w => w.replace(/^ال/, ''))
-    .filter(w => w.length >= 3 && !FIQH_STOPWORDS.has(w));
+  return (
+    normalized.includes('طلقت') ||
+    normalized.includes('حلفت على زوجتي') ||
+    normalized.includes('زوجتي ذهبت') ||
+    normalized.includes('هل وقع طلاقي') ||
+    normalized.includes('هل يقع طلاقي') ||
+    normalized.includes('توفي والدي وترك') ||
+    normalized.includes('تقسم التركة') ||
+    normalized.includes('هل يجوز لي شخصيا')
+  );
 }
 
+/**
+ * Every fiqh question enters the live retrieval pipeline.
+ * There is deliberately no local topic matcher and no hard-coded fiqh answer.
+ */
 export function verifyFiqhQuestion(item: ExtractedItem): VerificationResult {
-  const normInput = normalizeArabic(item.text);
+  const searchUrl = buildDorarFiqhUrl(item.text);
+  const sensitive = isSensitiveFiqhQuestion(item.text);
+  const personal = isPersonalDispute(item.text);
 
-  // ── المستوى د (Level D): الحالات الشخصية والمنازعات الأسرية والقضائية ──
-  // الامتناع الصارم والإحالة الفورية لدار الإفتاء والمحاكم الشرعية
-  const isPersonalDispute =
-    normInput.includes('طلقت') ||
-    normInput.includes('حلفت على زوجتي') ||
-    normInput.includes('زوجتي ذهبت') ||
-    normInput.includes('هل وقع طلاقي') ||
-    normInput.includes('هل يقع طلاقي') ||
-    normInput.includes('توفي والدي وترك') ||
-    normInput.includes('تقسم التركة') ||
-    normInput.includes('هل يجوز لي شخصيا');
-
-  const feqhiaSearchUrl = buildDorarFiqhUrl(item.text);
-  // High-consequence / takfir / personal-law questions are referral-only.
-  // We may provide the approved source link, but never surface the ruling text
-  // as Baseera's own answer.
-  if (isSensitiveFiqhQuestion(item.text)) {
-    return {
-      id: 'fiqh-sensitive-ref',
-      item,
-      status: 'REFER_TO_SPECIALIST',
-      status_label_ar: 'إحالة إلى مختص — مسألة فقهية حساسة',
-      status_label_en: 'Refer to Qualified Specialist — Sensitive Fiqh Matter',
-      reason: 'وُجد مصدر فقهي معتمد ذي صلة، لكن بصيرة لا تصدر حكمًا أو ترجيحًا آليًا في مسائل التكفير والردة والإساءة إلى المقدسات وما في حكمها، ولا تعرض نص الحكم كأنه فتوى صادرة عنها.',
-      citation: {
-        source_id: 'fiqh-madhahib-dorar',
-        source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
-        authority: 'المذاهب الفقهية الأربعة ومنصة الدرر السنية',
-        book: 'الموسوعة الفقهية المقارنة',
-        url: feqhiaSearchUrl
-      },
-      abstention_note: 'للمراجعة البشرية فقط: افتح المصدر المعتمد وراجع أهل العلم المؤهلين.',
-      decision_level: 'D'
-    };
-  }
-
-
-
-  const baseCitation = {
-    source_id: 'fiqh-madhahib-dorar',
-    source_name: 'الموسوعة الفقهية — الدرر السنية والكتب المعتمدة للمذاهب الأربعة',
-    authority: 'المذاهب الفقهية الأربعة (الحنفي، المالكي، الشافعي، الحنبلي)',
-    book: 'الموسوعة الفقهية المقارنة',
-    url: feqhiaSearchUrl
-  };
-
-  if (isPersonalDispute) {
-    return {
-      id: `fiqh-ref-${Date.now()}`,
-      item,
-      status: 'REFER_TO_SPECIALIST',
-      status_label_ar: 'إحالة إلى جهة إفتاء مؤهلة (امتناع آلي)',
-      status_label_en: 'Refer to Qualified Authority',
-      reason: 'هذه مسألة نازلة أو حالة شخصية تتعلق بالفروج أو المنازعات الأسرية أو قسمة التركات وتتطلب الاستماع المباشر ومعرفة الملابسات من هيئة إفتاء رسمية أو محكمة شرعية، ولا يقدم النظام حكمًا شرعيًا مستقلاً.',
-      citation: baseCitation,
-      abstention_note: 'هذه حالة شخصية أو نازلة معقدة تتطلب جهة مؤهلة ومحكمة شرعية.',
-      decision_level: 'D'
-    };
-  }
-
-  // ── الطبقة الأولى: البحث في المسائل الفقهية المعتمدة (sources/fiqh.json) ──
-  const matched = fiqhData.topics.find(t => {
-    // 1. فحص الكلمات المفتاحية
-    const kws = (t as any).keywords as string[] | undefined;
-    if (kws?.length) {
-      for (const kw of kws) {
-        const normKw = normalizeArabic(kw);
-        if (normKw.length >= 3 && normInput.includes(normKw)) {
-          return true;
-        }
-      }
-    }
-    // 2. فحص عنوان المسألة
-    const normTopic = normalizeArabic(t.topic);
-    if (normInput.includes(normTopic) || (normTopic.length >= 8 && normInput.includes(normTopic.slice(0, 15)))) {
-      return true;
-    }
-    return false;
-  });
-
-  // المستوى أ: معلومة مستقرة مجمع عليها (إجماع قطعي مع الدليل)
-  if (matched?.level === 'A') {
-    return {
-      id: `fiqh-${matched.id}`,
-      item,
-      status: 'MATCHED',
-      status_label_ar: 'معلومة فقهية مستقرة في السجل المرجعي — مصدر للمراجعة',
-      status_label_en: 'Established Consensus (Ijma & Evidence)',
-      reason: `المادة المدرجة في السجل الفقهي المعتمد تصف هذه المسألة على أنها مستقرة وتورد ملخصها: ${(matched as any).summary}. هذه مطابقة لمادة مرجعية، وليست فتوى شخصية صادرة عن بصيرة.`,
-      citation: {
-        ...baseCitation,
-        book: matched.topic,
-        url: feqhiaSearchUrl
-      },
-      canonical_text: (matched as any).summary,
-      school_positions: (matched as any).positions,
-      decision_level: 'A'
-    };
-  }
-
-  // المستوى ج: مسألة خلافية سائغة بين المذاهب الأربعة (عرض مقارن دون ترجيح آلي)
-  if (matched?.level === 'C') {
-    return {
-      id: `fiqh-${matched.id}`,
-      item,
-      status: 'NEEDS_REVIEW',
-      status_label_ar: 'مسألة خلافية بين المذاهب الأربعة (عرض مقارن دون ترجيح آلي)',
-      status_label_en: 'Scholarly Difference (No Automated Preference)',
-      reason: `مسألة خلافية سائغة بين أئمة الفقه، ويعرض النظام أقوال المذاهب المعتمدة دون ترجيح آلي أو فتوى جازمة: ${(matched as any).decision_rule || (matched as any).consensus || ''}`,
-      citation: {
-        ...baseCitation,
-        book: matched.topic,
-        url: (matched as any)?.url || feqhiaSearchUrl
-      },
-      canonical_text: (matched as any).summary,
-      school_positions: (matched as any).positions,
-      decision_level: 'C'
-    };
-  }
-
-  // المستوى د: نازلة معقدة
-  if (matched?.level === 'D') {
-    return {
-      id: `fiqh-${matched.id}`,
-      item,
-      status: 'REFER_TO_SPECIALIST',
-      status_label_ar: 'إحالة إلى جهة إفتاء مؤهلة ومجامع فقهية',
-      status_label_en: 'Refer to Official Ifta Body',
-      reason: (matched as any).abstention_statement || 'مسألة نازلة تتطلب فتوى جماعية من المجامع الفقهية المعتمدة.',
-      citation: baseCitation,
-      decision_level: 'D'
-    };
-  }
-
-  // ── عند عدم وجود المسألة في السجل الفقهي المعتمد: التمرير للبحث المباشر والامتناع الصارم ──
-  // منعاً للهلوسة: لا نقوم بربط المسألة عشوائياً بأي حديث يحوي كلمة مشتركة (مثل كلمة صوم أو رمضان)
-  const meaningfulWords = extractMeaningfulWords(normInput);
-
-  const fallbackResult: VerificationResult = {
-    id: `fiqh-abstain-${Date.now()}`,
+  const result: VerificationResult = {
+    id: `fiqh-live-${Date.now()}`,
     item,
-    status: 'NOT_FOUND_IN_CHECKED_SOURCES',
-    status_label_ar: 'لم يُعثر عليه في المراجع المفحوصة (امتناع شرعي)',
-    status_label_en: 'Not Found in Checked Sources (Abstention)',
-    reason: 'لم يُعثر على نص قطعي أو حديث صريح مطابق لهذه المسألة في المصادر المعتمدة المفحوصة (الموسوعة الفقهية والحديثية). تلتزم منظومة «بصيرة» بالامتناع الصارم عن إصدار أي حكم شرعي أو عزو أحاديث غير مطابقة منعاً للهلوسة والخطأ في دين الله. يمكنك البحث في الموسوعة الفقهية المقارنة بالدرر السنية عبر الرابط المرفق، أو مراجعة أهل العلم المعتمدين.',
-    citation: baseCitation,
-    decision_level: 'C'
+    status: sensitive || personal ? 'REFER_TO_SPECIALIST' : 'NOT_FOUND_IN_CHECKED_SOURCES',
+    status_label_ar: sensitive || personal
+      ? 'إحالة إلى جهة مؤهلة — البحث المصدرّي مستمر'
+      : 'جارٍ البحث في المصدر الفقهي المعتمد',
+    status_label_en: sensitive || personal
+      ? 'Refer to Qualified Authority — Live Source Retrieval'
+      : 'Live Search in Approved Fiqh Source',
+    reason: sensitive
+      ? 'المسألة عالية الحساسية؛ لا يصدر النظام فتوى أو ترجيحًا آليًا. سيُستخدم المصدر المعتمد للمراجعة فقط.'
+      : personal
+        ? 'هذه حالة شخصية تتطلب جهة إفتاء مؤهلة. سيُستخدم المصدر المعتمد للمراجعة فقط دون فتوى شخصية.'
+        : 'لا يعتمد النظام على سجل فقهي محلي. سيُفهم السؤال آليًا، ثم تُسترجع نتائج حية من الموسوعة الفقهية المعتمدة ويُختار المرشح منها فقط.',
+    citation: {
+      source_id: 'fiqh-madhahib-dorar',
+      source_name: 'الموسوعة الفقهية المقارنة — الدرر السنية',
+      authority: 'مؤسسة الدرر السنية',
+      url: searchUrl
+    },
+    abstention_note: sensitive || personal
+      ? 'المصدر المعروض للمراجعة البشرية فقط، وليس فتوى صادرة عن بصيرة.'
+      : undefined,
+    decision_level: sensitive || personal ? 'D' : 'C'
   };
 
-  (fallbackResult as any)._needs_live_search = true;
-  (fallbackResult as any)._fiqh_url = feqhiaSearchUrl;
-  (fallbackResult as any)._content_words = meaningfulWords;
-  return fallbackResult;
+  (result as any)._needs_live_search = true;
+  (result as any)._fiqh_url = searchUrl;
+  return result;
 }

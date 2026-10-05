@@ -33,7 +33,7 @@ jobs:
         run: npm run test
 
       - name: Fiqh connector self-test
-        run: npm run test:fiqh
+        run: python3 src/lib/dorar_feqhia.py --self-test
 
       - name: Production build
         run: npm run build
