@@ -225,7 +225,7 @@ export const VerifierView: React.FC = () => {
         <div className="mb-5">
           <div className="eyebrow">بصيرة · التحقق</div>
           <h1 className="mt-2 font-display text-[30px] font-bold leading-tight tracking-tight text-ink sm:text-[42px]">
-            اختر ما تريد التحقق منه
+            تحقق من المحتوى
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted sm:text-base">
             اختر النوع، ثم أدخل المحتوى. سنفحص المرجع المناسب فقط.
