@@ -93,18 +93,14 @@ export default function App() {
               >
                 الرئيسية
               </button>
-              {NAV_ITEMS.map(item => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => go(item.id)}
-                  className={`nav-link ${activeTab === item.id ? 'nav-link-active' : ''}`}
-                  aria-current={activeTab === item.id ? 'page' : undefined}
-                >
-                  <span className="nav-link-icon" aria-hidden="true">{item.icon}</span>
-                  {item.label}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => go('verifier')}
+                className={`nav-link ${activeTab === 'verifier' ? 'nav-link-active' : ''}`}
+                aria-current={activeTab === 'verifier' ? 'page' : undefined}
+              >
+                فحص المحتوى
+              </button>
             </nav>
 
             <div className="mr-auto flex items-center gap-2">
@@ -184,45 +180,19 @@ export default function App() {
       </main>
 
       <footer className="border-t border-line bg-surface">
-        <div className="mx-auto grid max-w-[1380px] gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_auto] lg:px-8">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="brand-mark brand-mark-small" aria-hidden="true">
-                <ShieldCheck className="h-4 w-4" />
-              </span>
-              <div>
-                <div className="font-display text-base font-bold">بصيرة</div>
-                <div className="text-xs text-muted">أداة للتحقق من المحتوى الإسلامي قبل نشره.</div>
-              </div>
-            </div>
-            <p className="mt-4 max-w-2xl text-xs leading-6 text-muted">
-              تفهم بصيرة النص بمساعدة الذكاء الاصطناعي، ثم تربط النتيجة بالمراجع المعتمدة.
-              دورها ليس إصدار فتوى من المعرفة العامة للنموذج، بل مساعدة المستخدم على الوصول إلى الأصل والتحقق منه.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-start gap-6 text-xs text-muted lg:justify-end">
+        <div className="mx-auto flex max-w-[980px] flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-center gap-3">
+            <span className="brand-mark brand-mark-small" aria-hidden="true">
+              <ShieldCheck className="h-4 w-4" />
+            </span>
             <div>
-              <div className="mb-2 font-semibold text-ink">للمستخدم</div>
-              <button type="button" className="footer-link" onClick={() => go('verifier')}>فحص نص</button>
-              <button type="button" className="footer-link" onClick={() => go('dawah')}>إعداد محتوى</button>
-            </div>
-            <div>
-              <div className="mb-2 font-semibold text-ink">للمهتمين</div>
-              <button type="button" className="footer-link" onClick={() => go('sources')}>المراجع</button>
-              <button type="button" className="footer-link" onClick={() => go('governance')}>الحوكمة</button>
-            </div>
-            <div>
-              <div className="mb-2 font-semibold text-ink">المنهج</div>
-              <button type="button" className="footer-link" onClick={() => go('benchmark')}>قياس الجودة</button>
-              <button type="button" className="footer-link" onClick={() => go('extension')}>إضافة المتصفح</button>
+              <div className="font-display text-base font-bold">بصيرة</div>
+              <div className="text-xs text-muted">تحقق من المحتوى وارجع إلى المصدر.</div>
             </div>
           </div>
-        </div>
-        <div className="border-t border-line/80">
-          <div className="mx-auto flex max-w-[1380px] items-center gap-2 px-4 py-4 text-[11px] text-faint sm:px-6 lg:px-8">
-            <CircleHelp className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>في المسائل الشخصية أو الحساسة، راجع أهل الاختصاص. بصيرة لا تستبدل الحكم الشرعي المؤهل.</span>
-          </div>
+          <button type="button" className="footer-link !min-h-9 !py-1" onClick={() => go('sources')}>
+            المراجع المعتمدة
+          </button>
         </div>
       </footer>
     </div>
