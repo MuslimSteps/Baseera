@@ -112,30 +112,32 @@ function candidateScore(input: string, canonical: string): number {
 }
 
 export async function getQuranCandidatesForAI(item: ExtractedItem, limit = 12): Promise<QuranCandidate[]> {
-  const normalizedInput = normalizeArabic(item.text);
-
   // Fast path: live source search discovers only relevant ayah references.
   // This avoids requiring the full Quran corpus to be downloaded for each check.
+  let liveSearchFailed = false;
   try {
     const liveRows = await searchHafsAyahsLive(item.text, limit);
     if (liveRows.length > 0) {
       const mushaf = await getHafsMushaf().catch(() => null);
-      return liveRows.map(ayah => {
-        const surah = mushaf?.surahs.find(s => Number(s.id) === Number(ayah.surah));
+      return liveRows
+        .sort((a, b) => candidateScore(item.text, b.text) - candidateScore(item.text, a.text))
+        .map(ayah => {
+          const surah = mushaf?.surahs.find(s => Number(s.id) === Number(ayah.surah));
         const surahName = cleanSurahDisplayName(surah?.name || `سورة ${ayah.surah}`);
-        return {
-          id: `quran-${ayah.surah}-${ayah.number}`,
+          return {
+            id: `quran-${ayah.surah}-${ayah.number}`,
           source: 'quran-uthmani' as const,
           title: `سورة ${surahName} — الآية ${ayah.number}`,
           text: ayah.text,
           surah_number: Number(ayah.surah),
           ayah_number: Number(ayah.number),
           surah_name_ar: surahName,
-          text_uthmani: ayah.text
-        };
-      });
+            text_uthmani: ayah.text
+          };
+        });
     }
   } catch (error) {
+    liveSearchFailed = true;
     console.warn('[BASEERA][QURAN][LIVE_SEARCH_ERROR]', error);
   }
 
@@ -143,7 +145,12 @@ export async function getQuranCandidatesForAI(item: ExtractedItem, limit = 12): 
   try {
     const mushaf = await getHafsMushaf();
     const claimedSurah = findSurah(mushaf, item.claimed_surah);
-    if (!claimedSurah) return [];
+    if (!claimedSurah) {
+      if (liveSearchFailed) {
+        throw new Error('تعذر الوصول إلى مصدر القرآن المباشر.');
+      }
+      return [];
+    }
 
     return claimedSurah.ayahs
       .map(ayah => ({ ayah, score: candidateScore(item.text, ayah.text) }))
@@ -164,6 +171,9 @@ export async function getQuranCandidatesForAI(item: ExtractedItem, limit = 12): 
       });
   } catch (error) {
     console.warn('[BASEERA][QURAN][FULL_MUSHAF_FALLBACK]', error);
+    if (liveSearchFailed) {
+      throw new Error('تعذر الوصول إلى مصدر القرآن المباشر.');
+    }
   }
 
   return [];
@@ -393,10 +403,10 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
   return {
     id: `quran-live-${Date.now()}`,
     item,
-    status: 'NOT_FOUND_IN_CHECKED_SOURCES',
-    status_label_ar: 'سيجري التحقق من المصحف المعتمد مباشرة',
-    status_label_en: 'Will Verify Against Live Approved Quran Source',
-    reason: 'لم تعد للمشروع قاعدة محلية لنص القرآن؛ سيجري جلب النص المعتمد مباشرة من المصدر الحي ثم التحقق منه.',
+    status: 'NEEDS_REVIEW',
+    status_label_ar: 'تعذر إكمال التحقق',
+    status_label_en: 'Verification Could Not Be Completed',
+    reason: 'تعذر إكمال الفحص الآن.',
     citation: {
       source_id: 'quran-uthmani',
       source_name: 'المصحف الشريف — النص الحفصي المعتمد',

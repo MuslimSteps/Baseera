@@ -178,7 +178,14 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
   try {
     // ── QURAN PATH: live Quranpedia source is authoritative ────────────────
     if (v.item.type === 'ayah') {
-      let candidates = await getQuranCandidatesForAI(v.item, 12);
+      let candidates: QuranCandidate[] = [];
+      let quranSourceUnavailable = false;
+      try {
+        candidates = await getQuranCandidatesForAI(v.item, 12);
+      } catch (error: any) {
+        quranSourceUnavailable = true;
+        console.warn('[BASEERA][QURAN][SOURCE_UNAVAILABLE]', error?.message || String(error));
+      }
 
       // For non-Arabic input (for example an English translation), AI may
       // suggest locations, but every suggested location is fetched and
@@ -206,30 +213,31 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
       }
 
       if (!selected && candidates.length > 0) {
-        selected = candidates[0];
+        if (aiEnabled) {
+          const aiCandidates = candidates.map(c => ({
+            id: c.id,
+            source: c.source,
+            title: c.title,
+            text: c.text
+          }));
+          const ai = await rankCandidatesWithAI('quran', queryToSearch, aiCandidates);
+          if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
+            selected = candidates.find(c => c.id === ai.candidate_id);
+            if (selected) {
+              v.ai_match = {
+                provider: 'groq',
+                candidate_id: ai.candidate_id,
+                relation: ai.relation,
+                confidence: ai.confidence
+              };
+            }
+          }
+        }
+        selected = selected || candidates[0];
       }
 
       if (selected) {
         // Populate the canonical surah name from the live candidate set where possible.
-        const aiCandidates = candidates.map(c => ({
-          id: c.id,
-          source: c.source,
-          title: c.title,
-          text: c.text
-        }));
-        if (aiEnabled && aiCandidates.length > 1 && !hintId) {
-          const ai = await rankCandidatesWithAI('quran', queryToSearch, aiCandidates);
-          if (ai?.candidate_id && ai.confidence >= 0.55 && ai.relation !== 'none') {
-            selected = candidates.find(c => c.id === ai.candidate_id) || selected;
-            v.ai_match = {
-              provider: 'groq',
-              candidate_id: ai.candidate_id,
-              relation: ai.relation,
-              confidence: ai.confidence
-            };
-          }
-        }
-
         // The final decision is based only on the source-returned canonical text.
         const quranDecision = buildQuranDecision(v.item, selected);
         if (quranDecision.status !== 'NOT_FOUND_IN_CHECKED_SOURCES') {
@@ -239,8 +247,35 @@ async function resolveVerificationWithLiveSearch(v: any, fullContext: string = '
         }
       }
 
-      // With an explicit source selection, a Quran miss stays within the
-      // Quran scope. Cross-source attribution is reserved for automatic mode.
+      // A user-selected Quran check is hard-scoped to the Quran source.
+      // Never reinterpret the same input as a hadith or another category.
+      if (v.item.verification_scope === 'quran') {
+        if (quranSourceUnavailable) {
+          v.status = 'NEEDS_REVIEW';
+          v.status_label_ar = 'تعذر التحقق الآن';
+          v.status_label_en = 'Verification Temporarily Unavailable';
+          v.reason = 'تعذر الوصول إلى المصحف المعتمد لإكمال الفحص. أعد المحاولة بعد قليل.';
+          v.citation = {
+            source_id: 'quran-uthmani',
+            source_name: 'المصحف الشريف — النص الحفصي المعتمد',
+            authority: 'مجمع الملك فهد / Quranpedia',
+            url: 'https://quranpedia.net/'
+          };
+        } else {
+          v.status = 'NOT_FOUND_IN_CHECKED_SOURCES';
+          v.status_label_ar = 'لم يُعثر على تطابق في المصحف';
+          v.status_label_en = 'No Match Found in the Quran';
+          v.reason = 'لم يُعثر على تطابق للنص في المصحف المعتمد.';
+          v.citation = {
+            source_id: 'quran-uthmani',
+            source_name: 'المصحف الشريف — النص الحفصي المعتمد',
+            authority: 'مجمع الملك فهد / Quranpedia',
+            url: `https://quranpedia.net/search?query=${encodeURIComponent(queryToSearch)}`
+          };
+        }
+        delete r._needs_live_search;
+        return;
+      }
     }
 
     if (v.item.type === 'hadith') {

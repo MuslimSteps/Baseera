@@ -6,7 +6,8 @@ import sourceRegistry from '../sources/source-registry.json' with { type: 'json'
 import { extractItemsRuleBased } from '../src/lib/extractor.ts';
 import { verifySingleItemCrossSource } from '../src/lib/decisionEngine.ts';
 import { verifyFiqhQuestion, isSensitiveFiqhQuestion } from '../src/lib/fiqhEngine.ts';
-import { verifyQuranAyah } from '../src/lib/quranVerifier.ts';
+import { verifyQuranAyah, buildQuranDecision } from '../src/lib/quranVerifier.ts';
+import { extractAyahRefsFromHtml } from '../src/lib/quranpediaClient.ts';
 import { verifyIslamicTerm } from '../src/lib/terminologyEngine.ts';
 import { buildHadithDecision } from '../src/lib/hadithVerifier.ts';
 import { enforceDecisionPolicy } from '../src/lib/decisionPolicy.ts';
@@ -214,6 +215,30 @@ test('Quran verifier never produces MATCHED from local state', () => {
   const result = verifyQuranAyah(item('ayah', 'الحمد لله رب العالمين', { claimed_surah: 'الفاتحة' }));
   assert.notEqual(result.status, 'MATCHED');
   assert.equal((result as any)._needs_live_search, true);
+});
+
+test('Quranpedia search parser keeps the canonical ayah reference when HTML uses surah links', () => {
+  const html = '<a href="/surah/2/al-baqara?ayah_id=255">من ذا الذي يشفع عنده</a>';
+  assert.deepEqual(extractAyahRefsFromHtml(html), [{ surah: 2, ayah: 255 }]);
+});
+
+test('partial Quran quotation is matched against the canonical source text', () => {
+  const result = buildQuranDecision(
+    item('ayah', 'من ذا الذي يشفع عنده'),
+    {
+      id: 'quran-2-255',
+      source: 'quran-uthmani',
+      title: 'سورة البقرة — الآية 255',
+      text: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ',
+      surah_number: 2,
+      ayah_number: 255,
+      surah_name_ar: 'البقرة',
+      text_uthmani: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ'
+    }
+  );
+  assert.equal(result.status, 'MATCHED');
+  assert.equal(result.canonical_ayah_number, 255);
+  assert.equal(result.canonical_surah, 'البقرة');
 });
 
 test('term verifier never produces MATCHED from local state', () => {

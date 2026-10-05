@@ -97,58 +97,111 @@ export async function getHafsMushaf(): Promise<QuranMushaf> {
   return hafsMushafPromise;
 }
 
-export async function searchHafsAyahsLive(query: string, limit = 12): Promise<QuranMushafAyah[]> {
-  const clean = String(query || '').replace(/[«»"“”؟?.,!]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180);
-  if (!clean || clean.length < 2) return [];
+export function extractAyahRefsFromHtml(html: string): Array<{ surah: number; ayah: number }> {
+  const refs = new Set<string>();
 
-  // Quranpedia's current HTML search endpoint is intended for live search.
-  // We only use it to discover ayah references; canonical text is always
-  // fetched from the official /v1/mushafs/{id}/{surah}/{ayah} endpoint.
-  const url = `https://api.quranpedia.net/search?query=${encodeURIComponent(clean)}&fragment=1&type=ayah`;
-
-  try {
-    const response = await fetchRemoteSafely(url, {
-      headers: {
-        'User-Agent': 'Baseera/1.0',
-        'Accept': 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'ar,en;q=0.9'
-      }
-    });
-
-    if (!response.ok) return [];
-    const html = await readTextWithLimit(response, 1_500_000);
-    if (!html) return [];
-
-    const refs = new Set<string>();
-
-    // Support common Quranpedia result-link forms and data attributes.
-    for (const match of html.matchAll(/\/verse\/(\d+)\/(\d+)/gi)) {
-      refs.add(`${match[1]}:${match[2]}`);
+  const add = (surahValue: string | undefined, ayahValue: string | undefined) => {
+    const surah = Number(surahValue);
+    const ayah = Number(ayahValue);
+    if (Number.isInteger(surah) && surah >= 1 && surah <= 114 && Number.isInteger(ayah) && ayah >= 1) {
+      refs.add(`${surah}:${ayah}`);
     }
-    for (const match of html.matchAll(/\/surah\/(?:\d+\/)?(\d+)[^"'<>]*[?&]ayah_id=(\d+)/gi)) {
-      refs.add(`${match[1]}:${match[2]}`);
-    }
-    for (const match of html.matchAll(/data-surah(?:-id)?=["'](\d+)["'][^>]*data-(?:ayah|ayah-number|ayah_id)=["'](\d+)["']/gi)) {
-      refs.add(`${match[1]}:${match[2]}`);
-    }
+  };
 
-    const selected = Array.from(refs).slice(0, limit);
-    const rows = await Promise.all(
-      selected.map(async ref => {
-        const [surah, ayah] = ref.split(':').map(Number);
-        return Number.isInteger(surah) && Number.isInteger(ayah)
-          ? await getHafsAyah(surah, ayah)
-          : null;
-      })
-    );
+  for (const match of html.matchAll(/\/verse\/(\d+)\/(\d+)/gi)) add(match[1], match[2]);
+  for (const match of html.matchAll(/\/surah\/(\d+)(?:\/[^"'<>?#]*)?[^"'<>]*[?&](?:ayah_id|ayah)=(\d+)/gi)) add(match[1], match[2]);
+  for (const match of html.matchAll(/\/ayahs?\/(\d+)\/(\d+)/gi)) add(match[1], match[2]);
 
-    return rows.filter((row): row is QuranMushafAyah => Boolean(row));
-  } catch (error) {
-    console.warn('[BASEERA][QURAN][SEARCH_FALLBACK]', error);
-    return [];
+  for (const tagMatch of html.matchAll(/<[^>]+>/gi)) {
+    const tag = tagMatch[0];
+    const surahMatch = tag.match(/data-surah(?:-id)?=["'](\d+)["']/i);
+    const ayahMatch = tag.match(/data-(?:ayah|ayah-number|ayah_id|ayah-id)=["'](\d+)["']/i);
+    add(surahMatch?.[1], ayahMatch?.[1]);
   }
+
+  return Array.from(refs).map(ref => {
+    const [surah, ayah] = ref.split(':').map(Number);
+    return { surah, ayah };
+  });
 }
 
+async function fetchAyahSearchHtml(url: string): Promise<string | null> {
+  const response = await fetchRemoteSafely(url, {
+    headers: {
+      'User-Agent': 'Baseera/1.0',
+      'Accept': 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'ar,en;q=0.9'
+    }
+  });
+  if (!response.ok) return null;
+  return readTextWithLimit(response, 1_500_000);
+}
+
+export async function searchHafsAyahsLive(query: string, limit = 12): Promise<QuranMushafAyah[]> {
+  const clean = String(query || '')
+    .replace(/[«»"“”؟?.,!]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+
+  if (!clean || clean.length < 2) return [];
+
+  const refs = new Set<string>();
+  let successfulSourceResponse = false;
+
+  const primaryUrls = [
+    `https://api.quranpedia.net/search?query=${encodeURIComponent(clean)}&fragment=1&type=ayah`,
+    `https://quranpedia.net/search?query=${encodeURIComponent(clean)}&fragment=1&type=ayah`
+  ];
+
+  for (const url of primaryUrls) {
+    try {
+      const html = await fetchAyahSearchHtml(url);
+      if (html !== null) {
+        successfulSourceResponse = true;
+        for (const ref of extractAyahRefsFromHtml(html)) refs.add(`${ref.surah}:${ref.ayah}`);
+      }
+      if (refs.size >= limit) break;
+    } catch (error) {
+      console.warn('[BASEERA][QURAN][SEARCH_ERROR]', error);
+    }
+  }
+
+  if (refs.size === 0) {
+    const words = clean.split(/\s+/)
+      .filter(word => word.length >= 4)
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 4);
+
+    for (const word of words) {
+      try {
+        const html = await fetchAyahSearchHtml(`https://quranpedia.net/word/${encodeURIComponent(word)}`);
+        if (html !== null) {
+          successfulSourceResponse = true;
+          for (const ref of extractAyahRefsFromHtml(html)) refs.add(`${ref.surah}:${ref.ayah}`);
+        }
+        if (refs.size >= limit) break;
+      } catch (error) {
+        console.warn('[BASEERA][QURAN][WORD_SEARCH_ERROR]', error);
+      }
+    }
+  }
+
+  if (!successfulSourceResponse) throw new Error('تعذر الوصول إلى بحث Quranpedia المباشر.');
+
+  const selected = Array.from(refs).slice(0, limit);
+  const canonicalRows = await Promise.all(selected.map(async ref => {
+    const [surah, ayah] = ref.split(':').map(Number);
+    return Number.isInteger(surah) && Number.isInteger(ayah) ? await getHafsAyah(surah, ayah) : null;
+  }));
+
+  const resolvedRows = canonicalRows.filter((row): row is QuranMushafAyah => Boolean(row));
+  if (selected.length > 0 && resolvedRows.length === 0) {
+    throw new Error('تعذر جلب نص الآية من واجهة Quranpedia المعتمدة.');
+  }
+
+  return resolvedRows;
+}
 export async function getHafsAyah(surah: number, ayah: number): Promise<QuranMushafAyah | null> {
   try {
     const mushafId = await getHafsMushafId();
