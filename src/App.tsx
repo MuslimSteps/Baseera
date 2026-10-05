@@ -185,7 +185,7 @@ export default function App() {
             </span>
             <div>
               <div className="font-display text-base font-bold">بصيرة</div>
-              <div className="text-xs text-muted">تحقق من المحتوى وارجع إلى المصدر.</div>
+              <div className="text-xs text-muted">تحقق، راجع الدليل، ثم استخدم المحتوى بثقة.</div>
             </div>
           </div>
           <button type="button" className="footer-link !min-h-9 !py-1" onClick={() => go('sources')}>
