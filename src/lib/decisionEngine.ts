@@ -32,6 +32,14 @@ import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from './dorarQueryUtils.ts'
  */
 
 export function verifySingleItemCrossSource(item: ExtractedItem): VerificationResult {
+  const scope = (item as any).verification_scope as 'quran' | 'hadith' | 'term' | 'fiqh' | 'auto' | undefined;
+
+  // An explicit category selected by the user is a hard source boundary.
+  // Never search other religious corpora as a fallback.
+  if (scope === 'quran' && item.type === 'ayah') return verifyQuranAyah(item);
+  if (scope === 'hadith' && item.type === 'hadith') return verifyHadith(item);
+  if (scope === 'term' && item.type === 'term') return verifyIslamicTerm(item);
+  if (scope === 'fiqh' && item.type === 'fiqh_question') return verifyFiqhQuestion(item);
   // 1. If claimed/tagged as Ayah
   if (item.type === 'ayah') {
     const quranRes = verifyQuranAyah(item);
