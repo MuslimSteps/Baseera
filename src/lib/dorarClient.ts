@@ -304,6 +304,7 @@ export async function searchDorarApiLive(query: string): Promise<DorarHadithResu
   if (!cleanQ || cleanQ.length < 2) return [];
 
   const cacheKey = cleanQ.toLowerCase();
+  console.log('[BASEERA][DORAR_FIQH][START]', JSON.stringify({ query: cleanQ, platform: process.platform, cwd: process.cwd() }));
   if (dorarMemoryCache.has(cacheKey)) {
     return dorarMemoryCache.get(cacheKey)!;
   }
@@ -661,14 +662,17 @@ export async function searchDorarFiqhLive(query: string): Promise<DorarFiqhLiveR
     });
 
     if (result) {
+      console.log('[BASEERA][DORAR_FIQH][PYTHON_RESULT]', JSON.stringify({ query: cleanQ, title: result.title, url: result.url, resultCount: result.allResults?.length || 0 }));
       dorarFiqhMemoryCache.set(cacheKey, result);
       return result;
     }
 
     // Node-side fallback: use Dorar's own Fiqh search directly if the Python
     // connector is unavailable in the deployment environment.
+    console.warn('[BASEERA][DORAR_FIQH][PYTHON_MISS]', JSON.stringify({ query: cleanQ }));
     const httpFallback = await searchDorarFiqhHttpFallback(cleanQ);
     if (httpFallback) {
+      console.log('[BASEERA][DORAR_FIQH][HTTP_RESULT]', JSON.stringify({ query: cleanQ, title: httpFallback.title, url: httpFallback.url, resultCount: httpFallback.allResults?.length || 0 }));
       dorarFiqhMemoryCache.set(cacheKey, httpFallback);
       return httpFallback;
     }
@@ -698,6 +702,7 @@ export async function searchDorarFiqhLive(query: string): Promise<DorarFiqhLiveR
       }
     }
 
+    console.warn('[BASEERA][DORAR_FIQH][NO_RESULT]', JSON.stringify({ query: cleanQ }));
     dorarFiqhMemoryCache.set(cacheKey, null);
     return null;
   } catch (err) {
