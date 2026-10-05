@@ -10,7 +10,10 @@ import {
   MousePointer,
   ImageIcon,
   Sparkles,
-  FileText
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  HelpCircle
 } from 'lucide-react';
 import { VerificationResult } from '../types/baseera.ts';
 import { verifySingleItemCrossSource } from '../lib/decisionEngine.ts';
@@ -351,9 +354,11 @@ export const ExtensionSimulatorView: React.FC = () => {
                     : 'bg-slate-900/80 border-slate-700 text-slate-300'
                 } space-y-1.5`}>
                   <div className="text-sm font-bold font-display leading-snug flex items-center gap-1.5">
-                    {!/^[✓⚠️⛔❓✅📖]/.test(activeVerification.status_label_ar) && (
-                      <span>{activeVerification.status === 'MATCHED' ? '✓' : activeVerification.status === 'NEEDS_REVIEW' ? '⚠️' : '❓'}</span>
-                    )}
+                    {activeVerification.status === 'MATCHED'
+                      ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      : activeVerification.status === 'NEEDS_REVIEW'
+                        ? <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        : <HelpCircle className="h-4 w-4 shrink-0" aria-hidden="true" />}
                     <span>{activeVerification.status_label_ar}</span>
                   </div>
                   <div className="text-[11px] text-slate-300 pt-1 border-t border-slate-800/80">
