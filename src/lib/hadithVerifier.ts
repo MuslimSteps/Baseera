@@ -77,7 +77,13 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
     book: bestMatch.book,
     number_or_page: bestMatch.numberOrPage,
     grade: bestMatch.grade,
-    url: `https://dorar.net/hadith/search?q=${encodeURIComponent(bestMatch.text)}`
+    url: `https://dorar.net/hadith/search?q=${encodeURIComponent(
+      normalizeArabic(bestMatch.text)
+        .replace(/^[«"'\s]+|[»"'\s.]+$/g, '')
+        .split(/\s+/)
+        .slice(0, 8)
+        .join(' ')
+    )}`
   };
 
   if (item.claimed_source) {

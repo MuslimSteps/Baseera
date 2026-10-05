@@ -93,82 +93,94 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
     claim: 'نص'
   }[result.item.type] || 'نص';
 
+  const displayTitle = isMatched
+    ? (result.item.type === 'ayah'
+        ? 'مطابق للمصحف الشريف'
+        : (cleanLabel(result.status_label_ar) || 'مطابق للمصدر المعتمد'))
+    : isAlteredQuran
+      ? 'غير مطابق — رُصد اختلاف في لفظ الآية'
+      : (cleanLabel(result.status_label_ar) || tone.label);
+
   return (
     <article className="verification-card">
       <div className={tone.panel}>
-        <div className="flex items-start gap-3">
-          <span className={`status-icon-wrap ${tone.badge}`} aria-hidden="true">
-            {tone.icon}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-muted">{typeLabel}</span>
-              <span className="decision-chip">{tone.label}</span>
-            </div>
-            <h3 className="mt-2 font-display text-xl font-bold leading-8 text-ink">
-              {cleanLabel(result.status_label_ar) || tone.label}
-            </h3>
-            {compactReason(result.reason) && (
-              <p className="mt-2 max-w-3xl text-sm leading-7 text-muted">
-                {compactReason(result.reason)}
-              </p>
-            )}
-
-            {/* مبدأ الحوكمة الصارم لتوثيق الأحاديث النبوية */}
-            {(result.item.type === 'hadith' || result.abstention_note) && (
-              <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-amber-600/25 bg-amber-500/10 px-3.5 py-2.5 text-xs font-bold leading-relaxed text-amber-900 shadow-sm">
-                <ShieldAlert className="h-4.5 w-4.5 shrink-0 text-amber-700 mt-0.5" />
-                <span>
-                  {result.abstention_note || 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'}
-                </span>
+        {/* رأس البطاقة: نوع المحتوى + الحكم المباشر + زر فتح المصدر */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className={`status-icon-wrap ${tone.badge}`} aria-hidden="true">
+              {tone.icon}
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-muted">{typeLabel}</span>
+                <span className="decision-chip">{tone.label}</span>
               </div>
-            )}
+              <h3 className="mt-1 font-display text-lg sm:text-xl font-bold leading-tight text-ink">
+                {displayTitle}
+              </h3>
+            </div>
           </div>
+
+          {result.citation?.url && (
+            <a
+              href={result.citation.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="source-link"
+            >
+              <BookOpenCheck className="h-4 w-4" />
+              <span>فتح المصدر</span>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
         </div>
 
-        {result.citation?.url && (
-          <a
-            href={result.citation.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="source-link mt-4 w-full justify-center sm:w-auto"
-          >
-            <BookOpenCheck className="h-4 w-4" />
-            <span>فتح المصدر</span>
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
+        {/* مبدأ الحوكمة الصارم لتوثيق الأحاديث النبوية */}
+        {(result.item.type === 'hadith' && !isMatched) && (
+          <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-amber-600/25 bg-amber-500/10 px-3.5 py-2.5 text-xs font-bold leading-relaxed text-amber-900 shadow-sm">
+            <ShieldAlert className="h-4.5 w-4.5 shrink-0 text-amber-700 mt-0.5" />
+            <span>
+              {result.abstention_note || 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'}
+            </span>
+          </div>
+        )}
+
+        {/* الدليل مدمج ومباشر في قلب البطاقة دون تكرار */}
+        {result.canonical_text && !isNotFound ? (
+          <div className="mt-4 pt-3.5 border-t border-line/60">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-xs font-bold text-muted flex items-center gap-1.5">
+                <FileSearch className="h-4 w-4 text-gold" />
+                <span>الدليل ({cleanLabel(result.citation?.source_name) || 'المصدر المعتمد'})</span>
+              </span>
+            </div>
+
+            <div className="evidence-quote my-2.5">
+              «{(result.canonical_text || '').replace(/[\uFC00-\uFC6E]/g, '').trim()}»
+            </div>
+
+            <div className="evidence-meta">
+              {result.citation?.book && <span>{cleanLabel(result.citation.book)}</span>}
+              {result.citation?.number_or_page && <span>{cleanLabel(result.citation.number_or_page)}</span>}
+              {result.citation?.grade && <span>{cleanLabel(result.citation.grade)}</span>}
+            </div>
+          </div>
+        ) : (
+          !isMatched && compactReason(result.reason) && (
+            <p className="mt-3 text-sm leading-7 text-muted border-t border-line/60 pt-3">
+              {compactReason(result.reason)}
+            </p>
+          )
+        )}
+
+        {/* عارض الفروق اللفظية المباشر إن وجد */}
+        {result.diff && result.diff.length > 0 && (
+          <div className="mt-4 pt-3.5 border-t border-line/60">
+            <div className="eyebrow mb-2">الفروق المكتشفة مع المصحف الشريف</div>
+            <WordDiffViewer diff={result.diff} canonicalText={result.canonical_text} />
+          </div>
         )}
       </div>
-
-      {/* الفروق اللفظية المكتشفة تظهر مباشرة دون الحاجة لفتح التفاصيل */}
-      {result.diff && result.diff.length > 0 && (
-        <div className="mt-3 rounded-2xl border border-line bg-page p-4">
-          <div className="eyebrow mb-2">الفروق المكتشفة مع المصحف الشريف</div>
-          <WordDiffViewer diff={result.diff} canonicalText={result.canonical_text} />
-        </div>
-      )}
-
-      {result.canonical_text && !isNotFound && (
-        <div className="evidence-block">
-          <div className="evidence-head">
-            <div>
-              <div className="eyebrow">الدليل</div>
-              <div className="mt-1 text-xs leading-5 text-muted">
-                {cleanLabel(result.citation?.source_name)}
-              </div>
-            </div>
-            <FileSearch className="h-5 w-5 text-gold" aria-hidden="true" />
-          </div>
-
-          <div className="evidence-quote">«{(result.canonical_text || '').replace(/[\uFC00-\uFC6E]/g, '').trim()}»</div>
-
-          <div className="evidence-meta">
-            {result.citation?.book && <span>{cleanLabel(result.citation.book)}</span>}
-            {result.citation?.number_or_page && <span>{cleanLabel(result.citation.number_or_page)}</span>}
-            {result.citation?.grade && <span>{cleanLabel(result.citation.grade)}</span>}
-          </div>
-        </div>
-      )}
 
       <div className="mt-3 overflow-hidden rounded-2xl border border-line bg-page">
         <button
@@ -186,6 +198,12 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
 
         {detailsOpen && (
           <div className="space-y-4 border-t border-line px-4 py-4 sm:px-5">
+            {compactReason(result.reason) && (
+              <div className="rounded-xl border border-line bg-surface p-3 text-xs leading-6 text-muted">
+                <strong className="text-ink">بيان التحقق والمطابقة: </strong>
+                {compactReason(result.reason)}
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="detail-cell">
                 <div className="detail-label">النص المدخل</div>

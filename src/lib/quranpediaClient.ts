@@ -341,5 +341,5 @@ export async function getLanguageCatalog(): Promise<QuranTranslationLanguage[]> 
   return Array.isArray(data) ? data : [];
 }
 export function buildQuranpediaAyahUrl(surah: number, ayah: number): string {
-  return `${WEB_BASE}/verse/${surah}/${ayah}`;
+  return `${WEB_BASE}/surah/1/${surah}`;
 }

@@ -11,7 +11,7 @@
 
 import { computeWordDiff, normalizeArabic, normalizeArabicStrict } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
-import { getHafsAyah, getHafsSurahName, searchHafsAyahsLive, QuranMushafAyah } from './quranpediaClient.ts';
+import { getHafsAyah, getHafsSurahName, searchHafsAyahsLive, QuranMushafAyah, buildQuranpediaAyahUrl } from './quranpediaClient.ts';
 
 export type QuranCandidate = {
   id: string;
@@ -196,7 +196,7 @@ export function buildQuranDecision(
         authority: 'مجمع الملك فهد / Quranpedia',
         book: `سورة ${candidate.surah_name_ar}`,
         number_or_page: `الآية: ${candidate.ayah_number}`,
-        url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
+        url: buildQuranpediaAyahUrl(candidate.surah_number, candidate.ayah_number)
       },
       canonical_text: candidate.text_uthmani,
       canonical_surah: candidate.surah_name_ar,
@@ -228,7 +228,7 @@ export function buildQuranDecision(
     authority: 'مجمع الملك فهد / Quranpedia',
     book: `سورة ${candidate.surah_name_ar}`,
     number_or_page: `الآية: ${candidate.ayah_number}`,
-    url: `https://quranpedia.net/verse/${candidate.surah_number}/${candidate.ayah_number}`
+    url: buildQuranpediaAyahUrl(candidate.surah_number, candidate.ayah_number)
   };
 
   const cleanCanonicalText = (candidate.text_uthmani || '').replace(/[\uFC00-\uFC6E]/g, '').trim();

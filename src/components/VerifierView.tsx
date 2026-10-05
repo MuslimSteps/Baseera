@@ -237,10 +237,12 @@ export const VerifierView: React.FC = () => {
 
         <div className="tool-card p-4 sm:p-5">
           {/* شريط اختيار نوع المحتوى وطريقة الإدخال مدمج وملتصق مباشرة بصندوق الكتابة */}
+          {/* خيارات نوع المحتوى ووسيلة الإدخال في سطرين مستقلين ومنظمين */}
           <div className="flex flex-col gap-2.5 pb-3 border-b border-line">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 flex-wrap" role="radiogroup" aria-label="نوع المحتوى">
-                <span className="text-xs font-bold text-ink ms-0.5">نوع المحتوى:</span>
+            {/* السطر الأول: نوع المحتوى */}
+            <div className="flex items-center gap-2 flex-wrap" role="radiogroup" aria-label="نوع المحتوى">
+              <span className="text-xs font-bold text-ink shrink-0">نوع المحتوى:</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {CATEGORIES.map(item => (
                   <button
                     key={item.id}
@@ -264,8 +266,12 @@ export const VerifierView: React.FC = () => {
                   </button>
                 ))}
               </div>
+            </div>
 
-              <div className="input-tabs" role="tablist" aria-label="طريقة الإدخال">
+            {/* السطر الثاني: وسيلة الإدخال */}
+            <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-line/60">
+              <span className="text-xs font-bold text-ink shrink-0">وسيلة الإدخال:</span>
+              <div className="input-tabs" role="tablist" aria-label="وسيلة الإدخال">
                 {INPUTS.map(item => (
                   <button
                     key={item.id}
@@ -283,83 +289,124 @@ export const VerifierView: React.FC = () => {
             </div>
           </div>
 
+          {/* مدخل الرابط */}
           {inputType === 'url' && (
-            <div className="input-row">
-              <label className="sr-only" htmlFor="baseera-url">الرابط</label>
-              <div className="input-with-icon">
-                <Globe className="h-4 w-4" />
-                <input
-                  id="baseera-url"
-                  type="url"
-                  dir="ltr"
-                  value={urlInput}
-                  onChange={e => setUrlInput(e.target.value)}
-                  placeholder="https://example.com/..."
-                />
+            <div className="space-y-3">
+              <div className="input-row">
+                <label className="sr-only" htmlFor="baseera-url">الرابط</label>
+                <div className="input-with-icon">
+                  <Globe className="h-4 w-4" />
+                  <input
+                    id="baseera-url"
+                    type="url"
+                    dir="ltr"
+                    value={urlInput}
+                    onChange={e => setUrlInput(e.target.value)}
+                    placeholder="https://example.com/..."
+                  />
+                </div>
+                <button type="button" onClick={() => void handleFetchUrl()} disabled={isFetchingUrl} className="btn btn-secondary min-h-11 px-4">
+                  {isFetchingUrl ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                  قراءة الرابط
+                </button>
               </div>
-              <button type="button" onClick={() => void handleFetchUrl()} disabled={isFetchingUrl} className="btn btn-secondary min-h-11 px-4">
-                {isFetchingUrl ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                قراءة الرابط
-              </button>
+              {inputText && (
+                <div className="textarea-wrap">
+                  <div className="mb-1 text-xs font-semibold text-muted">النص المستخرج من الرابط (يمكنك مراجعته قبل الفحص):</div>
+                  <textarea
+                    rows={3}
+                    value={inputText}
+                    onChange={e => {
+                      setInputText(e.target.value);
+                      if (report) setReport(null);
+                    }}
+                    className="main-textarea"
+                  />
+                </div>
+              )}
             </div>
           )}
 
+          {/* رفع الصور والتسجيلات الصوتية */}
           {(inputType === 'image' || inputType === 'audio') && (
-            <label className="upload-zone">
-              <input
-                type="file"
-                accept={inputType === 'image' ? 'image/*' : 'audio/*'}
-                onChange={handleFileUpload}
-                className="sr-only"
-              />
-              <span className="upload-icon" aria-hidden="true">
-                <Upload className="h-5 w-5" />
-              </span>
-              <span className="text-sm font-bold text-ink">
-                {inputType === 'image' ? 'اختر صورة' : 'اختر تسجيلًا صوتيًا'}
-              </span>
-              <span className="text-xs text-muted">
-                {inputType === 'image'
-                  ? (isProcessingOcr ? 'جارٍ استخراج النص…' : (inputText ? 'تم استخراج النص' : 'سنحوّل الصورة إلى نص أولًا'))
-                  : (isProcessingAudio ? 'جارٍ تحويل الصوت…' : (inputText ? 'تم تحويل التسجيل إلى نص' : 'سنحوّل التسجيل إلى نص أولًا'))}
-              </span>
-            </label>
+            <div className="space-y-3">
+              <label className="upload-zone">
+                <input
+                  type="file"
+                  accept={inputType === 'image' ? 'image/*' : 'audio/*'}
+                  onChange={handleFileUpload}
+                  className="sr-only"
+                />
+                <span className="upload-icon" aria-hidden="true">
+                  <Upload className="h-5 w-5" />
+                </span>
+                <span className="text-sm font-bold text-ink">
+                  {inputType === 'image'
+                    ? (mediaPreview ? 'تغيير الصورة المرفوعة' : 'اختر صورة لفحصها')
+                    : (mediaPreview ? 'تغيير التسجيل الصوتي' : 'اختر تسجيلًا صوتيًا')}
+                </span>
+                <span className="text-xs text-muted">
+                  {inputType === 'image'
+                    ? (isProcessingOcr ? 'جارٍ استخراج النص بالتعرف الضوئي…' : (inputText ? 'تم استخراج النص بنجاح' : 'سنحوّل الصورة إلى نص بدقة أولاً'))
+                    : (isProcessingAudio ? 'جارٍ تحويل الصوت إلى نص…' : (inputText ? 'تم تحويل الصوت إلى نص بنجاح' : 'سنحوّل التسجيل إلى نص بدقة أولاً'))}
+                </span>
+              </label>
+              {inputText && (
+                <div className="textarea-wrap">
+                  <div className="mb-1 text-xs font-semibold text-muted">
+                    {inputType === 'image' ? 'النص المستخرج من الصورة:' : 'النص المستخرج من التسجيل الصوتي:'}
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={inputText}
+                    onChange={e => {
+                      setInputText(e.target.value);
+                      if (report) setReport(null);
+                    }}
+                    className="main-textarea"
+                  />
+                </div>
+              )}
+            </div>
           )}
 
-          <div className="textarea-wrap">
-            <label htmlFor="baseera-input" className="sr-only">النص المراد فحصه</label>
-            <textarea
-              id="baseera-input"
-              ref={inputRef}
-              rows={3}
-              value={inputText}
-              onChange={e => {
-                setInputText(e.target.value);
-                if (report) setReport(null);
-              }}
-              placeholder={
-                !category
-                  ? 'اختر نوع المحتوى من الشريط أعلاه أولًا…'
-                  : category === 'ayah'
-                    ? 'ألصق الآية أو جزءًا منها…'
-                    : category === 'hadith'
-                      ? 'ألصق نص الحديث…'
-                      : category === 'term'
-                        ? 'اكتب المصطلح الذي تريد التحقق منه…'
-                        : category === 'tafsir_question'
-                          ? 'اكتب سؤالك في التفسير…'
-                          : category === 'aqeedah_question'
-                            ? 'اكتب سؤالك في العقيدة…'
-                            : 'اكتب السؤال الفقهي…'
-              }
-              className="main-textarea"
-            />
-            {inputText && (
-              <button type="button" className="clear-input" onClick={clearAll} aria-label="مسح النص">
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          {/* صندوق كتابة النص المباشر — يظهر فقط عند اختيار "نص" */}
+          {inputType === 'text' && (
+            <div className="textarea-wrap">
+              <label htmlFor="baseera-input" className="sr-only">النص المراد فحصه</label>
+              <textarea
+                id="baseera-input"
+                ref={inputRef}
+                rows={3}
+                value={inputText}
+                onChange={e => {
+                  setInputText(e.target.value);
+                  if (report) setReport(null);
+                }}
+                placeholder={
+                  !category
+                    ? 'اختر نوع المحتوى من الشريط أعلاه أولًا…'
+                    : category === 'ayah'
+                      ? 'ألصق الآية أو جزءًا منها…'
+                      : category === 'hadith'
+                        ? 'ألصق نص الحديث…'
+                        : category === 'term'
+                          ? 'اكتب المصطلح الذي تريد التحقق منه…'
+                          : category === 'tafsir_question'
+                            ? 'اكتب سؤالك في التفسير…'
+                            : category === 'aqeedah_question'
+                              ? 'اكتب سؤالك في العقيدة…'
+                              : 'اكتب السؤال الفقهي…'
+                }
+                className="main-textarea"
+              />
+              {inputText && (
+                <button type="button" className="clear-input" onClick={clearAll} aria-label="مسح النص">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
 
           {errorMsg && (
             <div className="error-box" role="alert">
