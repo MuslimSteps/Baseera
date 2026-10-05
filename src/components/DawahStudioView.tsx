@@ -188,25 +188,25 @@ export const DawahStudioView: React.FC = () => {
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold font-display text-ink">
-              استوديو إعداد المحتوى
+              استوديو إعداد المحتوى الموثّق
             </h1>
             <p className="text-muted text-sm max-w-3xl leading-relaxed">
-              إعداد المحتوى يبدأ من المادة المرجعية ثم ينتقل إلى الصياغة <strong className="text-brand">«التوليد بعد التوثيق الصارم»</strong>: استرجاع المادة الدعوية حصراً من <span className="font-semibold text-brand font-mono">dawa.center</span>، والآيات من مصحف مجمع الملك فهد وترجماته المعتمدة، والأحاديث من الدرر السنية، وضبط المصطلحات بموسوعة الجمهرة.
+              ابدأ بالمادة المرجعية، ثم انتقل إلى الصياغة. تُبنى المسودة من مصادر محددة، وتظل الشواهد والمراجع واضحة حتى تتمكن من مراجعتها قبل النشر.
             </p>
           </div>
 
           <div className="flex flex-wrap md:flex-col gap-2.5 shrink-0 text-xs text-muted bg-page p-3.5 rounded-xl border border-line shadow-sm">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-brand" />
-              <span>لا اختلاق للأدلة أو العزو</span>
+              <span>المصدر قبل الصياغة</span>
             </div>
             <div className="flex items-center gap-2">
               <Globe2 className="w-4 h-4 text-gold" />
-              <span>ترجمات مجمع الملك فهد المعتمدة</span>
+              <span>شواهد وترجمات قابلة للمراجعة</span>
             </div>
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-info" />
-              <span>بطاقات إنفوجرافيك وسيناريوهات ريلز</span>
+              <span>مخرجات جاهزة للنشر وإعادة الاستخدام</span>
             </div>
           </div>
         </div>
@@ -219,13 +219,13 @@ export const DawahStudioView: React.FC = () => {
           <div className="space-y-4">
             <h2 className="text-base font-bold text-ink flex items-center gap-2 border-b border-line pb-3">
               <Sparkles className="w-4 h-4 text-brand" />
-              <span>ابنِ مسودة المحتوى</span>
+              <span>ابدأ من الفكرة</span>
             </h2>
 
             {/* Topic Input */}
             <div className="space-y-1.5">
               <label htmlFor="dawah-topic" className="text-xs font-bold text-ink block">
-                عن ماذا تريد أن تكتب؟
+                ما الموضوع الذي تريد إعداده؟
               </label>
               <input
                 id="dawah-topic"
@@ -239,7 +239,7 @@ export const DawahStudioView: React.FC = () => {
 
             {/* Quick Topic Presets */}
             <div className="space-y-2">
-              <span className="text-[11px] text-muted block font-medium">أو اختر من المقترحات الجاهزة:</span>
+              <span className="text-[11px] text-muted block font-medium">أو ابدأ بموضوع مقترح:</span>
               <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
                 {PRESET_TOPICS.map((pt, idx) => (
                   <button
@@ -261,7 +261,7 @@ export const DawahStudioView: React.FC = () => {
             {/* Content Type Selector */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-ink block">
-                نوع القالب الدعوي:
+                صيغة المحتوى:
               </label>
               <div className="grid grid-cols-1 gap-2">
                 {[
@@ -289,7 +289,7 @@ export const DawahStudioView: React.FC = () => {
             {/* Language Selector */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-ink flex items-center justify-between">
-                <span>اللغة المستهدفة:</span>
+                <span>لغة المحتوى:</span>
                 <span className="text-[10px] text-brand font-bold">ترجمات معتمدة فقط</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -318,7 +318,7 @@ export const DawahStudioView: React.FC = () => {
             {/* Target Audience */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-ink block">
-                الجمهور والمخاطبون:
+                الجمهور المستهدف:
               </label>
               <select
                 value={audience}
@@ -336,7 +336,7 @@ export const DawahStudioView: React.FC = () => {
             {/* Additional Guidance */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-ink block">
-                توجيهات إضافية (اختياري):
+                تفاصيل إضافية (اختياري):
               </label>
               <textarea
                 value={additionalContext}
