@@ -184,7 +184,7 @@ export const DawahStudioView: React.FC = () => {
                 منظومة الإنتاج والتوثيق الدعوي
               </span>
               <span className="text-xs text-muted font-mono">
-                المسار الرابع · الحزمة العلمية
+                إعداد المحتوى الموثّق
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold font-display text-ink">
