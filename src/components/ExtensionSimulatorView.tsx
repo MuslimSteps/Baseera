@@ -13,7 +13,10 @@ import {
   FileText,
   CheckCircle2,
   AlertTriangle,
-  HelpCircle
+  HelpCircle,
+  FolderOpen,
+  Settings2,
+  Puzzle
 } from 'lucide-react';
 import { VerificationResult } from '../types/baseera.ts';
 import { verifySingleItemCrossSource } from '../lib/decisionEngine.ts';
@@ -117,99 +120,100 @@ export const ExtensionSimulatorView: React.FC = () => {
 
   return (
     <div className="page-shell extension-page mx-auto max-w-[1380px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
-      {/* Editorial Header */}
-      <div className="bento-card bento-card--gold bento-accent-top p-6 sm:p-8 reveal">
-        <div className="flex items-center gap-2 text-xs mb-3">
-          <span>إضافة بصيرة للمتصفح</span>
-          <span aria-hidden="true" className="text-faint">·</span>
-          <span>Chrome و Edge</span>
-          <span aria-hidden="true" className="text-faint">·</span>
-          <span className="text-gold font-medium">تحقق مباشر أثناء التصفح</span>
+      <section className="extension-hero reveal">
+        <div className="extension-hero-copy">
+          <div className="extension-badge">
+            <Puzzle className="h-4 w-4" aria-hidden="true" />
+            إضافة بصيرة للمتصفح
+            <span className="extension-badge-meta">Chrome · Edge</span>
+          </div>
+
+          <h1 className="extension-hero-title">تحقق أثناء التصفح</h1>
+          <p className="extension-hero-text">حدد النص أو الصورة، وتحقق منها دون مغادرة الصفحة.</p>
+
+          <a
+            href="/baseera-extension.zip"
+            download="baseera-extension.zip"
+            className="extension-download"
+          >
+            <Download className="h-4 w-4" />
+            تحميل الإضافة
+          </a>
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="extension-hero-mark" aria-hidden="true">
+          <span className="extension-hero-pattern" />
+          <Puzzle className="h-9 w-9" />
+          <span>بصيرة</span>
+        </div>
+      </section>
+
+      <section className="extension-install" aria-label="تثبيت الإضافة">
+        <div className="extension-section-head">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold font-display text-ink tracking-tight">
-              تحقق أثناء التصفح
-            </h1>
-            <p className="text-sm text-muted mt-3 max-w-3xl leading-relaxed">
-              حدد النص أو الصورة أثناء التصفح، ثم اطلب التحقق دون مغادرة الصفحة. تعرض الإضافة حالة المصدر والدليل عندما يتوفران.
-            </p>
+            <div className="eyebrow">ابدأ في دقيقة</div>
+            <h2 className="extension-section-title">ثبّت الإضافة</h2>
           </div>
-
-          <div className="flex items-center gap-2 self-start md:self-auto">
-            <a
-              href="/baseera-extension.zip"
-              download="baseera-extension.zip"
-              className="px-5 py-2.5 rounded-xl bg-gold-strong hover:bg-[#c96a12] font-semibold text-ink shadow-md shadow-black/40 flex items-center gap-2 transition-all cursor-pointer text-xs active:scale-[0.98]"
-            >
-              <Download className="w-4 h-4" />
-              <span>تحميل إضافة بصيرة</span>
-            </a>
-          </div>
+          <span className="extension-section-note">4 خطوات بسيطة</span>
         </div>
 
-        {/* 4-Step Quick Install Bar */}
-        <div className="mt-6 pt-5 border-t border-hairline grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-          <div className="p-3.5 rounded-xl bento-card border border-hairline">
-            <strong className="text-gold block mb-1">1. فك ضغط الملف</strong>
-            <p className="text-muted leading-normal">
-              حمّل ملف <code className="text-ink/85">baseera-extension.zip</code> وفك ضغطه في أي مجلد على حاسوبك.
-            </p>
+        <div className="extension-install-grid">
+          <div className="extension-install-card">
+            <div className="extension-step-icon"><Download /></div>
+            <div className="extension-step-no">01</div>
+            <strong>فك الضغط</strong>
+            <p>افتح ملف <code>baseera-extension.zip</code>.</p>
           </div>
-
-          <div className="p-3.5 rounded-xl bento-card border border-hairline">
-            <strong className="text-gold block mb-1">2. صفحة الإضافات</strong>
-            <p className="text-muted leading-normal">
-              افتح المتصفح واكتب في شريط العنوان: <code className="text-brand">chrome://extensions</code>
-            </p>
+          <div className="extension-install-card">
+            <div className="extension-step-icon"><FolderOpen /></div>
+            <div className="extension-step-no">02</div>
+            <strong>افتح الإضافات</strong>
+            <p>اكتب <code>chrome://extensions</code>.</p>
           </div>
-
-          <div className="p-3.5 rounded-xl bento-card border border-hairline">
-            <strong className="text-gold block mb-1">3. وضع المطوّر</strong>
-            <p className="text-muted leading-normal">
-              فعّل مفتاح <strong>Developer mode</strong> في الزاوية العلوية للمتصفح.
-            </p>
+          <div className="extension-install-card">
+            <div className="extension-step-icon"><Settings2 /></div>
+            <div className="extension-step-no">03</div>
+            <strong>فعّل وضع المطوّر</strong>
+            <p>شغّل <strong>Developer mode</strong>.</p>
           </div>
-
-          <div className="p-3.5 rounded-xl bento-card border border-hairline">
-            <strong className="text-gold block mb-1">4. تحميل الإضافة</strong>
-            <p className="text-muted leading-normal">
-              اضغط <strong>Load unpacked</strong> واختر المجلد المفكوك لتظهر إضافة بصيرة فورياً!
-            </p>
+          <div className="extension-install-card">
+            <div className="extension-step-icon"><Puzzle /></div>
+            <div className="extension-step-no">04</div>
+            <strong>أضف بصيرة</strong>
+            <p>اختر <strong>Load unpacked</strong> والمجلد.</p>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Simulator Dual-Column Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="extension-workspace grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Side: Simulated Web Article Page (7 cols) */}
-        <div className="lg:col-span-7 bento-card border border-hairline p-6 shadow-lg space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-hairline">
-            <div className="flex items-center gap-2">
+        <div className="extension-browser lg:col-span-7 bento-card">
+          <div className="extension-browser-top flex items-center justify-between pb-3 border-b border-hairline">
+            <div className="extension-popup-brand flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500/70" />
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
-              <span className="text-xs text-faint font-mono ml-2">https://social-web-feed.org/post</span>
+              <span />
+              <span />
+              <span className="extension-browser-url">social-web-feed.org/post</span>
             </div>
-            <span className="text-xs text-brand flex items-center gap-1">
+            <span className="extension-browser-hint text-xs flex items-center gap-1">
               <MousePointer className="w-3.5 h-3.5" />
-              جرّب التحديد من المحاكاة
+              حدّد نصًا
             </span>
           </div>
 
           {/* Article & Social Mockup */}
-          <div className="space-y-4 text-sm text-ink/85 leading-relaxed font-sans">
-            <h2 className="text-xl font-bold font-display text-ink">
-              1. حدّد اقتباسًا لترى رحلة التحقق
+          <div className="extension-browser-content space-y-4">
+            <h2 className="extension-demo-title text-xl font-bold font-display text-ink">
+              حدّد نصًا لفحصه
             </h2>
 
-            <div className="p-4 rounded-xl bg-page border border-hairline space-y-3 font-amiri text-lg">
+            <div className="extension-quote p-4 rounded-xl bg-page border border-hairline space-y-3 font-amiri text-lg">
               <p className="leading-relaxed">
                 حديث طلب العلم المشتهر وتخريجه في الدرر السنية:{' '}
                 <button
                   onClick={() => handleSimulateSelection('طلب العلم فريضة على كل مسلم', 'قال رسول الله ﷺ: طلب العلم فريضة على كل مسلم')}
-                  className="px-2 py-0.5 rounded bg-emerald-950/80 text-brand border border-emerald-500/40 font-bold hover:bg-emerald-900 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 rounded extension-quote-good font-bold hover:bg-emerald-900 transition-colors cursor-pointer"
                   title="انقر لتجربة الفحص الفوري"
                 >
                   «قال رسول الله ﷺ: طلب العلم فريضة على كل مسلم»
@@ -220,7 +224,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                 ومن الأحاديث الضعيفة المنتشرة بكثرة:{' '}
                 <button
                   onClick={() => handleSimulateSelection('الجنة تحت أقدام الأمهات', 'حديث: الجنة تحت أقدام الأمهات')}
-                  className="px-2 py-0.5 rounded bg-amber-950/80 text-gold border border-amber-500/40 font-bold hover:bg-amber-900 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 rounded extension-quote-review font-bold hover:bg-amber-900 transition-colors cursor-pointer"
                   title="انقر لتجربة الفحص الفوري"
                 >
                   «الجنة تحت أقدام الأمهات»
@@ -228,7 +232,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                 وحديث:{' '}
                 <button
                   onClick={() => handleSimulateSelection('حب الوطن من الإيمان')}
-                  className="px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40 font-bold hover:bg-rose-900 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 rounded extension-quote-question font-bold hover:bg-rose-900 transition-colors cursor-pointer"
                   title="انقر لتجربة الفحص الفوري"
                 >
                   «حب الوطن من الإيمان»
@@ -239,7 +243,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                 بينما الحديث الثابت في الصحيحين:{' '}
                 <button
                   onClick={() => handleSimulateSelection('إنما الأعمال بالنيات وإنما لكل امرئ ما نوى')}
-                  className="px-2 py-0.5 rounded bg-gold/15 text-gold-soft border border-gold/40 font-bold hover:bg-gold/20 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 rounded extension-quote-confirmed font-bold hover:bg-gold/20 transition-colors cursor-pointer"
                   title="انقر لتجربة الفحص الفوري"
                 >
                   «إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى»
@@ -250,10 +254,10 @@ export const ExtensionSimulatorView: React.FC = () => {
             {/* Social Post Image Mockup */}
             <div className="pt-2">
               <h2 className="text-xl font-bold font-display text-ink mb-2">
-                2. وعندما يكون النص داخل صورة: جرّب التحقق مباشرة
+                أو افحص النص داخل صورة
               </h2>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-hairline-strong space-y-3">
+              <div className="extension-image-demo p-4 rounded-xl border border-hairline-strong space-y-3">
                 <div className="flex items-center justify-between text-xs text-muted">
                   <span className="font-semibold text-ink flex items-center gap-1.5">
                     <ImageIcon className="w-4 h-4 text-brand" />
@@ -263,23 +267,23 @@ export const ExtensionSimulatorView: React.FC = () => {
                 </div>
 
                 {/* Simulated Image Box */}
-                <div className="relative rounded-xl border border-emerald-500/30 overflow-hidden bg-gradient-to-br from-[#0a101d] to-[#041c14] p-6 text-center shadow-inner group">
-                  <div className="space-y-2 py-3">
+                <div className="extension-image-card relative rounded-xl border overflow-hidden p-6 text-center group">
+                  <div className="extension-image-copy space-y-2 py-3">
                     <div className="text-xs text-brand tracking-wider">بطاقة دعوية مصممة</div>
                     <div className="font-amiri text-2xl font-bold text-amber-200">
                       « قال رسول الله ﷺ: الجنة تحت أقدام الأمهات »
                     </div>
-                    <div className="text-xs text-slate-400">تصميم بطاقة دعوية متداولة على الشبكات</div>
+                    <div className="text-xs text-muted">تصميم بطاقة دعوية متداولة على الشبكات</div>
                   </div>
 
                   {/* Floating Action Button on Image */}
                   <div className="mt-4 flex items-center justify-center gap-2">
                     <button
                       onClick={() => handleSimulateImage('الجنة تحت أقدام الأمهات', 'صورة حديث: الجنة تحت أقدام الأمهات')}
-                      className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-ink font-bold text-xs shadow-lg shadow-emerald-950 flex items-center gap-1.5 transition-all cursor-pointer group-hover:scale-105"
+                      className="extension-image-action px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 cursor-pointer"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>تحقّق من الصورة عبر بصيرة</span>
+                      <span>تحقق من الصورة</span>
                     </button>
                   </div>
                 </div>
@@ -288,18 +292,18 @@ export const ExtensionSimulatorView: React.FC = () => {
           </div>
 
           {/* Custom Term Lookup Form */}
-          <div className="pt-4 border-t border-hairline">
+          <div className="extension-custom pt-4 border-t border-hairline">
             <form onSubmit={handleCustomLookup} className="flex items-center gap-2">
               <input
                 type="text"
                 value={customLookup}
                 onChange={(e) => setCustomLookup(e.target.value)}
-                placeholder="أو الصق نصًا لتجربة الفحص عبر الإضافة…"
-                className="w-full px-3 py-2 rounded-lg bg-page border border-hairline-strong text-xs text-ink placeholder:text-faint focus:outline-none focus:border-gold font-amiri"
+                placeholder="ألصق نصًا للتجربة"
+                className="extension-custom-input w-full px-3 py-2 rounded-lg bg-page border border-hairline-strong text-xs text-ink placeholder:text-faint focus:outline-none focus:border-gold font-amiri"
               />
               <button
                 type="submit"
-                className="px-4 py-2 rounded-lg bg-gold-strong hover:bg-[#c96a12] text-xs font-semibold text-ink whitespace-nowrap cursor-pointer transition-colors"
+                className="extension-custom-button px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer"
               >
                 تحقق الآن
               </button>
@@ -308,50 +312,50 @@ export const ExtensionSimulatorView: React.FC = () => {
         </div>
 
         {/* Right Side: Pixel-Perfect Browser Extension Popup (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col items-center">
-          <div className="text-xs font-semibold text-muted mb-2 self-start flex items-center gap-2">
-            <span>معاينة نافذة بصيرة داخل الصفحة:</span>
-            <span className="text-[10px] bg-emerald-500/15 text-brand border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
+        <div className="extension-preview lg:col-span-5 flex flex-col items-center">
+          <div className="extension-preview-label text-xs font-semibold text-muted mb-2 self-start flex items-center gap-2">
+            <span>معاينة الإضافة</span>
+            <span className="extension-preview-chip text-[10px] px-1.5 py-0.5 rounded font-mono">
               نافذة مدمجة
             </span>
           </div>
 
           {/* Floating Card UI matching exactly what user requested */}
-          <div className="extension-popup w-full max-w-sm rounded-2xl bg-[#090d16] border border-slate-800 p-4 shadow-2xl space-y-3.5">
+          <div className="extension-popup extension-popup-card w-full max-w-sm rounded-2xl p-4">
             {/* Extension Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+            <div className="extension-popup-head flex items-center justify-between pb-2">
               <div className="flex items-center gap-2">
-                <span className="text-brand font-bold text-base">◉</span>
-                <h3 className="text-sm font-bold text-brand leading-tight">بصيرة</h3>
+                <span className="extension-popup-logo"><Puzzle className="h-3.5 w-3.5" /></span>
+                <h3 className="text-sm font-bold">بصيرة</h3>
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">v1.0.0</span>
+              <span className="extension-popup-version text-[10px] font-mono">v1.0.0</span>
             </div>
 
             {/* Context / Preview Box */}
-            <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
-              <span className="text-[10px] text-info block mb-0.5 font-bold">
+            <div className="extension-popup-context p-2.5 rounded-lg text-xs">
+              <span className="text-[10px] block mb-0.5 font-bold">
                 {isImageVerification ? 'الصورة المفحوصة (OCR):' : 'النص المحدد:'}
               </span>
-              <span className="font-bold text-ink text-sm font-amiri leading-normal">«{selectedWord}»</span>
+              <span className="font-bold text-sm font-amiri leading-normal">«{selectedWord}»</span>
             </div>
 
             {/* Loading Spinner */}
             {loadingSim && (
-              <div className="p-4 text-center text-xs text-slate-400">
-                <span className="inline-block w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin ml-2 align-middle"></span>
-                جارٍ التحقق من المصدر المعتمد…
+              <div className="extension-popup-loading p-4 text-center text-xs">
+                <span className="extension-spinner inline-block w-4 h-4 border-2 border-t-transparent rounded-full animate-spin ml-2 align-middle"></span>
+                جارٍ التحقق…
               </div>
             )}
 
             {/* Direct Instant Verdict */}
             {!loadingSim && activeVerification && (
               <div className="space-y-3">
-                <div className={`p-3 rounded-xl border ${
+                <div className={`extension-status p-3 rounded-xl border ${
                   activeVerification.status === 'MATCHED'
-                    ? 'bg-emerald-950/50 border-emerald-600/60 text-brand'
+                    ? 'extension-status-matched'
                     : activeVerification.status === 'NEEDS_REVIEW'
-                    ? 'bg-amber-950/50 border-amber-600/60 text-gold'
-                    : 'bg-slate-900/80 border-slate-700 text-slate-300'
+                    ? 'extension-status-review'
+                    : 'extension-status-unknown'
                 } space-y-1.5`}>
                   <div className="text-sm font-bold font-display leading-snug flex items-center gap-1.5">
                     {activeVerification.status === 'MATCHED'
@@ -361,29 +365,29 @@ export const ExtensionSimulatorView: React.FC = () => {
                         : <HelpCircle className="h-4 w-4 shrink-0" aria-hidden="true" />}
                     <span>{activeVerification.status_label_ar}</span>
                   </div>
-                  <div className="text-[11px] text-slate-300 pt-1 border-t border-slate-800/80">
+                  <div className="extension-popup-source text-[11px] pt-1 border-t">
                     <strong>المصدر:</strong> {activeVerification.citation?.source_name || 'الدرر السنية'}
                   </div>
                 </div>
 
                 {/* Canonical Text if different or confirmed */}
                 {activeVerification.canonical_text && (
-                  <div className="p-2.5 rounded-lg bg-page border-r-4 border-emerald-500 text-xs space-y-1">
-                    <span className="text-[10px] font-semibold text-brand block">الدليل المعتمد:</span>
-                    <p className="font-amiri text-sm text-emerald-100 leading-relaxed">
+                  <div className="extension-popup-evidence p-2.5 rounded-lg text-xs space-y-1">
+                    <span className="text-[10px] font-semibold block">الدليل المعتمد:</span>
+                    <p className="font-amiri text-sm leading-relaxed">
                       «{activeVerification.canonical_text.slice(0, 300)}»
                     </p>
                   </div>
                 )}
 
                 {/* Action Buttons: [عرض الدليل] and [النص المستخرج] */}
-                <div className="flex gap-2 pt-1">
+                <div className="extension-popup-actions flex gap-2 pt-1">
                   {activeVerification.citation?.url && (
                     <a
                       href={activeVerification.citation.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-ink text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                      className="extension-popup-primary flex-1 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <span>عرض الدليل</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -393,7 +397,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                   {isImageVerification && (
                     <button
                       onClick={() => setShowOcrText(!showOcrText)}
-                      className="py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all border border-slate-700 cursor-pointer"
+                      className="extension-popup-secondary py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <FileText className="w-3.5 h-3.5" />
                       <span>النص المستخرج</span>
@@ -403,22 +407,22 @@ export const ExtensionSimulatorView: React.FC = () => {
 
                 {/* Collapsible Extracted OCR Text */}
                 {showOcrText && extractedOcrText && (
-                  <div className="p-2.5 rounded-lg bg-black/50 border border-slate-700 text-xs text-slate-300 leading-relaxed">
-                    <strong className="text-info block mb-1">النص المقروء من الصورة بالذكاء الاصطناعي:</strong>
-                    <p className="font-amiri text-sm text-slate-200">«{extractedOcrText}»</p>
+                  <div className="extension-popup-ocr p-2.5 rounded-lg text-xs leading-relaxed">
+                    <strong className="block mb-1">النص المقروء من الصورة بالذكاء الاصطناعي:</strong>
+                    <p className="font-amiri text-sm">«{extractedOcrText}»</p>
                   </div>
                 )}
 
                 {/* Expand Details Toggle */}
                 <button
                   onClick={() => setShowSimDetails(!showSimDetails)}
-                  className="w-full text-center text-[11px] text-slate-400 hover:text-ink transition-colors pt-1 cursor-pointer"
+                  className="extension-popup-details w-full text-center text-[11px] pt-1 cursor-pointer"
                 >
-                  {showSimDetails ? '▲ إخفاء البيان والتفاصيل' : '▼ تفاصيل التخريج والبيان'}
+                  {showSimDetails ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
                 </button>
 
                 {showSimDetails && (
-                  <div className="p-2.5 rounded-lg bg-page border border-slate-800 text-xs text-slate-300 leading-relaxed space-y-1.5">
+                  <div className="extension-popup-reason p-2.5 rounded-lg text-xs leading-relaxed space-y-1.5">
                     <p>{activeVerification.reason}</p>
                   </div>
                 )}
