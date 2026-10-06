@@ -270,7 +270,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                 <div className="extension-image-card relative rounded-xl border overflow-hidden p-6 text-center group">
                   <div className="extension-image-copy space-y-2 py-3">
                     <div className="text-xs text-brand tracking-wider">بطاقة دعوية مصممة</div>
-                    <div className="font-amiri text-2xl font-bold text-amber-200">
+                    <div className="extension-image-quote font-scripture">
                       « قال رسول الله ﷺ: الجنة تحت أقدام الأمهات »
                     </div>
                     <div className="text-xs text-muted">تصميم بطاقة دعوية متداولة على الشبكات</div>
