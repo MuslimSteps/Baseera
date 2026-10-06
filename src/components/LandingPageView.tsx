@@ -25,33 +25,33 @@ const SECTIONS = [
   {
     id: 'verifier' as const,
     icon: <FileSearch />,
-    eyebrow: '01 · التحقق',
-    title: 'تحقق من النص قبل أن تنسبه أو تنشره.',
-    text: 'افحص آية أو حديثًا أو محتوى دينيًا، ثم شاهد الدليل والمصدر والاختلافات في مكان واحد.',
+    eyebrow: '01 · فحص المحتوى',
+    title: 'فحص الآيات والأحاديث',
+    text: 'آية أو حديث أو نص ديني.',
     action: 'ابدأ الفحص'
   },
   {
     id: 'dawah' as const,
     icon: <Sparkles />,
     eyebrow: '02 · إعداد المحتوى',
-    title: 'حوّل الفكرة إلى محتوى جاهز للمراجعة.',
-    text: 'أنشئ خطبة أو مقالًا أو بطاقة، مع إبقاء الشواهد والمراجع واضحة وقابلة للتتبع.',
+    title: 'إعداد المحتوى',
+    text: 'خطبة أو مقال مع الشواهد.',
     action: 'إعداد المحتوى'
   },
   {
     id: 'extension' as const,
     icon: <Layers3 />,
     eyebrow: '03 · أثناء التصفح',
-    title: 'تحقق وأنت تتصفح.',
-    text: 'افحص اقتباسًا أو منشورًا من داخل المتصفح دون نسخ المحتوى إلى أداة أخرى.',
+    title: 'تحقق داخل الصفحة',
+    text: 'افحص النص دون مغادرة الصفحة.',
     action: 'استكشف الإضافة'
   },
   {
     id: 'sources' as const,
     icon: <BookOpenCheck />,
     eyebrow: '04 · المراجع',
-    title: 'المصدر ظاهر، والذكاء الاصطناعي ليس المرجع.',
-    text: 'ترى الجهة التي بُنيت عليها النتيجة ورابطها، بينما يظل دور الذكاء الاصطناعي مساعدًا لا حاكمًا.',
+    title: 'المراجع المعتمدة',
+    text: 'المصدر هو أساس النتيجة.',
     action: 'شاهد المراجع'
   }
 ];
@@ -62,15 +62,15 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
       <div className="home-hero-inner home-reveal">
         <div className="eyebrow-badge">
           <span className="status-dot" aria-hidden="true" />
-          للتحقق من المحتوى الإسلامي
+          بصير · للتحقق من المحتوى الإسلامي
         </div>
 
         <h1 className="mt-6 text-balance font-display text-[40px] font-bold leading-[1.18] tracking-tight text-ink sm:text-[58px]">
           تحقّق قبل أن تنشر
         </h1>
 
-        <p className="mt-5 max-w-2xl text-pretty text-[17px] leading-8 text-muted sm:text-[19px]">
-          افحص آية أو حديثًا أو محتوى دينيًا، واعرف النتيجة والمصدر والدليل قبل أن تستخدمه أو تنشره.
+        <p className="home-hero-subcopy mt-5 max-w-2xl text-pretty text-[17px] leading-8 text-muted sm:text-[19px]">
+          افحص آية أو حديثًا أو نصًا دينيًا واعرف النتيجة من المصدر المعتمد.
         </p>
 
         <button
@@ -79,17 +79,17 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
           className="btn btn-primary home-hero-action mt-8 min-h-12 px-7"
         >
           <ShieldCheck className="h-5 w-5" />
-          ابدأ التحقق
+          ابدأ الفحص
           <ArrowLeft className="h-4 w-4" />
         </button>
 
         <div className="home-trust-line">
-          <span><ShieldCheck className="h-4 w-4" /> المصدر واضح</span>
-          <span><ShieldCheck className="h-4 w-4" /> نتيجة واضحة</span>
+          <span><ShieldCheck className="h-4 w-4" /> المصدر المعتمد</span>
+          <span><ShieldCheck className="h-4 w-4" /> النتيجة واضحة</span>
           <span><ShieldCheck className="h-4 w-4" /> الدليل ظاهر</span>
         </div>
 
-        <div className="home-flow" aria-label="طريقة عمل بصيرة">
+        <div className="home-flow" aria-label="طريقة عمل بصير">
           <div className="home-flow-step">
             <span>01</span>
             <strong>أدخل النص</strong>
@@ -97,34 +97,35 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
           <div className="home-flow-line" aria-hidden="true" />
           <div className="home-flow-step">
             <span>02</span>
-            <strong>نراجع المصدر</strong>
+            <strong>نفحص المصدر</strong>
           </div>
           <div className="home-flow-line" aria-hidden="true" />
           <div className="home-flow-step">
             <span>03</span>
-            <strong>تظهر النتيجة والدليل</strong>
+            <strong>تظهر النتيجة</strong>
           </div>
         </div>
       </div>
     </section>
 
-    <section className="home-sections" aria-label="أدوات بصيرة">
+    <section className="home-sections" aria-label="أدوات بصير">
       {SECTIONS.map((item, index) => (
         <article
           key={item.id}
           className="home-feature home-reveal"
           style={{ animationDelay: `${index * 70}ms` }}
         >
-          <div className="home-feature-icon" aria-hidden="true">{item.icon}</div>
+          <div className="home-feature-art" aria-hidden="true">
+            <div className="home-feature-number">{item.eyebrow.slice(0, 2)}</div>
+            <div className="home-feature-icon">{item.icon}</div>
+          </div>
 
           <div className="home-feature-copy">
-            <div className="eyebrow">{item.eyebrow}</div>
-            <h2 className="mt-2 font-display text-2xl font-bold leading-tight text-ink sm:text-3xl">
+            <div className="eyebrow home-feature-eyebrow">{item.eyebrow}</div>
+            <h2 className="home-feature-title font-display font-bold text-ink">
               {item.title}
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">
-              {item.text}
-            </p>
+            <p className="home-feature-text">{item.text}</p>
             <button
               type="button"
               onClick={() => onNavigate(item.id)}
@@ -143,18 +144,18 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
         <ShieldCheck className="h-5 w-5" />
       </div>
       <div>
-        <div className="eyebrow">بصيرة</div>
+        <div className="eyebrow">بصير</div>
         <h2 className="mt-1 font-display text-xl font-bold text-ink">
-          لا تكتفِ بالنتيجة؛ افتح الدليل.
+          النتيجة ومعها الدليل
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted">
-          النتيجة مختصرة، والمصدر والدليل أمامك لتراجعهما متى احتجت.
+          راجع المصدر بنفسك قبل الاعتماد على المحتوى.
         </p>
       </div>
     </section>
 
     <div className="mx-auto max-w-[760px] px-4 pb-10 text-center text-[11px] text-faint sm:px-6">
-      صُممت بصيرة لتكون بسيطة عند الاستخدام وقابلة للتدقيق عند الحاجة.
+      التحقق واضح، والمراجع أمامك.
     </div>
   </div>
 );
