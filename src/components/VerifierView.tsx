@@ -194,10 +194,10 @@ export const VerifierView: React.FC = () => {
         <div className="mb-4">
           <div className="eyebrow">بصيرة · التحقق</div>
           <h1 className="mt-1.5 font-display text-[28px] font-bold leading-tight tracking-tight text-ink sm:text-[38px]">
-            تحقق من المحتوى قبل استخدامه
+            تحقّق من المحتوى
           </h1>
           <p className="mt-1.5 text-sm leading-6 text-muted">
-            اختر نوع المحتوى ثم أدخل النص المراد فحصه.
+            اختر نوع المحتوى، ثم ألصق النص أو ارفع صورة أو تسجيلًا للفحص.
           </p>
         </div>
 
