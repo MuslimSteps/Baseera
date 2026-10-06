@@ -120,11 +120,11 @@ export const ExtensionSimulatorView: React.FC = () => {
       {/* Editorial Header */}
       <div className="bento-card bento-card--gold bento-accent-top p-6 sm:p-8 reveal">
         <div className="flex items-center gap-2 text-xs mb-3">
-          <span>أداة التحقق داخل المتصفح</span>
+          <span>إضافة بصيرة للمتصفح</span>
           <span aria-hidden="true" className="text-faint">·</span>
-          <span>Chrome & Edge Extension</span>
+          <span>Chrome و Edge</span>
           <span aria-hidden="true" className="text-faint">·</span>
-          <span className="text-gold font-medium">Manifest V3</span>
+          <span className="text-gold font-medium">تحقق مباشر أثناء التصفح</span>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -144,7 +144,7 @@ export const ExtensionSimulatorView: React.FC = () => {
               className="px-5 py-2.5 rounded-xl bg-gold-strong hover:bg-[#c96a12] font-semibold text-ink shadow-md shadow-black/40 flex items-center gap-2 transition-all cursor-pointer text-xs active:scale-[0.98]"
             >
               <Download className="w-4 h-4" />
-              <span>تحميل الإضافة</span>
+              <span>تحميل إضافة بصيرة</span>
             </a>
           </div>
         </div>
@@ -194,7 +194,7 @@ export const ExtensionSimulatorView: React.FC = () => {
             </div>
             <span className="text-xs text-brand flex items-center gap-1">
               <MousePointer className="w-3.5 h-3.5" />
-              جرّب تحديد نص أو صورة في المحاكاة
+              جرّب التحديد من المحاكاة
             </span>
           </div>
 
@@ -259,7 +259,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                     <ImageIcon className="w-4 h-4 text-brand" />
                     منشور فيسبوك / تويتر يحتوي على صورة حديث:
                   </span>
-                  <span className="text-[11px] text-faint">بدون الحاجة لرفع الصورة يدوياً</span>
+                  <span className="text-[11px] text-faint">دون الحاجة إلى رفع الصورة يدويًا</span>
                 </div>
 
                 {/* Simulated Image Box */}
@@ -301,7 +301,7 @@ export const ExtensionSimulatorView: React.FC = () => {
                 type="submit"
                 className="px-4 py-2 rounded-lg bg-gold-strong hover:bg-[#c96a12] text-xs font-semibold text-ink whitespace-nowrap cursor-pointer transition-colors"
               >
-                فحص فوري
+                تحقق الآن
               </button>
             </form>
           </div>
@@ -310,9 +310,9 @@ export const ExtensionSimulatorView: React.FC = () => {
         {/* Right Side: Pixel-Perfect Browser Extension Popup (5 cols) */}
         <div className="lg:col-span-5 flex flex-col items-center">
           <div className="text-xs font-semibold text-muted mb-2 self-start flex items-center gap-2">
-            <span>النافذة العائمة المصغرة للإضافة (Floating Inline Card):</span>
+            <span>معاينة نافذة بصيرة داخل الصفحة:</span>
             <span className="text-[10px] bg-emerald-500/15 text-brand border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
-              Shadow DOM
+              نافذة مدمجة
             </span>
           </div>
 
@@ -339,7 +339,7 @@ export const ExtensionSimulatorView: React.FC = () => {
             {loadingSim && (
               <div className="p-4 text-center text-xs text-slate-400">
                 <span className="inline-block w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin ml-2 align-middle"></span>
-                جارٍ التحقق من المراجع المعتمدة (الدرر السنية)...
+                جارٍ التحقق من المصدر المعتمد…
               </div>
             )}
 
@@ -362,14 +362,14 @@ export const ExtensionSimulatorView: React.FC = () => {
                     <span>{activeVerification.status_label_ar}</span>
                   </div>
                   <div className="text-[11px] text-slate-300 pt-1 border-t border-slate-800/80">
-                    <strong>المصدر المفحوص:</strong> {activeVerification.citation?.source_name || 'الدرر السنية'}
+                    <strong>المصدر:</strong> {activeVerification.citation?.source_name || 'الدرر السنية'}
                   </div>
                 </div>
 
                 {/* Canonical Text if different or confirmed */}
                 {activeVerification.canonical_text && (
                   <div className="p-2.5 rounded-lg bg-page border-r-4 border-emerald-500 text-xs space-y-1">
-                    <span className="text-[10px] font-semibold text-brand block">الحكم / النص المعتمد:</span>
+                    <span className="text-[10px] font-semibold text-brand block">الدليل المعتمد:</span>
                     <p className="font-amiri text-sm text-emerald-100 leading-relaxed">
                       «{activeVerification.canonical_text.slice(0, 300)}»
                     </p>
