@@ -4,7 +4,16 @@
  * ويعمل كجسر وسيط (Network Proxy) لتفادي قيود CSP و Mixed Content على المواقع المشددة (مثل Google و Facebook)
  */
 
-const API_BASE = 'http://localhost:3000';
+const DEFAULT_API_BASE = 'https://baseera.onrender.com';
+
+async function getApiBase() {
+  try {
+    const res = await chrome.storage.local.get('baseera_api_base');
+    return res.baseera_api_base || DEFAULT_API_BASE;
+  } catch {
+    return DEFAULT_API_BASE;
+  }
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   // 1. Context menu for selected text
@@ -41,37 +50,41 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // Network Proxy Listener: content script calls background to bypass host page CSP & Mixed Content
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'api_lookup') {
-    fetch(`${API_BASE}/api/extension-lookup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: request.text, context: request.context || '' })
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        sendResponse({ success: res.ok, data });
+    getApiBase().then((apiBase) => {
+      fetch(`${apiBase}/api/extension-lookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: request.text, context: request.context || '' })
       })
-      .catch((err) => {
-        sendResponse({ success: false, error: err.message });
-      });
+        .then(async (res) => {
+          const data = await res.json();
+          sendResponse({ success: res.ok, data });
+        })
+        .catch((err) => {
+          sendResponse({ success: false, error: err.message });
+        });
+    });
     return true; // Keep channel open for async response
   }
 
   if (request.action === 'api_lookup_image') {
-    fetch(`${API_BASE}/api/extension-lookup-image`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageUrl: request.imageUrl,
-        imageBase64: request.imageBase64
+    getApiBase().then((apiBase) => {
+      fetch(`${apiBase}/api/extension-lookup-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: request.imageUrl,
+          imageBase64: request.imageBase64
+        })
       })
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        sendResponse({ success: res.ok, data });
-      })
-      .catch((err) => {
-        sendResponse({ success: false, error: err.message });
-      });
+        .then(async (res) => {
+          const data = await res.json();
+          sendResponse({ success: res.ok, data });
+        })
+        .catch((err) => {
+          sendResponse({ success: false, error: err.message });
+        });
+    });
     return true;
   }
 });

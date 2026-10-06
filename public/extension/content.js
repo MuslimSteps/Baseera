@@ -6,8 +6,16 @@
  */
 
 (function () {
-  const API_LOOKUP_ENDPOINT = 'http://localhost:3000/api/extension-lookup';
-  const API_IMAGE_ENDPOINT = 'http://localhost:3000/api/extension-lookup-image';
+  const DEFAULT_API_BASE = 'https://baseera.onrender.com';
+  async function getDirectApiBase() {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        const res = await chrome.storage.local.get('baseera_api_base');
+        return res.baseera_api_base || DEFAULT_API_BASE;
+      }
+    } catch {}
+    return DEFAULT_API_BASE;
+  }
 
   // 1. Create isolated container with Shadow DOM to prevent host page CSS conflicts
   const hostDiv = document.createElement('div');
@@ -578,7 +586,8 @@
 
   async function doDirectFetchText(text) {
     try {
-      const res = await fetch(API_LOOKUP_ENDPOINT, {
+      const apiBase = await getDirectApiBase();
+      const res = await fetch(`${apiBase}/api/extension-lookup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, context: '' })
@@ -586,7 +595,7 @@
       const data = await res.json();
       renderVerdict(text, data.report);
     } catch (err) {
-      renderError(text, 'تعذر الاتصال بسيرفر بصيرة المحلي (http://localhost:3000). يرجى التأكد من تشغيل السيرفر.');
+      renderError(text, 'تعذر الاتصال بسيرفر بصيرة. يرجى التحقق من الاتصال بالإنترنت أو حالة الخدمة.');
     }
   }
 
@@ -636,7 +645,8 @@
 
   async function doDirectFetchImage(srcUrl, imageBase64) {
     try {
-      const res = await fetch(API_IMAGE_ENDPOINT, {
+      const apiBase = await getDirectApiBase();
+      const res = await fetch(`${apiBase}/api/extension-lookup-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

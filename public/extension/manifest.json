@@ -4,7 +4,7 @@
   "version": "1.2.0",
   "description": "طبقة تحقق فورية وسياقية للقرآن الكريم، الحديث النبوي، المصطلحات الشرعية، والمسائل الفقهية أثناء تصفح الويب للمعرّفين والباحثين",
   "permissions": ["activeTab", "scripting", "contextMenus", "storage"],
-  "host_permissions": ["http://localhost:3000/*", "*://*/*"],
+  "host_permissions": ["https://baseera.onrender.com/*", "http://localhost:3000/*", "*://*/*"],
   "background": {
     "service_worker": "background.js"
   },

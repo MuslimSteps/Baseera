@@ -11,7 +11,15 @@
 
 import { computeWordDiff, normalizeArabic, normalizeArabicStrict, locateQuoteWindow } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
-import { getHafsAyah, getHafsSurahName, searchHafsAyahsLive, QuranMushafAyah, buildQuranpediaAyahUrl } from './quranpediaClient.ts';
+import {
+  getHafsAyah,
+  getHafsSurahName,
+  searchHafsAyahsLive,
+  QuranMushafAyah,
+  buildQuranpediaAyahUrl,
+  findExactHafsAyahLocal,
+  searchHafsAyahsLocal
+} from './quranpediaClient.ts';
 
 export type QuranCandidate = {
   id: string;
@@ -218,7 +226,8 @@ export function buildQuranDecision(
     ? (locateQuoteWindow(item.text, candidate.text) || (candidate.search ? locateQuoteWindow(item.text, candidate.search) : null))
     : null;
   const isVerbatimExcerpt =
-    !hasDiff &&
+    diffStats.changed === 0 &&
+    diffStats.added === 0 &&
     inputLooseWords.length >= 2 &&
     inputLooseWords.length < maxCanonicalWords &&
     (canonicalStrict.includes(inputStrict) ||
@@ -460,3 +469,51 @@ export function verifyQuranAyah(item: ExtractedItem): VerificationResult {
     _needs_live_search: true
   } as VerificationResult & { _needs_live_search: boolean };
 }
+
+export function verifyQuranAyahDeterministic(item: ExtractedItem): VerificationResult {
+  const query = item.text.trim();
+  const exact = findExactHafsAyahLocal(query);
+  const matches = exact ? [exact] : searchHafsAyahsLocal(query, 12);
+  if (!matches.length) {
+    return {
+      id: `quran-notfound-${Date.now()}`,
+      item,
+      status: 'NOT_FOUND_IN_CHECKED_SOURCES',
+      status_label_ar: 'لم يُعثر على الآية في المصحف المعتمد',
+      status_label_en: 'Not Found in Approved Quran Source',
+      reason: 'لم تُثبت مطابقة النص في مصحف مجمع الملك فهد برواية حفص.',
+      citation: {
+        source_id: 'quran-uthmani',
+        source_name: 'المصحف الشريف — النص الحفصي المعتمد',
+        authority: 'مجمع الملك فهد',
+        url: 'https://quranpedia.net/'
+      },
+      decision_level: 'A'
+    };
+  }
+
+  const best = matches[0];
+  const surahNumber = Number(best.surah);
+  const ayahNumber = Number(best.number);
+  const surahName = getHafsSurahName(surahNumber);
+  const candidate: QuranCandidate = {
+    id: `quran-${surahNumber}-${ayahNumber}`,
+    source: 'quran-uthmani',
+    title: `سورة ${surahName} — الآية ${ayahNumber}`,
+    text: best.text,
+    search: best.search || best.text,
+    surah_number: surahNumber,
+    ayah_number: ayahNumber,
+    surah_name_ar: surahName,
+    text_uthmani: best.text
+  };
+
+  const strictInput = normalizeArabicStrict(query);
+  const strictCanonical = normalizeArabicStrict(candidate.text);
+  const strictMatch = strictInput === strictCanonical;
+  const candidateWords = normalizeArabic(candidate.text).split(/\s+/).filter(Boolean);
+  const diff = computeWordDiff(query, candidate.text);
+
+  return buildQuranDecision(item, candidate, strictMatch, candidateWords, diff);
+}
+

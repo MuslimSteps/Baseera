@@ -113,6 +113,7 @@ interface CanonicalTopicSeed {
     source_book: string;
     number_or_page: string;
     grade: string;
+    gradeCategory?: 'sahih' | 'hasan';
     dorar_url?: string;
   }>;
   keyPoints: string[];
@@ -170,7 +171,8 @@ const CANONICAL_SEEDS: CanonicalTopicSeed[] = [
         text: 'كُلُّ بَنِي آدَمَ خَطَّاءٌ وَخَيْرُ الْخَطَّائِينَ التَّوَّابُونَ',
         source_book: 'سنن الترمذي',
         number_or_page: '2499',
-        grade: 'حسنه الألباني'
+        grade: 'حسنه الألباني',
+        gradeCategory: 'hasan'
       }
     ],
     keyPoints: [
@@ -496,7 +498,7 @@ async function findRelevantHadiths(topic: string, limit = 3): Promise<any[]> {
           source_book: h.source_book,
           number_or_page: h.number_or_page,
           grade: h.grade,
-          gradeCategory: 'sahih',
+          gradeCategory: h.gradeCategory || (h.grade.includes('حسن') ? 'hasan' : 'sahih'),
           dorar_url: h.dorar_url
         });
       }
@@ -850,15 +852,16 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
   }
 
   for (const h of verifiedHadiths.slice(0, 3)) {
+    const hasLivePermalink = Boolean(h.dorar_url && /\/h\/[A-Za-z0-9]+/.test(h.dorar_url));
     allCitations.push({
       type: 'hadith',
       arabic_text: h.text_full || h.text_clean,
       translation: undefined,
       source_name: `${h.source_book || 'الموسوعة الحديثية'}${h.number_or_page ? ` (${h.number_or_page})` : ''} — حكم المحدث: ${h.grade || 'صحيح'}`,
-      source_url: (h.dorar_url && /\/h\/[A-Za-z0-9]+/.test(h.dorar_url)) ? h.dorar_url : undefined,
-      authority: 'مؤسسة الدرر السنية للإشراف العلمي',
+      source_url: hasLivePermalink ? h.dorar_url : undefined,
+      authority: hasLivePermalink ? 'مؤسسة الدرر السنية للإشراف العلمي' : 'كتب السنة النبوية المعتمدة',
       grade: h.grade || 'صحيح',
-      verified: true,
+      verified: Boolean(hasLivePermalink),
       source_id: 'dorar-hadith'
     });
   }
@@ -1009,7 +1012,7 @@ export async function generateDawahContent(req: DawahContentRequest): Promise<Da
     dawa_center_url: `https://dawa.center/search?q=${encodeURIComponent(cleanSearchQuery(topic))}`,
     feqhia_url: buildDorarFiqhUrl(topic),
     generated_at: now,
-    verification_note: `المراجع المستعملة في الاستشهادات مقيدة بسجل المصادر المعتمد: النصوص القرآنية مسترجعة من المصحف الحفصي، والأحاديث مخرجة من الموسوعة الحديثية (الدرر السنية)، ومسودة الإنتاج خضعت لفحص بصيرة الذاتي للتأكد من انضباط الأدلة.`,
+    verification_note: `المسودة صُنعت بالاستناد إلى الآيات الحفصية والأحاديث المعتمدة، ثم أُرفق تقرير التحقق الذاتي (Verification Report) لبيان حالة التوثيق لكل شاهد بشكل منفصل وتحديد الروابط الحية المكتملة.`,
     infographic_suggestion: infographicSuggestion,
     video_reel_script: videoReelScript
   };

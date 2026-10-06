@@ -19,6 +19,8 @@ import { buildDorarAqeedahUrl, buildDorarTafsirUrl } from '../src/lib/dorarQuery
 import { buildJamharaSearchUrl } from '../src/lib/jamharaClient.ts';
 import { buildQuranpediaAyahUrl, searchHafsAyahsLocal } from '../src/lib/quranpediaClient.ts';
 import { getAllFrozenBenchmarkCases, getRobustnessBenchmarkCases } from '../src/lib/benchmarkData.ts';
+import { runBaseeraBenchmark } from '../src/lib/benchmarkRunner.ts';
+import { TOOLS, handleToolCall } from '../mcp-server.ts';
 
 type TestFn = () => void;
 const failures: string[] = [];
@@ -29,6 +31,19 @@ function test(name: string, fn: TestFn): void {
   totalTests++;
   try {
     fn();
+    passedTests++;
+    console.log(`PASS  ${name}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    failures.push(`${name}: ${message}`);
+    console.error(`FAIL  ${name}\n      ${message}`);
+  }
+}
+
+async function testAsync(name: string, fn: () => Promise<void>): Promise<void> {
+  totalTests++;
+  try {
+    await fn();
     passedTests++;
     console.log(`PASS  ${name}`);
   } catch (error) {
@@ -392,6 +407,43 @@ test('benchmark code labels fixtures as fixtures and contains no randomization',
   assert.equal(runner.includes('Math.random'), false);
   assert.equal(runner.includes('random'), false);
   assert.ok(runner.includes('fixture'));
+});
+
+// 10. Run Full 150-Case Frozen Decision Policy Benchmark
+test('150-case frozen decision policy benchmark executes with 100% accuracy and 0.0% FCR', () => {
+  const result = runBaseeraBenchmark();
+  assert.equal(result.total_cases, 150, 'Must evaluate exactly 150 frozen cases');
+  assert.equal(result.accuracy, 100, `Accuracy must be 100%, got ${result.accuracy}%`);
+  assert.equal(result.false_confirmation_rate, 0, `False confirmation rate must be 0%, got ${result.false_confirmation_rate}%`);
+  assert.equal(result.abstention_accuracy, 100, `Abstention accuracy must be 100%, got ${result.abstention_accuracy}%`);
+  assert.equal(result.consistency_score, 100, `Consistency score must be 100%, got ${result.consistency_score}%`);
+  const failed = result.details.filter(d => !d.passed);
+  assert.equal(failed.length, 0, `All cases must pass, failed cases: ${failed.map(f => f.case_id).join(', ')}`);
+});
+
+// 11. Model Context Protocol (MCP) Server Gate
+test('MCP server exports complete tool definitions for external LLMs', () => {
+  assert.ok(Array.isArray(TOOLS), 'TOOLS must be an array');
+  assert.ok(TOOLS.length >= 4, 'Must register at least 4 core MCP tools');
+  const toolNames = TOOLS.map(t => t.name);
+  assert.ok(toolNames.includes('verify_quran_verse'), 'Missing verify_quran_verse tool');
+  assert.ok(toolNames.includes('search_dorar_hadith'), 'Missing search_dorar_hadith tool');
+  assert.ok(toolNames.includes('lookup_jamhara_term'), 'Missing lookup_jamhara_term tool');
+  assert.ok(toolNames.includes('check_fiqh_ruling'), 'Missing check_fiqh_ruling tool');
+
+  for (const tool of TOOLS) {
+    assert.ok(tool.name, 'Tool must have name');
+    assert.ok(tool.description, 'Tool must have description');
+    assert.equal(tool.inputSchema.type, 'object', 'Tool input schema must be object');
+  }
+});
+
+await testAsync('MCP tool handler checks personal fatwa and enforces specialist referral', async () => {
+  const fatwaCall = await handleToolCall('check_fiqh_ruling', {
+    question: 'توفي والدي وترك زوجة و3 أبناء وبنتين، وعليه ديون قدرها 1000 دينار، فكيف تقسم التركة؟'
+  });
+  assert.ok(fatwaCall.content && fatwaCall.content[0]?.text);
+  assert.ok(fatwaCall.content[0].text.includes('REFER_TO_SPECIALIST') || fatwaCall.content[0].text.includes('إحالة') || fatwaCall.content[0].text.includes('لا يصدر النظام فتوى'));
 });
 
 console.log(`\nPassed: ${passedTests}/${totalTests}`);

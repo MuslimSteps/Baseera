@@ -56,7 +56,8 @@ export function normalizeArabic(text: string): string {
  */
 export function standardizeDaggerAlefOrthography(text: string): string {
   if (!text) return '';
-  return text.replace(/(^|\s)([وفكبل]?)(الرحمان|هاذا|هاذه|هاؤلاء|ذالك|لاكن)(?=\s|$)/g, (_m, space, prefix, word) => {
+  const standardized = text.replace(/(^|\s)يا\s+([أا]يها)/g, '$1يا$2');
+  return standardized.replace(/(^|\s)([وفكبل]?)(الرحمان|هاذا|هاذه|هاؤلاء|ذالك|لاكن)(?=\s|$)/g, (_m, space, prefix, word) => {
     const map: Record<string, string> = {
       'الرحمان': 'الرحمن',
       'هاذا': 'هذا',

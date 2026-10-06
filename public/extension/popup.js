@@ -4,7 +4,18 @@
  * Fast, Deterministic Verification for Quran, Hadith, Terminology & Fiqh
  */
 
-const API_BASE = 'http://localhost:3000';
+const DEFAULT_API_BASE = 'https://baseera.onrender.com';
+
+async function getApiBase() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const res = await chrome.storage.local.get('baseera_api_base');
+      return res.baseera_api_base || DEFAULT_API_BASE;
+    }
+  } catch {}
+  return DEFAULT_API_BASE;
+}
+
 let currentTypeFilter = 'auto';
 
 function escapeHtml(value) {
@@ -75,7 +86,8 @@ async function verifySelection(text, context = '') {
     : context;
 
   try {
-    const res = await fetch(`${API_BASE}/api/extension-lookup`, {
+    const apiBase = await getApiBase();
+    const res = await fetch(`${apiBase}/api/extension-lookup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, context: fullContext })

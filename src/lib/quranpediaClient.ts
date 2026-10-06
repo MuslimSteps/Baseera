@@ -93,6 +93,63 @@ export function getHafsSurahName(surah: number): string {
   return localSource.surahs.find(s => s.number === surah)?.name || `سورة ${surah}`;
 }
 
+interface LocalAyahIndex {
+  surah: any;
+  ayah: any;
+  row: QuranMushafAyah;
+  strict: string;
+  loose: string;
+  wordSet: Set<string>;
+  stemSet: Set<string>;
+}
+
+let indexedAyahsCache: LocalAyahIndex[] | null = null;
+let exactStrictCache: Map<string, QuranMushafAyah> | null = null;
+let exactLooseCache: Map<string, QuranMushafAyah> | null = null;
+
+function ensureIndexed(): { items: LocalAyahIndex[]; strictMap: Map<string, QuranMushafAyah>; looseMap: Map<string, QuranMushafAyah> } {
+  if (indexedAyahsCache && exactStrictCache && exactLooseCache) {
+    return { items: indexedAyahsCache, strictMap: exactStrictCache, looseMap: exactLooseCache };
+  }
+  const stripAffixes = (w: string) => w.replace(/^(?:ال|[وفبلك]+)/, '');
+  const items: LocalAyahIndex[] = [];
+  const strictMap = new Map<string, QuranMushafAyah>();
+  const looseMap = new Map<string, QuranMushafAyah>();
+
+  for (const surah of localSource.surahs) {
+    for (const ayah of surah.ayahs) {
+      const row = localToAyah(surah, ayah);
+      const sourceText = ayah.search || ayah.text;
+      const strict = normalizeArabicStrict(sourceText);
+      const loose = normalizeArabic(sourceText);
+      const words = loose.split(/\s+/).filter(Boolean);
+      const wordSet = new Set(words);
+      const stemSet = new Set(words.map(stripAffixes).filter(s => s.length >= 2));
+
+      items.push({
+        surah,
+        ayah,
+        row,
+        strict,
+        loose,
+        wordSet,
+        stemSet
+      });
+
+      if (strict && !strictMap.has(strict)) strictMap.set(strict, row);
+      if (loose && !looseMap.has(loose)) looseMap.set(loose, row);
+      const strictAyahText = normalizeArabicStrict(ayah.text);
+      if (strictAyahText && !strictMap.has(strictAyahText)) strictMap.set(strictAyahText, row);
+      const looseAyahText = normalizeArabic(ayah.text);
+      if (looseAyahText && !looseMap.has(looseAyahText)) looseMap.set(looseAyahText, row);
+    }
+  }
+  indexedAyahsCache = items;
+  exactStrictCache = strictMap;
+  exactLooseCache = looseMap;
+  return { items, strictMap, looseMap };
+}
+
 export function findExactHafsAyahLocal(query: string): QuranMushafAyah | null {
   const input = String(query || '').trim();
   if (!input) return null;
@@ -101,24 +158,9 @@ export function findExactHafsAyahLocal(query: string): QuranMushafAyah | null {
   const looseTarget = normalizeArabic(input);
   if (!strictTarget && !looseTarget) return null;
 
-  for (const surah of localSource.surahs) {
-    for (const ayah of surah.ayahs) {
-      const match =
-        (strictTarget && (
-          normalizeArabicStrict(ayah.text) === strictTarget ||
-          (ayah.search && normalizeArabicStrict(ayah.search) === strictTarget)
-        )) ||
-        (looseTarget && (
-          normalizeArabic(ayah.text) === looseTarget ||
-          (ayah.search && normalizeArabic(ayah.search) === looseTarget)
-        ));
-
-      if (match) {
-        return localToAyah(surah, ayah);
-      }
-    }
-  }
-
+  const { strictMap, looseMap } = ensureIndexed();
+  if (strictTarget && strictMap.has(strictTarget)) return strictMap.get(strictTarget)!;
+  if (looseTarget && looseMap.has(looseTarget)) return looseMap.get(looseTarget)!;
   return null;
 }
 
@@ -132,33 +174,33 @@ export function searchHafsAyahsLocal(query: string, limit = 12): QuranMushafAyah
   const cleanTargetWords = targetWords.map(w => ({ raw: w, stem: stripAffixes(w) })).filter(w => w.stem.length >= 2);
   const scored: Array<{ row: QuranMushafAyah; score: number }> = [];
 
-  for (const surah of localSource.surahs) {
-    for (const ayah of surah.ayahs) {
-      const sourceText = ayah.search || ayah.text;
-      const strict = normalizeArabicStrict(sourceText);
-      const loose = normalizeArabic(sourceText);
-      let score = 0;
+  const { items } = ensureIndexed();
+  for (const item of items) {
+    let score = 0;
 
-      if (strict === targetStrict) {
-        score = 1;
-      } else if (cleanTargetWords.length >= 2 && targetStrict.length >= 6 && strict.includes(targetStrict)) {
-        score = 0.98;
-      } else if (cleanTargetWords.length >= 2) {
-        const sourceWords = loose.split(/\s+/).filter(Boolean);
-        const sourceStems = sourceWords.map(stripAffixes);
-        let shared = 0;
-        for (const target of cleanTargetWords) {
-          const matched = sourceWords.includes(target.raw) ||
-            sourceStems.includes(target.stem) ||
-            (target.stem.length >= 3 && sourceStems.some(s => s.includes(target.stem)));
-          if (matched) shared++;
+    if (item.strict === targetStrict) {
+      score = 1;
+    } else if (cleanTargetWords.length >= 2 && targetStrict.length >= 6 && item.strict.includes(targetStrict)) {
+      score = 0.98;
+    } else if (cleanTargetWords.length >= 2 && item.strict.length >= 3 && targetStrict.includes(item.strict)) {
+      score = 0.95;
+    } else if (cleanTargetWords.length >= 2) {
+      let shared = 0;
+      for (const target of cleanTargetWords) {
+        if (item.wordSet.has(target.raw) || item.stemSet.has(target.stem)) {
+          shared++;
         }
-        const overlap = shared / cleanTargetWords.length;
-        if (overlap >= 0.5) score = overlap * 0.95;
-        else if (shared >= 1 && cleanTargetWords.length <= 4) score = (shared / cleanTargetWords.length) * 0.8;
       }
+      const overlap = shared / cleanTargetWords.length;
+      if (overlap >= 0.5) {
+        score = overlap * 0.95;
+      } else if (shared >= 1 && cleanTargetWords.length <= 4) {
+        score = (shared / cleanTargetWords.length) * 0.8;
+      }
+    }
 
-      if (score >= 0.45) scored.push({ row: localToAyah(surah, ayah), score });
+    if (score >= 0.45 || (cleanTargetWords.length >= 2 && score >= 0.25 && item.strict.length <= 8 && targetStrict.includes(item.strict))) {
+      scored.push({ row: item.row, score });
     }
   }
 

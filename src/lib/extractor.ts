@@ -79,12 +79,12 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
 
   // 1b. Unquoted Ayah after Quranic markers:
   // e.g. "قال تعالى: إنا أعطيناك الكوثر" or "في سورة البقرة آية 300: ..."
-  const quranUnquotedRegex = /(?:قال (?:الله )?تعالى|قوله (?:الله )?(?:تعالى|سبحانه)|كما قال (?:الله )?تعالى[^:\n]*|قال (?:الله )?سبحانه(?:\s+وتعالى)?|في (?:سورة|القرآن الكريم)[^:\n]*)[:\s]+([^\n\[«""]{5,})/gim;
+  const quranUnquotedRegex = /(?:قال (?:الله )?تعالى|قوله (?:الله )?(?:تعالى|سبحانه)|كما قال (?:الله )?تعالى[^:\n]*|قال (?:الله )?سبحانه(?:\s+وتعالى)?|في (?:سورة|القرآن الكريم)[^:\n]*)[:\s]+([^\n\[«""]{2,})/gim;
   let quMatch;
   while ((quMatch = quranUnquotedRegex.exec(text)) !== null) {
     const fullMatch = quMatch[0];
     const bodyText = quMatch[1]?.trim();
-    if (!bodyText || bodyText.length < 5) continue;
+    if (!bodyText || bodyText.length < 2) continue;
 
     const matchStart = quMatch.index;
     const matchEnd = matchStart + fullMatch.length;

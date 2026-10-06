@@ -358,90 +358,103 @@ async function handleToolCall(name: string, args: Record<string, any>) {
   }
 }
 
+export { TOOLS, handleToolCall };
+
 // JSON-RPC stdio protocol loop
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-  terminal: false
-});
+function startMcpServer() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: false
+  });
 
-rl.on('line', async (line) => {
-  if (!line.trim()) return;
-  try {
-    const request = JSON.parse(line);
-    const { id, method, params } = request;
+  rl.on('line', async (line) => {
+    if (!line.trim()) return;
+    try {
+      const request = JSON.parse(line);
+      const { id, method, params } = request;
 
-    switch (method) {
-      case 'initialize': {
-        const response = {
-          jsonrpc: '2.0',
-          id,
-          result: {
-            protocolVersion: '2024-11-05',
-            capabilities: {
-              tools: {}
-            },
-            serverInfo: {
-              name: SERVER_NAME,
-              version: SERVER_VERSION
-            }
-          }
-        };
-        console.log(JSON.stringify(response));
-        break;
-      }
-
-      case 'notifications/initialized': {
-        // Notification, no response required
-        break;
-      }
-
-      case 'tools/list': {
-        const response = {
-          jsonrpc: '2.0',
-          id,
-          result: {
-            tools: TOOLS
-          }
-        };
-        console.log(JSON.stringify(response));
-        break;
-      }
-
-      case 'tools/call': {
-        const { name, arguments: args } = params;
-        try {
-          const result = await handleToolCall(name, args || {});
-          console.log(JSON.stringify({
+      switch (method) {
+        case 'initialize': {
+          const response = {
             jsonrpc: '2.0',
             id,
-            result
-          }));
-        } catch (err: any) {
+            result: {
+              protocolVersion: '2024-11-05',
+              capabilities: {
+                tools: {}
+              },
+              serverInfo: {
+                name: SERVER_NAME,
+                version: SERVER_VERSION
+              }
+            }
+          };
+          console.log(JSON.stringify(response));
+          break;
+        }
+
+        case 'notifications/initialized': {
+          // Notification, no response required
+          break;
+        }
+
+        case 'tools/list': {
+          const response = {
+            jsonrpc: '2.0',
+            id,
+            result: {
+              tools: TOOLS
+            }
+          };
+          console.log(JSON.stringify(response));
+          break;
+        }
+
+        case 'tools/call': {
+          const { name, arguments: args } = params;
+          try {
+            const result = await handleToolCall(name, args || {});
+            console.log(JSON.stringify({
+              jsonrpc: '2.0',
+              id,
+              result
+            }));
+          } catch (err: any) {
+            console.log(JSON.stringify({
+              jsonrpc: '2.0',
+              id,
+              error: {
+                code: -32603,
+                message: err.message || 'Internal tool error'
+              }
+            }));
+          }
+          break;
+        }
+
+        default: {
           console.log(JSON.stringify({
             jsonrpc: '2.0',
             id,
             error: {
-              code: -32603,
-              message: err.message || 'Internal tool error'
+              code: -32601,
+              message: `Method not found: ${method}`
             }
           }));
         }
-        break;
       }
-
-      default: {
-        console.log(JSON.stringify({
-          jsonrpc: '2.0',
-          id,
-          error: {
-            code: -32601,
-            message: `Method not found: ${method}`
-          }
-        }));
-      }
+    } catch (parseErr) {
+      // Malformed JSON
     }
-  } catch (parseErr) {
-    // Malformed JSON
-  }
-});
+  });
+}
+
+const isDirectExecution = process.argv[1] && (
+  process.argv[1].endsWith('mcp-server.ts') ||
+  process.argv[1].endsWith('mcp-server.js')
+);
+
+if (isDirectExecution) {
+  startMcpServer();
+}
