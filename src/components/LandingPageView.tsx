@@ -66,12 +66,11 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
         </div>
 
         <h1 className="mt-6 text-balance font-display text-[40px] font-bold leading-[1.18] tracking-tight text-ink sm:text-[58px]">
-          قبل أن تنشر،
-          <span className="text-brand"> اعرف الأصل.</span>
+          تحقّق قبل أن تنشر
         </h1>
 
         <p className="mt-5 max-w-2xl text-pretty text-[17px] leading-8 text-muted sm:text-[19px]">
-          بصيرة تفحص النص في مرجعه المعتمد، وتعرض لك الدليل بوضوح قبل أن تستخدمه أو تنشره.
+          افحص آية أو حديثًا أو محتوى دينيًا، واعرف النتيجة والمصدر والدليل قبل أن تستخدمه أو تنشره.
         </p>
 
         <button
@@ -85,7 +84,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
         </button>
 
         <div className="home-trust-line">
-          <span><ShieldCheck className="h-4 w-4" /> المصدر أولًا</span>
+          <span><ShieldCheck className="h-4 w-4" /> المصدر واضح</span>
           <span><ShieldCheck className="h-4 w-4" /> نتيجة واضحة</span>
           <span><ShieldCheck className="h-4 w-4" /> الدليل ظاهر</span>
         </div>
@@ -98,7 +97,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
           <div className="home-flow-line" aria-hidden="true" />
           <div className="home-flow-step">
             <span>02</span>
-            <strong>نرجع إلى المصدر</strong>
+            <strong>نراجع المصدر</strong>
           </div>
           <div className="home-flow-line" aria-hidden="true" />
           <div className="home-flow-step">
@@ -146,10 +145,10 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
       <div>
         <div className="eyebrow">بصيرة</div>
         <h2 className="mt-1 font-display text-xl font-bold text-ink">
-          لا تكتفِ بالنتيجة؛ تتبّع الأصل.
+          لا تكتفِ بالنتيجة؛ افتح الدليل.
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted">
-          صممت بصيرة لتكون سريعة في الاستخدام، واضحة في الحكم، وقابلة للمراجعة عندما تحتاج إلى التفاصيل.
+          النتيجة مختصرة، والمصدر والدليل أمامك لتراجعهما متى احتجت.
         </p>
       </div>
     </section>
