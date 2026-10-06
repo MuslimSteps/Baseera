@@ -116,7 +116,7 @@ export const ExtensionSimulatorView: React.FC = () => {
   };
 
   return (
-    <div className="page-shell mx-auto max-w-[1380px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
+    <div className="page-shell extension-page mx-auto max-w-[1380px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
       {/* Editorial Header */}
       <div className="bento-card bento-card--gold bento-accent-top p-6 sm:p-8 reveal">
         <div className="flex items-center gap-2 text-xs mb-3">
@@ -317,7 +317,7 @@ export const ExtensionSimulatorView: React.FC = () => {
           </div>
 
           {/* Floating Card UI matching exactly what user requested */}
-          <div className="w-full max-w-sm rounded-2xl bg-[#090d16] border border-slate-800 p-4 shadow-2xl space-y-3.5">
+          <div className="extension-popup w-full max-w-sm rounded-2xl bg-[#090d16] border border-slate-800 p-4 shadow-2xl space-y-3.5">
             {/* Extension Header */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
