@@ -508,12 +508,6 @@ export function verifyQuranAyahDeterministic(item: ExtractedItem): VerificationR
     text_uthmani: best.text
   };
 
-  const strictInput = normalizeArabicStrict(query);
-  const strictCanonical = normalizeArabicStrict(candidate.text);
-  const strictMatch = strictInput === strictCanonical;
-  const candidateWords = normalizeArabic(candidate.text).split(/\s+/).filter(Boolean);
-  const diff = computeWordDiff(query, candidate.text);
-
-  return buildQuranDecision(item, candidate, strictMatch, candidateWords, diff);
+  return buildQuranDecision(item, candidate);
 }
 
