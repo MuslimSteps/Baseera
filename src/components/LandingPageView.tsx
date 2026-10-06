@@ -26,21 +26,14 @@ interface LandingPageViewProps {
 export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) => {
   // Animated sequential step highlight for "كيف يحل بصيرة المشكلة"
   const [activeStep, setActiveStep] = useState<number>(0);
-  // Animated cycling highlight for the sample pills in the Hero
-  const [activePill, setActivePill] = useState<number>(0);
 
   useEffect(() => {
     const stepTimer = setInterval(() => {
       setActiveStep((prev) => (prev + 1) % 3);
     }, 2800);
 
-    const pillTimer = setInterval(() => {
-      setActivePill((prev) => (prev + 1) % 3);
-    }, 3200);
-
     return () => {
       clearInterval(stepTimer);
-      clearInterval(pillTimer);
     };
   }, []);
 
@@ -86,49 +79,23 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ onNavigate }) 
             </button>
             <button
               type="button"
-              onClick={() => onNavigate('sources')}
-              className="btn btn-secondary min-h-11 px-5 text-sm font-bold transition-transform hover:-translate-y-0.5 cursor-pointer"
+              onClick={() => onNavigate('dawah')}
+              className="btn btn-secondary min-h-11 px-5 text-sm font-bold transition-transform hover:-translate-y-0.5 cursor-pointer inline-flex items-center gap-2"
             >
-              استعرض المصادر المعتمدة
+              <Sparkles className="h-4 w-4 text-brand" /> إعداد المحتوى
             </button>
           </div>
 
-          {/* Quick Examples Pills with gentle animated cycle */}
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-2 text-xs">
-            <span className="text-muted font-medium ml-1">جرّب فحص:</span>
-            <button
-              type="button"
-              onClick={() => onNavigate('verifier')}
-              className={`px-3 py-1.5 rounded-lg border transition-all duration-300 text-ink font-medium shadow-xs cursor-pointer ${
-                activePill === 0
-                  ? 'border-brand bg-brand-soft/40 text-brand-strong ring-2 ring-brand/15 scale-105'
-                  : 'border-line bg-surface hover:border-brand hover:text-brand'
-              }`}
+          {/* Extension Download Button */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="/baseera-extension.zip"
+              download="baseera-extension.zip"
+              className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-xl border border-line bg-surface hover:border-brand hover:bg-brand-soft/20 text-ink font-bold text-xs shadow-xs transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
             >
-              شرب الخمر من العنب
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('verifier')}
-              className={`px-3 py-1.5 rounded-lg border transition-all duration-300 text-ink font-medium shadow-xs cursor-pointer ${
-                activePill === 1
-                  ? 'border-brand bg-brand-soft/40 text-brand-strong ring-2 ring-brand/15 scale-105'
-                  : 'border-line bg-surface hover:border-brand hover:text-brand'
-              }`}
-            >
-              حديث: إنما الأعمال بالنيات
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('verifier')}
-              className={`px-3 py-1.5 rounded-lg border transition-all duration-300 text-ink font-medium shadow-xs cursor-pointer ${
-                activePill === 2
-                  ? 'border-brand bg-brand-soft/40 text-brand-strong ring-2 ring-brand/15 scale-105'
-                  : 'border-line bg-surface hover:border-brand hover:text-brand'
-              }`}
-            >
-              مسح الخفين ٥ أيام
-            </button>
+              <Download className="h-4 w-4 text-brand" />
+              <span>تحميل إضافة المتصفح (Chrome Extension)</span>
+            </a>
           </div>
         </div>
       </section>
