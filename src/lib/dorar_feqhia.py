@@ -136,8 +136,10 @@ def extract_subject_tokens(raw_text, intent):
             tokens.append(token)
     return tokens
 
-def title_intent_fit(title, intent, subject_tokens):
+def title_intent_fit(title, intent, subject_tokens, breadcrumb=""):
     t = norm_ar(title)
+    bc = norm_ar(breadcrumb)
+    full = f"{bc} {t}"
     if intent == "unknown":
         return 0
 
@@ -145,22 +147,26 @@ def title_intent_fit(title, intent, subject_tokens):
         # Distinguish wisdom/philosophy sections from actual legal rulings
         if re.search(r"(?:حكمه|حكمة)\s+مشروعيه|حكم\s+فوائد|الحكمه|حكم\s+فوائده|لمشروعيه|حكم\s+عظيمه", t):
             return -120
-        has_subject = bool(subject_tokens and any(token in t for token in subject_tokens))
+        has_subject = bool(subject_tokens and any(token in t or token in bc for token in subject_tokens))
         if not has_subject:
             return -150
 
-        # An article answering a legal ruling ("ما حكم...") MUST contain a ruling indicator in its title
-        has_ruling_word = bool(re.search(r"(?:^|[\s:؛-])(?:حكم|وحكمه|وحكمها|احكام|تحريم|وجوب|كراهه|جواز|اباحه|مشروعيه)\b", t))
-        if not has_ruling_word and not re.search(r"^(?:المطلب|الفرع|المبحث)\s+\w+:\s*حكم", t):
+        # An article answering a legal ruling ("ما حكم...") contains ruling indicators in title or chapter/breadcrumb
+        ruling_regex = r"(?:^|[\s:؛\-_/])(?:حكم|وحكمه|وحكمها|احكام|تحريم|وجوب|كراهه|يكره|يحرم|يستحب|مستحب|جواز|يجوز|اباحه|يباح|يسن|سنه|مشروعيه|مشروع|نهي|منهي|افراد|افضل|فضل|مساله|ما\s+(?:يكره|يحرم|يستحب|يباح|يجوز))\b"
+        has_ruling_word = bool(re.search(ruling_regex, t)) or bool(re.search(ruling_regex, bc))
+        if not has_ruling_word and not re.search(r"^(?:المطلب|الفرع|المبحث)\s+\w+:", t):
             return -120
 
         score = 80
         # Reward explicit ruling indicator (avoiding phrases like "لا يرفع حكما")
         if has_ruling_word and not re.search(r"(?:لا\s+يرفع|يرفع|يغير|تغير)\s+حكما", t):
             score += 80
-        exact_phrase = "حكم " + " ".join(subject_tokens[:2])
-        if len(subject_tokens) >= 1 and exact_phrase in t:
-            score += 120
+        full_subject = " ".join(subject_tokens)
+        if full_subject and (full_subject in t or full_subject in bc):
+            score += 150
+        exact_ruling_phrase = f"حكم {full_subject}"
+        if exact_ruling_phrase in t or exact_ruling_phrase in bc:
+            score += 180
         return score
 
     if intent == "benefits":
@@ -178,7 +184,7 @@ def title_intent_fit(title, intent, subject_tokens):
         "comparison": ["المذاهب", "الحنفي", "المالكي", "الشافعي", "الحنبلي"],
     }
     terms = checks.get(intent, [])
-    if any(term in t for term in terms):
+    if any(term in t or term in bc for term in terms):
         return 120
     return -50
 
@@ -186,28 +192,82 @@ def score_candidate(title, text, intent, subject_tokens, breadcrumb=""):
     norm_title = norm_ar(title)
     norm_text = norm_ar(text)
     norm_bc = norm_ar(breadcrumb)
-    title_hits = sum(1 for token in subject_tokens if token and token in norm_title)
-    text_hits = sum(1 for token in subject_tokens if token and token in norm_text)
-    bc_hits = sum(1 for token in subject_tokens if token and token in norm_bc)
+
+    def get_token_group(tok):
+        if tok in ("صيام", "صوم"):
+            return {"صيام", "صوم", "صومه"}
+        if tok in ("وضوء", "طهاره"):
+            return {"وضوء", "طهاره", "توضا"}
+        if tok in ("صلاه", "صلوات"):
+            return {"صلاه", "صلوات", "يصلي"}
+        return {tok}
+
+    concept_groups = [get_token_group(tok) for tok in subject_tokens if tok]
+    title_concept_hits = sum(1 for group in concept_groups if any(word in norm_title for word in group))
+    bc_concept_hits = sum(1 for group in concept_groups if any(word in norm_bc for word in group))
+    total_concept_hits = sum(1 for group in concept_groups if any(word in norm_title or word in norm_bc for word in group))
+
+    # Basic word hits
+    expanded_tokens = list(subject_tokens)
+    for tok in subject_tokens:
+        if tok == "صيام":
+            expanded_tokens.append("صوم")
+        elif tok == "صوم":
+            expanded_tokens.append("صيام")
+        elif tok == "وضوء":
+            expanded_tokens.append("طهاره")
+            expanded_tokens.append("توضا")
+
+    title_hits = sum(1 for token in expanded_tokens if token and token in norm_title)
+    text_hits = sum(1 for token in expanded_tokens if token and token in norm_text)
+    bc_hits = sum(1 for token in expanded_tokens if token and token in norm_bc)
 
     score = title_hits * 35 + min(text_hits, 5) * 3
-    score += title_intent_fit(title, intent, subject_tokens)
+    score += title_intent_fit(title, intent, expanded_tokens, breadcrumb)
+
+    # Concept group coverage bonuses & missing penalties
+    if concept_groups:
+        if title_concept_hits == len(concept_groups):
+            score += 250  # All subject concepts present directly in article title
+        elif total_concept_hits == len(concept_groups):
+            score += 150  # All subject concepts covered between title and breadcrumb
+        
+        missing_concepts = len(concept_groups) - total_concept_hits
+        if missing_concepts > 0:
+            score -= missing_concepts * 150
+
+    # Entity / qualifier conflict guard:
+    # E.g. query specifies Friday ("جمعه"), candidate title is explicitly about Saturday ("سبت") or another day
+    days = {"جمعه", "سبت", "احد", "اثنين", "ثلاثاء", "اربعاء", "خميس"}
+    query_days = {tok for tok in subject_tokens if tok in days}
+    if query_days:
+        title_days = {w for w in days if w in norm_title}
+        conflicting_days = title_days - query_days
+        if conflicting_days:
+            score -= 400
 
     # Breadcrumb topic authority: if the encyclopedia chapter itself is about the subject
     if bc_hits > 0:
         score += 120
     elif norm_bc:
-        # Penalize articles belonging to entirely unrelated books/chapters
         score -= 100
 
-    # Stronger subject anchoring.
-    if subject_tokens and all(token in norm_title for token in subject_tokens):
+    # Topic domain consistency check:
+    # E.g., if question is about fasting (صيام/صوم), heavily penalize articles from book of prayer (كتاب الصلاة)
+    if any(tok in ("صيام", "صوم") for tok in subject_tokens):
+        if "صلاه" in norm_bc and "صوم" not in norm_bc and "صيام" not in norm_bc:
+            score -= 300
+        if "صوم" in norm_bc or "صيام" in norm_bc or "صوم" in norm_title or "صيام" in norm_title:
+            score += 150
+
+    # Stronger subject anchoring
+    if subject_tokens and all(token in norm_title or token in norm_bc for token in subject_tokens):
         score += 80
 
     # Generic topic words alone are not enough.
     answerable = (
-        (intent == "unknown" and title_hits > 0 and score > 0) or
-        (intent != "unknown" and title_hits > 0 and title_intent_fit(title, intent, subject_tokens) >= 60 and score > 80)
+        (intent == "unknown" and (title_hits > 0 or bc_hits > 0) and score > 0) or
+        (intent != "unknown" and (title_hits > 0 or bc_hits > 0) and score > 80)
     )
     return score, answerable, title_hits, text_hits
 
@@ -252,8 +312,10 @@ def extract_article_fields(art):
 
     return title, text, full_link, breadcrumb_clean
 
-def fetch_article_details(article_url):
+def fetch_article_details(article_url, depth=0):
     """Fetch the source article itself; never generate or paraphrase its content."""
+    if depth > 2:
+        return None, article_url
     try:
         req = urllib.request.Request(article_url, headers=HEADERS)
         with urllib.request.urlopen(req, timeout=8) as response:
@@ -261,7 +323,25 @@ def fetch_article_details(article_url):
 
         pos = source_html.find("w-100 mt-4")
         if pos == -1:
-            return None
+            # Check if this is a parent category/chapter page linking to sub-articles
+            # e.g., /feqhia/365 links to /feqhia/366
+            sub_links = re.findall(r'href=["\'](/feqhia/\d+[^"\']*)["\'][^>]*>\s*<span class="title-text">([^<]+)</span>', source_html)
+            curr_id_match = re.search(r'/feqhia/(\d+)', article_url)
+            curr_id = int(curr_id_match.group(1)) if curr_id_match else 0
+
+            children = []
+            for path, title in sub_links:
+                m = re.search(r'/feqhia/(\d+)', path)
+                if m:
+                    sub_id = int(m.group(1))
+                    if sub_id > curr_id or any(k in title for k in ['المبحث', 'المطلب', 'الفرع']):
+                        children.append((path, title, sub_id))
+
+            if children:
+                target = children[0][0]
+                full_sub = target if target.startswith("http") else ("https://dorar.net" + target)
+                return fetch_article_details(full_sub, depth + 1)
+            return None, article_url
 
         chunk = source_html[pos:pos + 7000]
         chunk = re.sub(r'<span class="tip"[^>]*>[\s\S]*?</span>', "", chunk)
@@ -274,9 +354,10 @@ def fetch_article_details(article_url):
             if idx != -1 and idx > 100:
                 clean = clean[:idx].strip()
 
-        return clean[:1600] if len(clean) > 40 else None
+        text = clean[:1600] if len(clean) > 40 else None
+        return text, article_url
     except Exception:
-        return None
+        return None, article_url
 
 def build_queries(raw_query, intent, subject_tokens):
     queries = []
@@ -284,12 +365,23 @@ def build_queries(raw_query, intent, subject_tokens):
     if primary:
         queries.append(primary)
 
+    # Morphological synonyms for primary query
+    if "صيام" in primary:
+        queries.append(primary.replace("صيام", "صوم"))
+    elif "صوم" in primary:
+        queries.append(primary.replace("صوم", "صيام"))
+
     subject = " ".join(subject_tokens)
     if intent == "ruling" and subject:
         queries.extend([
             f"حكم {subject}",
             f"ما حكم {subject}",
         ])
+        if "صيام" in subject:
+            queries.append(f"حكم {subject.replace('صيام', 'صوم')}")
+            queries.append(f"افراد {subject.replace('صيام', '')} بالصوم".strip())
+        elif "صوم" in subject:
+            queries.append(f"حكم {subject.replace('صوم', 'صيام')}")
 
     if subject:
         if intent != "unknown":
@@ -424,16 +516,14 @@ def search_dorar_feqhia(raw_query):
                 if current is None or score > current["score"]:
                     best_by_url[url] = candidate
 
-            # Once an answer-bearing candidate is found for an explicit intent,
-            # further broad queries are unnecessary and may introduce noise.
+            # Only break early if an exact topic-matching candidate (score >= 400) is found.
+            # Otherwise, allow all primary query variants to run so morphological variants
+            # (e.g. صيام vs صوم) have an opportunity to discover the precise article.
             if any(
-                c["answerable"] for c in best_by_url.values()
+                c["answerable"] and c["score"] >= 400 for c in best_by_url.values()
                 if c["intent"] == intent
             ):
-                # Do one more query only for explicit ruling to ensure a precise
-                # ruling section outranks a "wisdom/benefits" section.
-                if intent != "ruling" or len(queries) <= 2:
-                    break
+                break
 
         candidates = sorted(
             best_by_url.values(),
@@ -482,7 +572,9 @@ def search_dorar_feqhia(raw_query):
             }
 
         top = valid_candidates[0]
-        detailed = fetch_article_details(top["url"])
+        detailed, resolved_url = fetch_article_details(top["url"])
+        if resolved_url and resolved_url != top["url"]:
+            top["url"] = resolved_url
         if detailed:
             top["detailed_ruling"] = detailed
 
@@ -508,6 +600,8 @@ def search_dorar_feqhia(raw_query):
             "subject_tokens": subject_tokens,
             "query_used": query,
             "search_url": first_search_url,
+            "top_url": top["url"],
+            "best_result": public_results[0] if public_results else None,
             "count": len(public_results),
             "relevance_score": top["score"],
             "matched_title": top["title"],
@@ -544,8 +638,8 @@ if __name__ == "__main__":
         run_self_test()
     elif len(sys.argv) >= 3 and sys.argv[1] == "--fetch-article":
         target_url = sys.argv[2]
-        art_text = fetch_article_details(target_url)
-        print(json.dumps({"success": bool(art_text), "text": art_text or ""}, ensure_ascii=False))
+        art_text, resolved_url = fetch_article_details(target_url)
+        print(json.dumps({"success": bool(art_text), "text": art_text or "", "url": resolved_url or target_url}, ensure_ascii=False))
     else:
         query = " ".join(arg for arg in sys.argv[1:] if not arg.startswith("--"))
         if not query:

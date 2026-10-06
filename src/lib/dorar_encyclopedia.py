@@ -39,6 +39,10 @@ def extract_dorar_article_content(html):
         chunk = re.sub(r'<span class=[\x27\x22]tip[\x27\x22][^>]*>[\s\S]*?</span>', '', chunk)
         clean = clean_html(chunk)
         clean = re.sub(r'^w-100 mt-4\s*["\'>\s]*', '', clean)
+        for stop_marker in ["انظر أيضا", "انظر أيضاً", "عرض الهوامش", "السابق التالي", "إضافة تعليق", "الرابط المختصر"]:
+            idx = clean.find(stop_marker)
+            if idx > 40:
+                clean = clean[:idx].strip()
         if len(clean) > 50 and 'منهج العمل في الموسوعة' not in clean:
             return clean[:1800]
 
@@ -51,6 +55,10 @@ def extract_dorar_article_content(html):
         chunk = re.sub(r'<span class=[\x27\x22]tip[\x27\x22][^>]*>[\s\S]*?</span>', '', chunk)
         clean = clean_html(chunk)
         clean = re.sub(r'^(?:row\s+)?amiri_custom_content\s*["\'>\s]*', '', clean).strip()
+        for stop_marker in ["انظر أيضا", "انظر أيضاً", "عرض الهوامش", "السابق التالي", "إضافة تعليق", "الرابط المختصر"]:
+            idx = clean.find(stop_marker)
+            if idx > 40:
+                clean = clean[:idx].strip()
         if len(clean) > 50 and 'منهج العمل في الموسوعة' not in clean:
             return clean[:1800]
 
@@ -58,13 +66,27 @@ def extract_dorar_article_content(html):
     m = re.search(r'<meta\s+(?:property|name)=[\x27\x22](?:og:)?description[\x27\x22]\s+content=[\x27\x22]([^\x27\x22]+)[\x27\x22]', cleaned)
     if m:
         meta_desc = clean_html(m.group(1))
+        for stop_marker in ["انظر أيضا", "انظر أيضاً", "عرض الهوامش", "السابق التالي", "إضافة تعليق", "الرابط المختصر"]:
+            idx = meta_desc.find(stop_marker)
+            if idx > 40:
+                meta_desc = meta_desc[:idx].strip()
+        if len(meta_desc) > 30 and not meta_desc.startswith("موسوعة") and 'منهج العمل' not in meta_desc:
+            return meta_desc
         if len(meta_desc) > 30 and not meta_desc.startswith("موسوعة") and 'منهج العمل' not in meta_desc:
             return meta_desc
 
     return ""
 
+def extract_tafsir_keywords(query):
+    q_clean = re.sub(r'[«»"“؟?.,!:]', ' ', query)
+    cleaned = re.sub(r'^(?:ما\s+(?:هي\s+)?(?:الآية|الاية)\s+(?:التي\s+)?(?:تقول\s+)?(?:إن|ان)?|ما\s+معنى\s+(?:الآية|الاية)|أين\s+(?:ورد|ذكرت)|تفسير\s+آية|ما\s+تفسير|معنى\s+قوله\s+تعالى|في\s+القرآن(?:\s+الكريم)?|ما\s+حكم|هل)\s*', '', q_clean).strip()
+    words = [w for w in re.split(r'\s+', cleaned) if len(w) >= 3 and w not in ('الذي', 'التي', 'الذين', 'تقول', 'الله', 'تعالى', 'عز', 'وجل', 'قال', 'كان')]
+    return words, cleaned
+
 def search_tafsir(query):
-    url = "https://dorar.net/tafseer/search?q=" + urllib.parse.quote(query.strip())
+    keywords, clean_q = extract_tafsir_keywords(query)
+    search_terms = ' '.join(keywords[:3]) if len(keywords) >= 2 else (clean_q if clean_q else query.strip())
+    url = "https://dorar.net/tafseer/search?q=" + urllib.parse.quote(search_terms)
     req = urllib.request.Request(url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=10) as res:
         html = res.read().decode("utf-8", errors="ignore")
@@ -82,14 +104,24 @@ def search_tafsir(query):
         snippet = clean_html(art)
         # Clean leading numbers like "1 - "
         snippet = re.sub(r'^\d+\s*[-–]\s*', '', snippet).strip()
-        candidates.append({"url": full_url, "snippet": snippet})
-        if len(candidates) >= 5:
+        score = 0
+        norm_snip = re.sub(r'[^\w\s]', '', snippet)
+        for kw in keywords:
+            if kw in norm_snip or kw in snippet:
+                score += 10
+        candidates.append({"url": full_url, "snippet": snippet, "score": score})
+        if len(candidates) >= 15:
             break
 
     if not candidates:
         return {"found": False}
 
+    candidates.sort(key=lambda c: c["score"], reverse=True)
     best = candidates[0]
+
+    if keywords and best["score"] == 0:
+        return {"found": False}
+
     text = ""
     try:
         art_req = urllib.request.Request(best["url"], headers=HEADERS)
@@ -137,6 +169,20 @@ def search_aqeedah(query):
     if not candidates:
         return {"found": False}
 
+    def aqeedah_candidate_score(cand):
+        s = 0
+        norm_snip = cand["snippet"]
+        if "تعريف" in norm_snip or "معنى" in norm_snip:
+            s += 60
+        if "لغة" in norm_snip or "اصطلاح" in norm_snip:
+            s += 50
+        if "مؤلفات" in norm_snip or "كتب" in norm_snip:
+            s -= 100
+        if query.strip() in norm_snip:
+            s += 30
+        return s
+
+    candidates.sort(key=aqeedah_candidate_score, reverse=True)
     best = candidates[0]
     text = ""
     # Try candidates in order if first candidate has no article body (e.g. index page)
@@ -182,21 +228,26 @@ def search_term(query):
         if ("/t/" in href or "/dictionary/" in href) and len(title) >= 2 and not href.endswith("/search"):
             full_url = href if href.startswith("http") else ("https://islamic-content.com" + href)
             norm_t = re.sub(r"^[اآإأ]ل", "", title)
-            exact = 100 if norm_t == norm_q else (50 if norm_q in norm_t else 10)
-            candidates.append({"url": full_url, "title": title, "score": exact})
+            exact = 100 if norm_t == norm_q else (50 if norm_q in norm_t or norm_t in norm_q else 0)
+            if exact >= 50:
+                candidates.append({"url": full_url, "title": title, "score": exact})
 
     if not candidates:
         return {"found": False}
 
     candidates.sort(key=lambda x: x["score"], reverse=True)
     best = candidates[0]
-    text = best["title"]
+    text = ""
 
     try:
         art_req = urllib.request.Request(best["url"], headers=HEADERS)
         with urllib.request.urlopen(art_req, timeout=10) as art_res:
             art_html = art_res.read().decode("utf-8", errors="ignore")
-        
+
+        # Reject category index nodes that only list sub-terms without technical definition
+        if "مفردات فرعية" in art_html and not ("التعريف اصطلاح" in art_html or "التعريف لغة" in art_html):
+            return {"found": False}
+
         # 1. Search for explicit technical definition section (التعريف اصطلاحاً)
         pos = art_html.find("التعريف اصطلاح")
         if pos != -1:
@@ -209,7 +260,7 @@ def search_term(query):
                 text = chunk[:1500]
         
         # 2. Search for linguistic definition section (التعريف لغة)
-        if text == best["title"]:
+        if not text:
             pos = art_html.find("التعريف لغة")
             if pos != -1:
                 chunk = clean_html(art_html[pos:pos+2500])
@@ -220,15 +271,19 @@ def search_term(query):
                 if len(chunk) > 40:
                     text = chunk[:1500]
         
-        # 3. Search for post-content containers
-        if text == best["title"]:
+        # 3. Search for post-content containers only if relevant
+        if not text:
             pos = art_html.find("post-content")
             if pos != -1:
                 chunk = clean_html(art_html[pos:pos+2500])
-                if len(chunk) > 40:
+                # Only accept if it contains a definition marker or the term itself
+                if len(chunk) > 40 and not ("مفردات فرعية" in chunk) and (norm_q in chunk or "معنى" in chunk or "تعريف" in chunk):
                     text = chunk[:1500]
     except Exception:
         pass
+
+    if not text or len(text) < 30:
+        return {"found": False}
 
     return {
         "found": True,

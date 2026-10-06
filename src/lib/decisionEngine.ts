@@ -186,8 +186,9 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
         source_id: 'source-registry-all',
         source_name: 'المصادر المعتمدة في الحزمة العلمية',
         authority: 'مصحف المدينة • الدرر السنية • موسوعة الجمهرة • المذاهب الأربعة',
-        book: 'الموسوعة الحديثية المعتمدة (الدرر السنية والمصادر المسندة)',
-        url: `https://dorar.net/hadith/search?q=${encodeURIComponent(item.text.slice(0, 50))}`
+        book: 'الموسوعة الحديثية المعتمدة (الدرر السنية والمصادر المسندة)'
+        // No URL: an unmatched text has no source page to cite (a search URL is
+        // never a source).
       },
       abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
     };
@@ -264,8 +265,8 @@ export function verifySingleItemCrossSource(item: ExtractedItem): VerificationRe
       source_id: 'source-registry-all',
       source_name: 'المصادر المعتمدة في الحزمة العلمية',
       authority: 'مصحف المدينة • الدرر السنية • موسوعة الجمهرة • المذاهب الأربعة',
-      book: 'سجل المصادر المعتمدة للمسار الرابع',
-      url: `https://dorar.net/hadith/search?q=${encodeURIComponent(item.text.slice(0, 50))}`
+      book: 'سجل المصادر المعتمدة للمسار الرابع'
+      // No URL: unmatched text has no source page to cite.
     },
     abstention_note: 'لم يُعثر عليه في المراجع المفحوصة.'
   };

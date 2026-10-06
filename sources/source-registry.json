@@ -74,6 +74,19 @@
       "implementation_status": "active_live_dorar_hadith"
     },
     {
+      "id": "hadeethenc-hadith",
+      "category": "hadith",
+      "name_ar": "موسوعة الحديث المعتمدة — HadeethEnc",
+      "name_en": "HadeethEnc Encyclopedia of Prophetic Hadith",
+      "authority": "HadeethEnc — قاعدة الأحاديث النبوية المعتمدة",
+      "scope": "الأحاديث النبوية بمتونها ودرجتها (صحيح/حسن/ضعيف) وعزوها (متفق عليه ونحوه) مع رابط صفحة مباشر لكل حديث",
+      "access_method": "عبر خادم MCP المعتمد islamic-content-mcp — أداة search/fetch",
+      "official_url": "https://hadeethenc.com/",
+      "license": "HadeethEnc — محتوى معتمد للاستخدام المعرفي",
+      "rules": "يُقتبس المتن كما ورد في الموسوعة مع درجة الحديث والعزو والرابط المباشر؛ ولا يُنسب حديث بلا مطابقة صريحة.",
+      "implementation_status": "active_live_mcp_hadeethenc"
+    },
+    {
       "id": "shamela-sunnah",
       "category": "hadith",
       "name_ar": "المكتبة الشاملة — الطبعات المعتمدة لكتب السنة",
@@ -119,6 +132,21 @@
       "access_date": "2026-09-30",
       "rules": "يُستخدم كمصدر موضوعي ومحتوى دعوي، ولا يُستبدل به نص القرآن أو حكم الحديث أو الفتوى.",
       "implementation_status": "active_supplemental_dawah_reference"
+    },
+    {
+      "id": "islamic-content-mcp",
+      "category": "mcp_service",
+      "name_ar": "خادم MCP للمحتوى الإسلامي (جمعية خدمة المحتوى الإسلامي باللغات)",
+      "name_en": "Islamic Content MCP Server (Multi-lingual Islamic Content Association)",
+      "authority": "جمعية خدمة المحتوى الإسلامي باللغات (islamiccontent.sa)",
+      "scope": "11 أداة موحدة لقراءة نصوص القرآن وترجماته والحديث وشروحه ومكتبة IslamHouse",
+      "access_method": "Streamable HTTP MCP Server: https://mcp.islamiccontent.org/mcp",
+      "official_url": "https://mcp.islamiccontent.org/",
+      "license": "مجاني · للقراءة فقط · بلا تسجيل",
+      "rules": "يسترجع النصوص المنشورة من المؤسسات المعتمدة ويسند كل نتيجة لمصدرها؛ لا يفتي ولا يؤلف.",
+      "implementation_status": "connected_live_read_only",
+      "connected_endpoint": "https://mcp.islamiccontent.org/mcp",
+      "verified_tools": "search, fetch, browse_library, get_library_item, list_library_categories, list_languages"
     }
   ]
 }

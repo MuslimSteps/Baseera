@@ -48,7 +48,7 @@ export interface SchoolPosition {
 
 export interface VerificationResult {
   id: string;
-  finding_type?: 'altered_quran_text' | 'partial_quran_quote' | 'wrong_quran_attribution' | 'generic_review';
+  finding_type?: 'altered_quran_text' | 'partial_quran_quote' | 'wrong_quran_attribution' | 'generic_review' | 'contradicted_claim' | 'ambiguous_question' | 'documented_question' | 'disputed_consensus' | 'documented_consensus' | 'verified_claim';
   item: ExtractedItem;
   status: VerificationStatus;
   status_label_ar: string;
@@ -56,8 +56,18 @@ export interface VerificationResult {
   reason: string;
   citation: SourceCitation;
   canonical_text?: string;
+  source_ruling?: string;
+  direct_ruling?: string; // Backwards-compatible alias for source_ruling
+  baseera_explanation?: string;
+  ambiguity_note?: string;
+  is_question?: boolean;
+  evidence_alignment?: 'DIRECT' | 'RELATED' | 'OUT_OF_SCOPE';
   canonical_surah?: string;
   canonical_ayah_number?: number;
+  /** True when the user's text is a verbatim excerpt (جزء) of the source verse/hadith. */
+  is_partial_quote?: boolean;
+  /** Word window, inside canonical_text, that the user's excerpt corresponds to. */
+  quote_window?: { start: number; words: number };
   verified_translation?: string;
   diff?: DiffWord[];
   reduction_warning?: string;

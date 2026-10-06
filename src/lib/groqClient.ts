@@ -8,7 +8,7 @@
  */
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1';
-export const GROQ_TEXT_MODEL = 'allam-2-7b';
+export const GROQ_TEXT_MODEL = process.env.GROQ_TEXT_MODEL?.trim() || 'openai/gpt-oss-120b';
 export const GROQ_VISION_MODEL = 'qwen/qwen3.8-27b';
 export const GROQ_AUDIO_MODEL = 'whisper-large-v3-turbo';
 
@@ -92,19 +92,19 @@ export async function groqChat(
       console.log('[BASEERA][GROQ][RESPONSE]', JSON.stringify({ model: body.model, contentLength: content.length, preview: content.slice(0, 300) }));
       return content;
     } catch (chatErr: any) {
-      if (modelToUse !== 'llama-3.1-8b-instant' && (String(chatErr?.message).includes('429') || String(chatErr?.message).includes('rate_limit'))) {
-        console.warn('[BASEERA][GROQ][FALLBACK_TO_LLAMA] Falling back to llama-3.1-8b-instant due to rate limit');
-        body.model = 'llama-3.1-8b-instant';
-        const fallbackResponse = await groqRequest('/chat/completions', {
+      if (String(chatErr?.message).includes('429') || String(chatErr?.message).includes('rate_limit')) {
+        console.warn('[BASEERA][GROQ][RATE_LIMIT_WAIT] Retrying request after 1500ms backoff...');
+        await new Promise(r => setTimeout(r, 1500));
+        const retryResponse = await groqRequest('/chat/completions', {
           method: 'POST',
           signal: controller.signal,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
-        const fallbackData = await fallbackResponse.json() as any;
-        const fallbackContent = String(fallbackData?.choices?.[0]?.message?.content || '').trim();
-        console.log('[BASEERA][GROQ][RESPONSE][FALLBACK]', JSON.stringify({ model: body.model, contentLength: fallbackContent.length, preview: fallbackContent.slice(0, 300) }));
-        return fallbackContent;
+        const retryData = await retryResponse.json() as any;
+        const retryContent = String(retryData?.choices?.[0]?.message?.content || '').trim();
+        console.log('[BASEERA][GROQ][RESPONSE][RETRY]', JSON.stringify({ model: body.model, contentLength: retryContent.length, preview: retryContent.slice(0, 300) }));
+        return retryContent;
       }
       throw chatErr;
     }

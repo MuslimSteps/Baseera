@@ -25,15 +25,66 @@ HEADERS = {
 
 def classify_grade(grade_str):
     g = grade_str or ''
-    if re.search(r'موضوع|مكذوب|باطل|لا أصل له|كذب', g):
+    if re.search(r'مختلف فيه|اختلف في صحته|اختلف في إسناده', g):
+        return 'disputed'
+    if re.search(r'موضوع|مكذوب|باطل|لا أصل له|كذب|مختلق', g):
         return 'fabricated'
-    if re.search(r'غير صحيح|ليس بصحيح|لا يصح|لا يثبت|ضعيف|منكر|واهٍ|واهي|متروك|فيه نظر|معلول|مدلس|لين|أوهى|ساقط', g):
+    if re.search(r'غير صحيح|ليس بصحيح|لا يصح|لا يثبت|ضعيف|منكر|واهٍ|واهي|متروك|فيه نظر|معلول|مدلس|لين|أوهى|ساقط|غير محفوظ|وهم|خطأ|أخطأ', g):
         return 'weak'
-    if re.search(r'صحيح|إسناده صحيح|على شرط الشيخين|على شرط البخاري|على شرط مسلم|رجاله ثقات', g):
+    if re.search(r'صحيح|إسناده صحيح|على شرط الشيخين|على شرط البخاري|على شرط مسلم|رجاله ثقات|المجمع على صحته|مجمع على صحته|مشهور بالصحة|متفق عليه|رواية صحيحة|صحاح الأحاديث|ثبت في الحديث|ثابت', g):
         return 'sahih'
-    if re.search(r'حسن|إسناده حسن|جيد|صالح', g):
+    if re.search(r'حسن|إسناده حسن|إسنادها حسن|إسناده جيد|إسنادها جيد|(?:\s|^)جيد(?:\s|$)|(?:\s|^)صالح(?:\s|$)', g):
         return 'hasan'
     return 'unknown'
+
+def _norm_key(book, number):
+    """Stable join key across the JSON API and the HTML search page."""
+    def clean(s):
+        s = s or ''
+        s = re.sub(r'[\u064B-\u065F\u0670\u0640]', '', s)  # strip tashkeel/tatweel
+        s = s.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا').replace('ى', 'ي')
+        s = re.sub(r'[\s/\\|.:،-]+', '', s)
+        return s.strip()
+    return clean(book) + '#' + clean(number)
+
+
+def fetch_html_permalinks(clean_q, timeout=10):
+    """
+    Fetch the Dorar HTML search page and build a map:
+        (normalized book + number) -> hadith permalink id (/h/<id>)
+
+    The JSON API (dorar_api.json) intentionally omits the hadith permalink, so
+    the only way to cite the real source page (not a search URL) is to join the
+    API records with the HTML search page on (book, number).
+    """
+    try:
+        url = 'https://dorar.net/hadith/search?q=' + urllib.parse.quote(clean_q[:100])
+        req = urllib.request.Request(url, headers=HEADERS)
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            html = res.read().decode('utf-8', errors='ignore')
+
+        mapping = {}
+        # Each result exposes a copy-btn whose <ref> holds: الراوي | المحدث
+        # المصدر | الصفحة أو الرقم | خلاصة حكم المحدث, immediately followed by
+        # the permalink tag/href (/h/<id>).
+        for seg in html.split('data-clipboard-text="<ref>')[1:]:
+            ref = seg.split('</ref>')[0]
+
+            def refval(key):
+                m = re.search(re.escape(key) + r':\s*(.*?)(?:<br>|\||</ref>)', ref)
+                return re.sub(r'\s+', ' ', m.group(1)).strip() if m else ''
+
+            book = refval('المصدر')
+            number = refval('الصفحة أو الرقم')
+            m_id = re.search(r'href="https://dorar\.net/h/([A-Za-z0-9]+)"', seg[:600])
+            if book and m_id:
+                mapping[_norm_key(book, number)] = m_id.group(1)
+                # weaker fallback: book alone
+                mapping.setdefault(_norm_key(book, ''), m_id.group(1))
+        return mapping
+    except Exception:
+        return {}
+
 
 def search_dorar_hadith(query):
     clean_q = query.strip()
@@ -55,6 +106,10 @@ def search_dorar_hadith(query):
         if not html or 'hadith' not in html:
             return {'success': True, 'results': [], 'count': 0, 'query': clean_q}
 
+        # The JSON API omits permalinks; join with the HTML search page so every
+        # result can cite its real source page (https://dorar.net/h/<id>).
+        permalinks = fetch_html_permalinks(clean_q)
+
         results = []
         blocks = html.split('<div class="hadith"')
 
@@ -67,7 +122,9 @@ def search_dorar_hadith(query):
             if m_text:
                 text = re.sub(r'<[^>]+>', '', m_text.group(1))
                 text = re.sub(r'^\d+\s*[-–]\s*', '', text)
-                text = re.sub(r'\s+', ' ', text).strip()
+                # Dorar snippets separate matched keys with ". . ." artifacts
+                text = re.sub(r'(?:\s*\.\s*){2,}', ' ', text)
+                text = re.sub(r'\s+', ' ', text).strip().rstrip('.')
 
             def get_field(lbl):
                 pos = block.find(lbl)
@@ -93,6 +150,7 @@ def search_dorar_hadith(query):
                 grade = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', '', m_grade.group(1))).strip()
 
             if text:
+                hid = permalinks.get(_norm_key(book, page)) or permalinks.get(_norm_key(book, ''))
                 results.append({
                     'text': text,
                     'rawi': rawi,
@@ -100,7 +158,9 @@ def search_dorar_hadith(query):
                     'book': book,
                     'numberOrPage': page,
                     'grade': grade,
-                    'gradeCategory': classify_grade(grade)
+                    'gradeCategory': classify_grade(grade),
+                    'id': hid,
+                    'url': ('https://dorar.net/h/' + hid) if hid else None
                 })
 
         return {

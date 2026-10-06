@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   BookOpenCheck,
   CheckCircle2,
@@ -21,7 +21,8 @@ const OFFICIAL_URLS: Record<string, string> = {
   'shamela-sunnah': 'https://shamela.ws/',
   'jamhara-terms': 'https://islamic-content.com/dictionary',
   'fiqh-madhahib-dorar': 'https://dorar.net/feqhia',
-  'dawa-center': 'https://dawa.center/'
+  'dawa-center': 'https://dawa.center/',
+  'islamic-content-mcp': 'https://mcp.islamiccontent.org/'
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -32,11 +33,46 @@ const CATEGORY_LABELS: Record<string, string> = {
   hadith: 'الحديث',
   terminology: 'المصطلحات',
   fiqh: 'الفقه',
-  dawah: 'المحتوى الدعوي'
+  dawah: 'المحتوى الدعوي',
+  mcp_service: 'خدمة MCP معتمدة'
 };
+
+interface McpStatus {
+  success?: boolean;
+  reachable?: boolean;
+  url?: string;
+  server_name?: string;
+  server_version?: string;
+  tools?: Array<{ name: string; description?: string }>;
+  error?: string;
+}
 
 export const SourceRegistryView: React.FC = () => {
   const [selectedSource, setSelectedSource] = useState(registryData.sources[0]);
+  const [mcpStatus, setMcpStatus] = useState<McpStatus | null>(null);
+  const [mcpLoading, setMcpLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedSource.id !== 'islamic-content-mcp') return;
+    let cancelled = false;
+    setMcpLoading(true);
+    fetch('/api/mcp/islamic-content/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setMcpStatus(data);
+      })
+      .catch(() => {
+        if (!cancelled) setMcpStatus({ reachable: false, error: 'تعذر الاتصال بخادم MCP.' });
+      })
+      .finally(() => {
+        if (!cancelled) setMcpLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSource.id]);
+
+  const isMcpSource = selectedSource.id === 'islamic-content-mcp';
 
   const sourceUrl =
     OFFICIAL_URLS[selectedSource.id] ||
@@ -142,6 +178,31 @@ export const SourceRegistryView: React.FC = () => {
               <strong>{selectedSource.rules}</strong>
             </div>
           </div>
+
+          {isMcpSource && (
+            <div className="source-info-card mt-3">
+              <span>حالة الاتصال بخادم المحتوى الإسلامي المعتمد</span>
+              {mcpLoading ? (
+                <strong className="text-muted">جارٍ فحص الاتصال... (mcp.islamiccontent.org)</strong>
+              ) : mcpStatus?.reachable ? (
+                <strong className="text-brand-strong">
+                  ✓ متصل — {mcpStatus.server_name || 'islamic-content-mcp'}
+                  {mcpStatus.tools?.length ? ` · ${mcpStatus.tools.length} أداة متاحة` : ''}
+                </strong>
+              ) : (
+                <strong className="text-danger">
+                  غير متصل حاليًا{mcpStatus?.error ? ` — ${mcpStatus.error}` : ''}
+                </strong>
+              )}
+              {mcpStatus?.reachable && mcpStatus.tools?.length ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {mcpStatus.tools.slice(0, 12).map((t) => (
+                    <span key={t.name} className="badge badge-ai font-mono-numbers">{t.name}</span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
 
           <div className="source-detail-footer">
             <div>

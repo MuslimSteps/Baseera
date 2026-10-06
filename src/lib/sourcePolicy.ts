@@ -25,7 +25,8 @@ export function isApprovedSourceUrl(rawUrl?: string): boolean {
       host === 'quranpedia.net' || host.endsWith('.quranpedia.net') ||
       host === 'islamic-content.com' || host.endsWith('.islamic-content.com') ||
       host === 'dawa.center' || host.endsWith('.dawa.center') ||
-      host === 'shamela.ws' || host.endsWith('.shamela.ws')
+      host === 'shamela.ws' || host.endsWith('.shamela.ws') ||
+      host === 'hadeethenc.com' || host.endsWith('.hadeethenc.com')
     );
   } catch {
     return false;
@@ -36,7 +37,11 @@ const SOURCE_ALLOWED_PATHS: Record<string, RegExp> = {
   'quran-translations': /^\/verse(?:\/|$)/,
   'quran-tafsir-salaf': /^\/tafseer(?:\/|$)/,
   'dorar-aqeedah': /^\/aqeeda(?:\/|$)/,
-  'dorar-hadith': /^\/(?:hadith|dorar_api\.json)(?:\/|$|\?)/,
+  // Hadith evidence must be a direct permalink page (/h/<id>). Search URLs
+  // (e.g. /hadith/search?q=...) are NOT sources and must never be cited.
+  'dorar-hadith': /^\/h\/[A-Za-z0-9]+$/,
+  // HadeethEnc canonical hadith page, e.g. /ar/browse/hadith/4560.
+  'hadeethenc-hadith': /^\/[a-z]{2}\/browse\/hadith\/[A-Za-z0-9]+\/?$/,
   'shamela-sunnah': /^\//,
   'jamhara-terms': /^\/(?:dictionary|search|t)(?:\/|$|\?)/,
   'fiqh-madhahib-dorar': /^\/feqhia(?:\/|$|\?)/,
@@ -61,6 +66,7 @@ const SOURCE_ALLOWED_HOSTS: Record<string, string[]> = {
   'quran-tafsir-salaf': ['dorar.net'],
   'dorar-aqeedah': ['dorar.net'],
   'dorar-hadith': ['dorar.net'],
+  'hadeethenc-hadith': ['hadeethenc.com'],
   'shamela-sunnah': ['shamela.ws'],
   'jamhara-terms': ['islamic-content.com'],
   'fiqh-madhahib-dorar': ['dorar.net'],

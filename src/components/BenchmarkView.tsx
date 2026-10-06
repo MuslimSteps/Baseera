@@ -56,7 +56,7 @@ export const BenchmarkView: React.FC = () => {
       {/* Editorial Header */}
       <div className="bento-card bento-card--gold bento-accent-top p-6 sm:p-8 reveal">
         <div className="flex items-center gap-2 text-xs mb-3">
-          <span>المعيار المجمّد مسبقاً (Frozen Decision Benchmark)</span>
+          <span>المعيار المجمّد مسبقاً (منهجية قرار ثابتة وقابلة للتكرار)</span>
           <span aria-hidden="true" className="text-faint">·</span>
           <span className="font-mono-numbers">150 حالة تنفيذية (75 أساس + 75 اضطراب)</span>
           <span aria-hidden="true" className="text-faint">·</span>
@@ -89,7 +89,7 @@ export const BenchmarkView: React.FC = () => {
         {/* KPI 1: FCR */}
         <div className="bento-card col-span-12 sm:col-span-6 lg:col-span-3 p-5 border border-emerald-500/30 shadow-md">
           <div className="flex items-center justify-between text-xs mb-3">
-            <span className="font-semibold text-ink">معدل التأكيد الخاطئ (FCR)</span>
+            <span className="font-semibold text-ink">معدل التأكيد الخاطئ</span>
             <ShieldCheck className="w-4 h-4 text-brand" />
           </div>
           <div className="text-3xl font-bold text-brand font-mono-numbers">
@@ -103,7 +103,7 @@ export const BenchmarkView: React.FC = () => {
         {/* KPI 2: Citation */}
         <div className="bento-card col-span-12 sm:col-span-6 lg:col-span-3 p-5 border border-hairline shadow-md">
           <div className="flex items-center justify-between text-xs mb-3">
-            <span className="font-semibold text-ink">دقة التوثيق والعزو (Citation)</span>
+            <span className="font-semibold text-ink">دقة التوثيق والعزو</span>
             <CheckCircle className="w-4 h-4 text-info" />
           </div>
           <div className="text-3xl font-bold text-info font-mono-numbers">
@@ -117,7 +117,7 @@ export const BenchmarkView: React.FC = () => {
         {/* KPI 3: Abstention */}
         <div className="bento-card col-span-12 sm:col-span-6 lg:col-span-3 p-5 border border-hairline shadow-md">
           <div className="flex items-center justify-between text-xs mb-3">
-            <span className="font-semibold text-ink">دقة الامتناع (Abstention)</span>
+            <span className="font-semibold text-ink">دقة الامتناع</span>
             <TrendingDown className="w-4 h-4 text-refer" />
           </div>
           <div className="text-3xl font-bold text-refer font-mono-numbers">
@@ -167,12 +167,12 @@ export const BenchmarkView: React.FC = () => {
           <div className="bento-card border border-hairline overflow-hidden shadow-lg">
             <div className="p-5 border-b border-hairline">
               <h3 className="text-base font-bold font-display text-ink">نتائج مجموعة اختبارات ثابتة — بصيرة</h3>
-              <p className="text-xs text-muted mt-1">هذه نتائج تشغيل حتمي لسياسة القرار على حالات ثابتة وfixtures مصدرية معلنة؛ لا تُعرض كمقارنة تجريبية مع نماذج خارجية.</p>
+              <p className="text-xs text-muted mt-1">هذه نتائج تشغيل حتمي لسياسة القرار على حالات ثابتة وبيانات مصدرية مرجعية معلنة؛ لا تُعرض كمقارنة تجريبية مع نماذج خارجية.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-right text-xs">
                 <thead className="bg-page text-muted border-b border-hairline"><tr>
-                  <th className="py-3 px-5">النظام</th><th className="py-3 px-4 text-center">FCR ⬇</th><th className="py-3 px-4 text-center">تغطية التوثيق ⬆</th><th className="py-3 px-4 text-center">الامتناع ⬆</th><th className="py-3 px-4 text-center">الثبات ⬆</th><th className="py-3 px-5 text-center">الدقة</th>
+                  <th className="py-3 px-5">النظام</th><th className="py-3 px-4 text-center">تأكيد خاطئ ⬇</th><th className="py-3 px-4 text-center">تغطية التوثيق ⬆</th><th className="py-3 px-4 text-center">الامتناع ⬆</th><th className="py-3 px-4 text-center">الثبات ⬆</th><th className="py-3 px-5 text-center">الدقة</th>
                 </tr></thead>
                 <tbody><tr className="bg-emerald-950/20 font-medium">
                   <td className="py-4 px-5 text-ink">بصيرة — المنظومة الكاملة</td>

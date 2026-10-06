@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck,
   Sparkles,
@@ -15,6 +15,35 @@ import {
   X,
   type LucideIcon
 } from 'lucide-react';
+
+/**
+ * Reads the real False-Confirmation Rate from the benchmark API instead of
+ * displaying a hard-coded figure. Shows "—" until the value is available so no
+ * unverified claim is ever presented to the user.
+ */
+function useLiveFcr(): string {
+  const [fcr, setFcr] = useState<string>('—');
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/benchmark');
+        if (!res.ok) return;
+        const data = await res.json();
+        const value = data?.data?.baseeraFull?.false_confirmation_rate;
+        if (!cancelled && typeof value === 'number') {
+          setFcr(`${value.toFixed(1)}%`);
+        }
+      } catch {
+        /* keep the neutral placeholder if the engine is unreachable */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return fcr;
+}
 
 export type TabId = 'verifier' | 'dawah' | 'benchmark' | 'sources' | 'extension' | 'governance';
 
@@ -50,13 +79,15 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'المنظومة',
     items: [
-      { id: 'extension', label: 'إضافة المتصفح', icon: Layers, hint: 'Manifest V3' },
+      { id: 'extension', label: 'إضافة المتصفح', icon: Layers, hint: 'تحقّق فوري' },
       { id: 'governance', label: 'الحوكمة والضوابط', icon: Scale, hint: 'المستويات A–D' }
     ]
   }
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, mobileOpen, onClose }) => {
+  const liveFcr = useLiveFcr();
+
   const handleSelect = (id: TabId) => {
     setActiveTab(id);
     onClose();
@@ -71,7 +102,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, mobil
         </div>
         <div className="flex flex-col leading-none">
           <span className="font-display text-lg font-bold tracking-tight text-ink">بصيرة</span>
-          <span className="font-cinzel text-[10px] font-semibold uppercase tracking-[0.3em] text-gold/80">Baseera</span>
         </div>
       </div>
 
@@ -106,8 +136,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, mobil
       {/* Footer status */}
       <div className="space-y-3 rounded-2xl border border-hairline bg-black/25 p-3">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-muted">معدل التأكيد الخاطئ</span>
-          <span className="badge badge-matched font-mono-numbers">0.0%</span>
+          <span className="text-muted">معدل التأكيد الخاطئ (المُقاس)</span>
+          <span className="badge badge-matched font-mono-numbers">{liveFcr}</span>
         </div>
         <a
           href="/baseera-extension.zip"

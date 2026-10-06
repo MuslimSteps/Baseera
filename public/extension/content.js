@@ -1,14 +1,15 @@
 /**
+ * @license
  * Baseera Chrome Extension — Floating Content Script (Shadow DOM)
- * يوفر شارة عائمة (Floating Widget) تظهر فوراً عند تحديد أي نص في أي صفحة ويب
- * ويدعم فحص الصور مباشرة عبر النقر بالزر الأيمن (Right Click Image OCR)
+ * يوفر طبقة تحقق فورية وسياقية عائمة للقرآن والحديث والمصطلحات والفقه
+ * ويدعم فحص الصور وتغريدات ومنشورات الويب مباشرة (OCR + Deterministic Verification)
  */
 
 (function () {
   const API_LOOKUP_ENDPOINT = 'http://localhost:3000/api/extension-lookup';
   const API_IMAGE_ENDPOINT = 'http://localhost:3000/api/extension-lookup-image';
 
-  // Create isolated container with Shadow DOM to prevent host page CSS conflicts
+  // 1. Create isolated container with Shadow DOM to prevent host page CSS conflicts
   const hostDiv = document.createElement('div');
   hostDiv.id = 'baseera-extension-root';
   hostDiv.style.all = 'initial';
@@ -20,55 +21,80 @@
 
   const shadow = hostDiv.attachShadow({ mode: 'open' });
 
-  // CSS Styles inside Shadow DOM
+  // 2. CSS Styles inside Shadow DOM (Light, Scholarly Islamic Theme)
   const style = document.createElement('style');
   style.textContent = `
     * {
       box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Amiri", "Helvetica Neue", Arial, sans-serif;
+      font-family: 'Amiri', 'Noto Naskh Arabic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
-    
+
     .floating-btn {
       position: absolute;
       display: none;
       align-items: center;
       gap: 6px;
-      background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
       color: #ffffff;
-      padding: 6px 14px;
+      padding: 7px 14px;
       border-radius: 9999px;
       font-size: 13px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(52, 211, 153, 0.4);
+      box-shadow: 0 6px 20px rgba(5, 150, 105, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.4);
       z-index: 2147483647;
       direction: rtl;
-      transition: transform 0.15s ease, background 0.15s ease;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
       user-select: none;
     }
     .floating-btn:hover {
       transform: scale(1.05);
-      background: linear-gradient(135deg, #047857 0%, #059669 100%);
+      background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+      box-shadow: 0 8px 25px rgba(5, 150, 105, 0.45);
     }
     .floating-btn .icon {
       font-size: 14px;
     }
 
+    .image-hover-btn {
+      position: absolute;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+      z-index: 2147483646;
+      direction: rtl;
+      transition: all 0.15s ease;
+      user-select: none;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .image-hover-btn:hover {
+      background: #059669;
+      transform: translateY(-1px);
+    }
+
     .floating-card {
       position: absolute;
       display: none;
-      width: 380px;
-      max-width: 92vw;
-      background: #090d16;
-      color: #f1f5f9;
-      border: 1px solid #1e293b;
+      width: 400px;
+      max-width: 94vw;
+      background: #ffffff;
+      color: #0f172a;
+      border: 1px solid #e2e8f0;
       border-radius: 16px;
       padding: 16px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.08);
       z-index: 2147483647;
       direction: rtl;
       font-size: 13px;
-      line-height: 1.5;
+      line-height: 1.6;
       animation: baseeraFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
@@ -81,21 +107,35 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid #1e293b;
-      padding-bottom: 8px;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 10px;
       margin-bottom: 12px;
     }
-    .card-title {
+    .card-title-wrap {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 8px;
+    }
+    .card-logo-badge {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      color: #ffffff;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-weight: 800;
-      color: #34d399;
+      font-size: 12px;
+    }
+    .card-title {
+      font-weight: 800;
+      color: #0f172a;
       font-size: 14px;
     }
-    .card-title .dot {
-      color: #10b981;
-      font-size: 16px;
+    .card-subtitle {
+      font-size: 10px;
+      color: #64748b;
     }
     .close-btn {
       background: none;
@@ -106,76 +146,99 @@
       line-height: 1;
       padding: 2px 6px;
       border-radius: 4px;
+      transition: color 0.15s;
     }
     .close-btn:hover {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.1);
+      color: #0f172a;
+      background: #f1f5f9;
     }
 
     .preview-box {
-      background: #0f172a;
-      border: 1px solid #1e293b;
-      border-radius: 8px;
-      padding: 8px 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 9px 12px;
       margin-bottom: 10px;
       font-size: 12px;
-      color: #cbd5e1;
+      color: #334155;
       max-height: 75px;
       overflow-y: auto;
       word-break: break-word;
+      line-height: 1.5;
     }
     .preview-box strong {
-      color: #38bdf8;
+      color: #0369a1;
       display: block;
       margin-bottom: 2px;
       font-size: 11px;
     }
 
     .verdict-box {
-      border-radius: 10px;
-      padding: 10px 12px;
+      border-radius: 12px;
+      padding: 11px 12px;
       margin-bottom: 10px;
-      font-size: 12px;
+      font-size: 12.5px;
     }
     .verdict-matched {
-      background: rgba(6, 78, 59, 0.55);
-      border: 1px solid rgba(5, 150, 105, 0.7);
-      color: #a7f3d0;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #065f46;
     }
     .verdict-review {
-      background: rgba(120, 53, 15, 0.55);
-      border: 1px solid rgba(217, 119, 6, 0.7);
-      color: #fde68a;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
     }
     .verdict-notfound {
-      background: rgba(30, 41, 59, 0.75);
-      border: 1px solid #334155;
-      color: #cbd5e1;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+    }
+    .verdict-referral {
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      color: #5b21b6;
     }
 
+    .verdict-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
     .verdict-heading {
       font-weight: 800;
-      font-size: 13px;
-      margin-bottom: 4px;
+      font-size: 13.5px;
       display: flex;
       align-items: center;
       gap: 5px;
     }
+    .type-pill-tag {
+      font-size: 9.5px;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.9);
+      font-weight: 800;
+      border: 1px solid currentColor;
+    }
     .verdict-source {
-      font-size: 11px;
-      opacity: 0.9;
+      font-size: 11.5px;
+      opacity: 0.95;
+      margin-top: 3px;
     }
 
     .canonical-text {
-      background: rgba(0, 0, 0, 0.4);
-      border-right: 3px solid #10b981;
-      padding: 8px 10px;
-      border-radius: 0 6px 6px 0;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-right: 4px solid #059669;
+      padding: 10px 12px;
+      border-radius: 0 8px 8px 0;
       margin-bottom: 10px;
-      font-size: 12px;
+      font-size: 12.5px;
       max-height: 120px;
       overflow-y: auto;
-      line-height: 1.6;
+      line-height: 1.65;
+      color: #1e293b;
     }
 
     .btn-group {
@@ -190,9 +253,9 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
-      background: #059669;
+      background: #0f172a;
       color: #ffffff;
-      padding: 8px 10px;
+      padding: 9px 12px;
       border-radius: 8px;
       text-decoration: none;
       font-size: 12px;
@@ -202,101 +265,158 @@
       transition: background 0.15s;
     }
     .btn-action:hover {
-      background: #10b981;
+      background: #1e293b;
     }
 
     .btn-secondary {
-      background: #1e293b;
-      color: #94a3b8;
-      border: 1px solid #334155;
-      padding: 8px 10px;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+      padding: 9px 12px;
       border-radius: 8px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.15s;
     }
     .btn-secondary:hover {
-      background: #334155;
-      color: #ffffff;
+      background: #e2e8f0;
+      color: #0f172a;
     }
 
     .ocr-toggle-content {
       display: none;
       margin-top: 10px;
-      padding: 8px 10px;
-      background: rgba(0, 0, 0, 0.45);
-      border: 1px dashed #334155;
-      border-radius: 6px;
-      font-size: 11px;
-      color: #94a3b8;
-      max-height: 80px;
+      padding: 9px 12px;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      font-size: 11.5px;
+      color: #475569;
+      max-height: 85px;
       overflow-y: auto;
-      line-height: 1.5;
+      line-height: 1.55;
+    }
+
+    .schools-box {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed #e2e8f0;
+    }
+    .school-line {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 4px;
+      font-size: 11.5px;
+    }
+    .school-name {
+      font-weight: 800;
+      color: #047857;
+      min-width: 65px;
     }
 
     .loader {
       text-align: center;
-      padding: 18px 10px;
-      color: #94a3b8;
-      font-size: 12px;
+      padding: 20px 10px;
+      color: #64748b;
+      font-size: 12.5px;
     }
     .spinner {
       display: inline-block;
-      width: 18px;
-      height: 18px;
-      border: 2px solid rgba(52, 211, 153, 0.3);
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(5, 150, 105, 0.2);
       border-radius: 50%;
-      border-top-color: #34d399;
-      animation: spin 0.8s linear infinite;
-      vertical-align: middle;
-      margin-left: 6px;
+      border-top-color: #059669;
+      animation: baseeraSpin 0.7s linear infinite;
+      margin-bottom: 8px;
     }
-    @keyframes spin {
+    @keyframes baseeraSpin {
       to { transform: rotate(360deg); }
     }
   `;
   shadow.appendChild(style);
 
-  // Floating Trigger Button for Text
+  // 3. Create Elements
   const floatBtn = document.createElement('div');
   floatBtn.className = 'floating-btn';
-  floatBtn.innerHTML = `<span class="icon">🔎</span><span>تحقّق ببصيرة</span>`;
+  floatBtn.innerHTML = `
+    <span class="icon">✦</span>
+    <span>بصيرة · تحقّق</span>
+  `;
   shadow.appendChild(floatBtn);
 
-  // Floating Trigger Button for Images (Hover)
   const imageHoverBtn = document.createElement('div');
-  imageHoverBtn.className = 'floating-btn';
-  imageHoverBtn.innerHTML = `<span class="icon">🔎</span><span>تحقق ببصيرة</span>`;
-  imageHoverBtn.style.fontSize = '12px';
-  imageHoverBtn.style.padding = '5px 11px';
+  imageHoverBtn.className = 'image-hover-btn';
+  imageHoverBtn.innerHTML = `
+    <span>🔎</span>
+    <span>تحقّق من الصورة عبر بصيرة</span>
+  `;
   shadow.appendChild(imageHoverBtn);
 
-  let currentHoveredImg = null;
-  let hoverTimeout = null;
-
-  // Floating Verdict Card
   const floatCard = document.createElement('div');
   floatCard.className = 'floating-card';
   shadow.appendChild(floatCard);
 
+  // State
   let currentSelectedText = '';
   let currentSelectionRect = null;
-  let lastRightClickPos = { x: 100, y: 100, target: null };
+  let lastRightClickPos = null;
+  let currentHoveredImg = null;
+  let hoverTimeout = null;
 
-  // Image Hover Tracking (Facebook, Twitter, Web Articles)
+  // Detect Item Type Helper
+  function detectItemType(rep) {
+    if (rep?.item_type) return rep.item_type;
+    const src = (rep?.citation?.source_name || '').toLowerCase();
+    const cat = (rep?.category || '').toLowerCase();
+    const book = (rep?.citation?.book || '').toLowerCase();
+
+    if (cat.includes('quran') || src.includes('quran') || src.includes('قرآن') || src.includes('مجمع الملك فهد')) {
+      return 'quran';
+    }
+    if (cat.includes('hadith') || src.includes('hadith') || src.includes('حديث') || src.includes('درر') || book.includes('بخاري') || book.includes('مسلم')) {
+      return 'hadith';
+    }
+    if (cat.includes('term') || src.includes('جمهرة') || src.includes('مصطلح') || src.includes('قاموس')) {
+      return 'term';
+    }
+    if (cat.includes('fiqh') || src.includes('فقه') || rep?.school_positions) {
+      return 'fiqh';
+    }
+    return 'claim';
+  }
+
+  function getItemTypeMeta(type) {
+    switch (type) {
+      case 'quran':
+        return { label: '📖 القرآن الكريم', defaultSource: 'مجمع الملك فهد لطباعة المصحف الشريف' };
+      case 'hadith':
+        return { label: '📜 الحديث النبوي', defaultSource: 'موسوعة الحديث الشريف (الدرر السنية)' };
+      case 'term':
+        return { label: '📚 مصطلح شرعي', defaultSource: 'موسوعة الجمهرة لمفردات المحتوى الإسلامي' };
+      case 'fiqh':
+        return { label: '⚖️ فقه إسلامي', defaultSource: 'الموسوعة الفقهية / أقوال المذاهب' };
+      default:
+        return { label: '🔍 محتوى إسلامي', defaultSource: 'المصادر المعتمدة في بصيرة' };
+    }
+  }
+
+  // Hover over images to show "Verify Image" button
   document.addEventListener('mouseover', (e) => {
-    const target = e.target;
-    if (target && target.tagName === 'IMG' && (target.naturalWidth >= 160 || target.clientWidth >= 160) && (target.naturalHeight >= 100 || target.clientHeight >= 100)) {
-      currentHoveredImg = target;
+    if (e.target && e.target.tagName === 'IMG') {
+      const img = e.target;
+      if (img.naturalWidth < 120 || img.naturalHeight < 120) return;
+
+      currentHoveredImg = img;
       clearTimeout(hoverTimeout);
       hoverTimeout = setTimeout(() => {
-        if (!currentHoveredImg) return;
-        const rect = currentHoveredImg.getBoundingClientRect();
-        if (rect.width < 100 || rect.height < 60) return;
-        imageHoverBtn.style.top = `${window.scrollY + rect.top + 8}px`;
-        imageHoverBtn.style.left = `${window.scrollX + rect.left + 8}px`;
-        imageHoverBtn.style.display = 'flex';
+        if (currentHoveredImg === img) {
+          const rect = img.getBoundingClientRect();
+          imageHoverBtn.style.top = `${window.scrollY + rect.top + 8}px`;
+          imageHoverBtn.style.left = `${Math.max(10, window.scrollX + rect.right - 180)}px`;
+          imageHoverBtn.style.display = 'flex';
+        }
       }, 300);
     }
   });
@@ -337,9 +457,8 @@
     };
   });
 
-  // Listen for mouseup selection across the entire document
+  // Listen for text selection
   document.addEventListener('mouseup', (e) => {
-    // If click inside our floating UI, do nothing
     if (e.composedPath && e.composedPath().some(el => el === hostDiv || el === floatBtn || el === floatCard)) {
       return;
     }
@@ -354,9 +473,8 @@
         const rect = range.getBoundingClientRect();
         currentSelectionRect = rect;
 
-        // Position floating button right below selection
         const top = window.scrollY + rect.bottom + 8;
-        const left = Math.max(10, Math.min(window.innerWidth - 140, window.scrollX + rect.left));
+        const left = Math.max(10, Math.min(window.innerWidth - 150, window.scrollX + rect.left));
 
         floatBtn.style.top = `${top}px`;
         floatBtn.style.left = `${left}px`;
@@ -367,7 +485,7 @@
     }, 10);
   });
 
-  // Hide button and card on mousedown outside
+  // Hide button and card on click outside
   document.addEventListener('mousedown', (e) => {
     if (e.composedPath && e.composedPath().some(el => el === hostDiv || el === floatBtn || el === floatCard)) {
       return;
@@ -376,7 +494,6 @@
     floatCard.style.display = 'none';
   });
 
-  // Trigger verification when floating button is clicked
   floatBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     floatBtn.style.display = 'none';
@@ -397,10 +514,10 @@
 
     if (coords) {
       top = coords.y;
-      left = Math.max(15, Math.min(window.innerWidth - 410, coords.x));
+      left = Math.max(15, Math.min(window.innerWidth - 420, coords.x));
     } else if (lastRightClickPos) {
       top = lastRightClickPos.y + 10;
-      left = Math.max(15, Math.min(window.innerWidth - 410, lastRightClickPos.x - 100));
+      left = Math.max(15, Math.min(window.innerWidth - 420, lastRightClickPos.x - 100));
     }
 
     floatCard.style.top = `${top}px`;
@@ -411,21 +528,28 @@
   function renderLoading(previewContent, type = 'text') {
     floatCard.innerHTML = `
       <div class="card-header">
-        <div class="card-title">
-          <span class="dot">◉</span>
-          <span>بصيرة — التحقق الفوري</span>
+        <div class="card-title-wrap">
+          <div class="card-logo-badge">ب</div>
+          <div>
+            <div class="card-title">بصيرة — التحقق الفوري</div>
+            <div class="card-subtitle">فحص المطابقة والإسناد المباشر</div>
+          </div>
         </div>
         <button class="close-btn" id="baseera-close-btn">&times;</button>
       </div>
+
       <div class="preview-box">
         <strong>${type === 'image' ? 'الصورة المفحوصة:' : 'النص المحدد:'}</strong>
         ${escapeHtml(previewContent)}
       </div>
+
       <div class="loader">
         <span class="spinner"></span>
-        ${type === 'image' 
-          ? 'جارٍ قراءة النص من الصورة بالذكاء الاصطناعي (OCR) والتحقق من الدرر السنية...' 
-          : 'جارٍ التحقق من المراجع المعتمدة (الدرر السنية والقرآن)...'}
+        <div>
+          ${type === 'image' 
+            ? 'جارٍ قراءة النص بالذكاء الاصطناعي (OCR) والتحقق في المصادر المعتمدة...' 
+            : 'جارٍ الفحص في مجمع المصحف، الدرر السنية، الجمهرة، والموسوعات الفقهية...'}
+        </div>
       </div>
     `;
 
@@ -435,7 +559,6 @@
   }
 
   async function executeTextLookup(text) {
-    // 1. Primary: Use background service worker (Bypasses all host page CSP, CORS, & Mixed Content)
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
       chrome.runtime.sendMessage({ action: 'api_lookup', text, context: '' }, (response) => {
         if (chrome.runtime.lastError || !response) {
@@ -463,14 +586,13 @@
       const data = await res.json();
       renderVerdict(text, data.report);
     } catch (err) {
-      renderError(text, 'تعذر الاتصال بسيرفر بصيرة المحلي (http://localhost:3000). يرجى التأكد من تشغيل السيرفر أو تحديث إضافة المتصفح.');
+      renderError(text, 'تعذر الاتصال بسيرفر بصيرة المحلي (http://localhost:3000). يرجى التأكد من تشغيل السيرفر.');
     }
   }
 
   async function executeImageLookup(srcUrl) {
     let imageBase64 = null;
 
-    // Try capturing element canvas if element is available and on same origin/cache
     if (lastRightClickPos.target && lastRightClickPos.target.tagName === 'IMG') {
       try {
         const imgEl = lastRightClickPos.target;
@@ -483,11 +605,10 @@
           imageBase64 = canvas.toDataURL('image/jpeg', 0.85);
         }
       } catch (canvasErr) {
-        // Cross-origin tainted canvas fallback
+        // Cross-origin fallback
       }
     }
 
-    // 1. Primary: Use background service worker (Bypasses all host page CSP, CORS, & Mixed Content)
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
       chrome.runtime.sendMessage({
         action: 'api_lookup_image',
@@ -545,49 +666,81 @@
       return;
     }
 
+    const itemType = detectItemType(report);
+    const typeMeta = getItemTypeMeta(itemType);
+
     let cardClass = 'verdict-matched';
-    let icon = '✓ ';
+    let icon = '✓';
     if (report.status === 'NEEDS_REVIEW') {
       cardClass = 'verdict-review';
-      icon = '⚠️ ';
+      icon = '⚠️';
     } else if (report.status === 'NOT_FOUND_IN_CHECKED_SOURCES') {
       cardClass = 'verdict-notfound';
-      icon = '❓ ';
+      icon = '❓';
+    } else if (report.status === 'REFER_TO_SPECIALIST') {
+      cardClass = 'verdict-referral';
+      icon = '⚖️';
     }
 
-    const sourceName = report.citation ? `${report.citation.source_name}${report.citation.book ? ' · ' + report.citation.book : ''}` : 'الدرر السنية';
+    const sourceName = report.citation ? `${report.citation.source_name}${report.citation.book ? ' · ' + report.citation.book : ''}` : typeMeta.defaultSource;
+    const grade = report.citation?.grade ? ` · [${report.citation.grade}]` : '';
     const canonical = report.canonical_text || report.reason || '';
     const linkUrl = report.citation?.url || '';
 
+    let actionBtnLabel = `عرض الدليل في ${escapeHtml(report.citation?.source_name || 'المصدر')}`;
+    if (itemType === 'quran') actionBtnLabel = 'عرض التوثيق في مجمع الملك فهد / المصحف';
+    else if (itemType === 'hadith') actionBtnLabel = 'عرض التخريج والحكم في الدرر السنية';
+    else if (itemType === 'term') actionBtnLabel = 'عرض المصطلح في موسوعة الجمهرة';
+    else if (itemType === 'fiqh') actionBtnLabel = 'عرض المسألة وأقوال المذاهب';
+
     const label = report.status_label_ar || report.status;
-    const hasEmoji = /^[✓⚠️⛔❓✅📖]/.test(label);
-    const displayHeading = hasEmoji ? label : `${icon}${label}`;
 
     floatCard.innerHTML = `
       <div class="card-header">
-        <div class="card-title">
-          <span class="dot">◉</span>
-          <span>بصيرة</span>
+        <div class="card-title-wrap">
+          <div class="card-logo-badge">ب</div>
+          <div>
+            <div class="card-title">بصيرة — نتيجة الفحص</div>
+            <div class="card-subtitle">تم التوثيق عبر الحزمة العلمية المعتمدة</div>
+          </div>
         </div>
         <button class="close-btn" id="baseera-close-btn">&times;</button>
       </div>
 
       <div class="verdict-box ${cardClass}">
-        <div class="verdict-heading">${displayHeading}</div>
-        <div class="verdict-source"><strong>المصدر المفحوص:</strong> ${escapeHtml(sourceName)}</div>
+        <div class="verdict-header-row">
+          <div class="verdict-heading">
+            <span>${icon}</span>
+            <span>${escapeHtml(label)}</span>
+          </div>
+          <span class="type-pill-tag">${typeMeta.label}</span>
+        </div>
+        <div class="verdict-source"><strong>المصدر:</strong> ${escapeHtml(sourceName)}${escapeHtml(grade)}</div>
       </div>
 
       ${canonical ? `
         <div class="canonical-text">
-          <div style="font-size:10px; color:#34d399; font-weight:bold; margin-bottom:3px;">الحكم / النص المعتمد:</div>
-          <div>${escapeHtml(canonical.slice(0, 400))}${canonical.length > 400 ? '...' : ''}</div>
+          <div style="font-size:10.5px; color:#047857; font-weight:800; margin-bottom:4px;">الحكم / النص المعتمد:</div>
+          <div>${escapeHtml(canonical.slice(0, 450))}${canonical.length > 450 ? '...' : ''}</div>
+        </div>
+      ` : ''}
+
+      ${report.school_positions && report.school_positions.length > 0 ? `
+        <div class="schools-box">
+          <div style="font-size:11px; font-weight:800; color:#047857; margin-bottom:4px;">أقوال المذاهب الفقهية:</div>
+          ${report.school_positions.map((s) => `
+            <div class="school-line">
+              <span class="school-name">${escapeHtml(s.school)}:</span>
+              <span>${escapeHtml(s.view || s.ruling || '')}</span>
+            </div>
+          `).join('')}
         </div>
       ` : ''}
 
       <div class="btn-group">
         ${linkUrl ? `
           <a href="${escapeHtml(linkUrl)}" target="_blank" class="btn-action">
-            <span>عرض الدليل</span>
+            <span>${actionBtnLabel}</span>
             <span>↗</span>
           </a>
         ` : ''}
@@ -601,7 +754,7 @@
 
       ${opts.isImage && opts.extractedText ? `
         <div class="ocr-toggle-content" id="baseera-ocr-box">
-          <strong style="color:#38bdf8; display:block; margin-bottom:2px;">النص المقروء من الصورة:</strong>
+          <strong style="color:#0369a1; display:block; margin-bottom:2px;">النص المقروء من الصورة:</strong>
           ${escapeHtml(opts.extractedText)}
         </div>
       ` : ''}
@@ -625,15 +778,19 @@
   function renderError(text, errorMsg) {
     floatCard.innerHTML = `
       <div class="card-header">
-        <div class="card-title" style="color:#ef4444;">
-          <span class="dot">◉</span>
-          <span>تعذر التحقق</span>
+        <div class="card-title-wrap">
+          <div class="card-logo-badge" style="background:#dc2626;">!</div>
+          <div>
+            <div class="card-title">تنبيه في الفحص</div>
+            <div class="card-subtitle">محرك بصيرة للتحقق الفوري</div>
+          </div>
         </div>
         <button class="close-btn" id="baseera-close-btn">&times;</button>
       </div>
+
       <div class="verdict-box verdict-review">
-        <div class="verdict-heading">⚠️ تنبيه</div>
-        <div>${escapeHtml(errorMsg)}</div>
+        <div class="verdict-heading">⚠️ تعذر إتمام التحقق</div>
+        <div style="margin-top:4px;">${escapeHtml(errorMsg)}</div>
       </div>
     `;
 

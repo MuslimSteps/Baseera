@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck,
   Sparkles,
@@ -13,9 +13,7 @@ import {
   Scale,
   Menu,
   X,
-  ArrowLeft,
-  CircleHelp,
-  ChevronDown
+  ArrowLeft
 } from 'lucide-react';
 
 import { LandingPageView } from './components/LandingPageView.tsx';
@@ -48,14 +46,51 @@ const NAV_ITEMS: Array<{
   { id: 'governance', label: 'الحوكمة', short: 'الحوكمة', icon: <Scale /> }
 ];
 
+const HASH_MAP: Record<string, TabId | 'home'> = {
+  '': 'home',
+  '/': 'home',
+  'home': 'home',
+  'verifier': 'verifier',
+  'verify': 'verifier',
+  'dawah': 'dawah',
+  'studio': 'dawah',
+  'content': 'dawah',
+  'extension': 'extension',
+  'ext': 'extension',
+  'sources': 'sources',
+  'registry': 'sources',
+  'benchmark': 'benchmark',
+  'bench': 'benchmark',
+  'governance': 'governance',
+  'gov': 'governance'
+};
+
+function getTabFromHash(): TabId | 'home' {
+  if (typeof window === 'undefined') return 'home';
+  const raw = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+  return HASH_MAP[raw] || 'home';
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabId | 'home'>('home');
+  const [activeTab, setActiveTab] = useState<TabId | 'home'>(getTabFromHash);
   const [mobileOpen, setMobileOpen] = useState(false);
- 
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActiveTab(getTabFromHash());
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const go = (tab: TabId | 'home') => {
     setActiveTab(tab);
     setMobileOpen(false);
-     window.scrollTo({ top: 0, behavior: 'smooth' });
+    const targetHash = tab === 'home' ? '#/' : `#/${tab}`;
+    if (window.location.hash !== targetHash) {
+      window.location.hash = targetHash;
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const activeLabel =
@@ -68,9 +103,12 @@ export default function App() {
       <header className="sticky top-0 z-50 border-b border-line/80 bg-page/92 backdrop-blur-xl">
         <div className="mx-auto max-w-[1380px] px-4 sm:px-6 lg:px-8">
           <div className="flex h-[72px] items-center gap-4">
-            <button
-              type="button"
-              onClick={() => go('home')}
+            <a
+              href="#/"
+              onClick={(e) => {
+                e.preventDefault();
+                go('home');
+              }}
               className="group flex min-w-0 items-center gap-3 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
               aria-label="العودة إلى الصفحة الرئيسية"
             >
@@ -79,43 +117,54 @@ export default function App() {
               </span>
               <span className="min-w-0 text-right">
                 <span className="block truncate font-display text-[20px] font-bold leading-none tracking-tight">بصيرة</span>
-               </span>
-            </button>
+              </span>
+            </a>
 
             <div className="hidden h-8 w-px bg-line lg:block" aria-hidden="true" />
 
             <nav className="hidden min-w-0 flex-1 items-center gap-1 lg:flex" aria-label="التنقل الرئيسي">
-              <button
-                type="button"
-                onClick={() => go('home')}
+              <a
+                href="#/"
+                onClick={(e) => {
+                  e.preventDefault();
+                  go('home');
+                }}
                 className={`nav-link ${activeTab === 'home' ? 'nav-link-active' : ''}`}
                 aria-current={activeTab === 'home' ? 'page' : undefined}
               >
                 الرئيسية
-              </button>
-              {NAV_ITEMS.filter(item => ['verifier','dawah','extension','sources'].includes(item.id)).map(item => (
-                <button
+              </a>
+              {NAV_ITEMS.map(item => (
+                <a
                   key={item.id}
-                  type="button"
-                  onClick={() => go(item.id)}
+                  href={`#/${item.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go(item.id);
+                  }}
                   className={`nav-link ${activeTab === item.id ? 'nav-link-active' : ''}`}
                   aria-current={activeTab === item.id ? 'page' : undefined}
                 >
                   {item.label}
-                </button>
+                </a>
               ))}
             </nav>
 
             <div className="mr-auto flex items-center gap-2">
-               {activeTab !== 'verifier' && <button
-                type="button"
-                onClick={() => go('verifier')}
-                className="btn btn-primary min-h-11 px-4 sm:px-5"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                <span className="hidden sm:inline">ابدأ الفحص</span>
-                <span className="sm:hidden">فحص</span>
-              </button>}
+              {activeTab !== 'verifier' && (
+                <a
+                  href="#/verifier"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go('verifier');
+                  }}
+                  className="btn btn-primary min-h-11 px-4 sm:px-5"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span className="hidden sm:inline">ابدأ الفحص</span>
+                  <span className="sm:hidden">فحص</span>
+                </a>
+              )}
 
               <button
                 type="button"
@@ -131,18 +180,24 @@ export default function App() {
 
           {mobileOpen && (
             <nav className="mobile-nav lg:hidden" aria-label="التنقل على الهاتف">
-              <button
-                type="button"
-                onClick={() => go('home')}
+              <a
+                href="#/"
+                onClick={(e) => {
+                  e.preventDefault();
+                  go('home');
+                }}
                 className={`mobile-nav-link ${activeTab === 'home' ? 'mobile-nav-link-active' : ''}`}
               >
                 الرئيسية
-              </button>
+              </a>
               {NAV_ITEMS.map(item => (
-                <button
+                <a
                   key={item.id}
-                  type="button"
-                  onClick={() => go(item.id)}
+                  href={`#/${item.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go(item.id);
+                  }}
                   className={`mobile-nav-link ${activeTab === item.id ? 'mobile-nav-link-active' : ''}`}
                 >
                   <span className="flex items-center gap-3">
@@ -150,7 +205,7 @@ export default function App() {
                     {item.label}
                   </span>
                   {activeTab === item.id && <ArrowLeft className="h-4 w-4" />}
-                </button>
+                </a>
               ))}
             </nav>
           )}
@@ -159,9 +214,16 @@ export default function App() {
 
       {activeTab !== 'home' && activeTab !== 'verifier' && (
         <div className="mx-auto flex max-w-[1380px] items-center gap-2 px-4 pb-3 pt-4 text-xs text-muted sm:px-6 lg:px-8">
-          <button type="button" onClick={() => go('home')} className="breadcrumb-link">
+          <a
+            href="#/"
+            onClick={(e) => {
+              e.preventDefault();
+              go('home');
+            }}
+            className="breadcrumb-link"
+          >
             الرئيسية
-          </button>
+          </a>
           <ArrowLeft className="h-3.5 w-3.5 text-faint" aria-hidden="true" />
           <span className="font-semibold text-ink">{activeLabel}</span>
         </div>
@@ -188,9 +250,16 @@ export default function App() {
               <div className="text-xs text-muted">تحقق، راجع الدليل، ثم استخدم المحتوى بثقة.</div>
             </div>
           </div>
-          <button type="button" className="footer-link !min-h-9 !py-1" onClick={() => go('sources')}>
+          <a
+            href="#/sources"
+            onClick={(e) => {
+              e.preventDefault();
+              go('sources');
+            }}
+            className="footer-link !min-h-9 !py-1"
+          >
             المراجع المعتمدة
-          </button>
+          </a>
         </div>
       </footer>
     </div>

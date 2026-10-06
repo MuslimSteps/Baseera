@@ -26,18 +26,20 @@ async function testQuery(query: string) {
 (async () => {
   try {
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+    await testQuery('شخص كاتب ان شرب الخمر حلال إذا كان من العنب');
+    await sleep(2000);
     await testQuery('ما حكم الكذب؟');
-    await sleep(1000);
+    await sleep(2000);
     await testQuery('ما حكم اللغو؟');
-    await sleep(1000);
+    await sleep(2000);
     await testQuery('ما حكم الختان؟');
-    await sleep(1000);
+    await sleep(2000);
     await testQuery('تفسير سورة الفاتحة');
-    await sleep(1000);
+    await sleep(2000);
     await testQuery('ما هو توحيد الألوهية؟');
-    await sleep(1000);
+    await sleep(2000);
     await testQuery('الاستصحاب');
-    await sleep(1000);
+    await sleep(2000);
     await testQuery('وَلَا أُقْسِمُ بِالنَّفْسِ اللَّوَّامَةِ');
     process.exit(0);
   } catch (err) {

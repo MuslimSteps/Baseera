@@ -2933,11 +2933,7 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background:
-      radial-gradient(circle at 78% 48%, rgba(33,99,67,.11), transparent 30%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg fill='none' stroke='%23216343' stroke-width='1' stroke-opacity='.11'%3E%3Cpath d='M48 7 60 36 89 48 60 60 48 89 36 60 7 48 36 36Z'/%3E%3Cpath d='M48 24 54 42 72 48 54 54 48 72 42 54 24 48 42 42Z'/%3E%3C/g%3E%3C/svg%3E");
-    background-size: auto, 96px 96px;
-    opacity: .9;
+    background: radial-gradient(circle at 75% 40%, rgba(33,99,67,.06), transparent 50%);
   }
 
   .extension-hero-copy,
@@ -3010,63 +3006,46 @@
   }
 
   .extension-hero-mark {
-    min-height: 210px;
+    min-height: 180px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 9px;
+    gap: 12px;
     border: 1px solid rgba(163,122,45,.2);
-    border-radius: 22px;
-    background:
-      linear-gradient(135deg, rgba(33,99,67,.08), rgba(163,122,45,.06)),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='84' viewBox='0 0 84 84'%3E%3Cg fill='none' stroke='%23a37a2d' stroke-width='1' stroke-opacity='.2'%3E%3Cpath d='M42 6 52 32 78 42 52 52 42 78 32 52 6 42 32 32Z'/%3E%3Cpath d='M0 0H16L0 16M84 0H68L84 16M0 84H16L0 68M84 84H68L84 68'/%3E%3C/g%3E%3C/svg%3E");
-    background-size: auto, 84px 84px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(33,99,67,.05), rgba(163,122,45,.04));
     color: var(--color-brand-strong);
-    font-weight: 900;
+    font-weight: 800;
     font-family: var(--font-naskh);
-    font-size: 19px;
-  }
-
-  .extension-hero-pattern {
-    width: 64px;
-    height: 64px;
-    border: 1px solid rgba(33,99,67,.20);
-    border-radius: 18px;
-    transform: rotate(45deg);
-    box-shadow: 0 0 0 9px rgba(33,99,67,.025);
+    font-size: 18px;
   }
 
   .extension-hero-mark > svg {
-    margin-top: -49px;
-    width: 28px;
-    height: 28px;
+    width: 38px;
+    height: 38px;
   }
 
   .extension-install,
-  .extension-browser,
-  .extension-preview {
+  .extension-showcase {
     border: 1px solid var(--color-line);
     border-radius: 22px;
-    background: rgba(255,255,255,.91);
-    box-shadow: 0 8px 25px rgba(23,35,26,.045);
+    background: rgba(255,255,255,.94);
+    box-shadow: 0 8px 25px rgba(23,35,26,.035);
   }
 
   .extension-install {
-    padding: 22px;
+    padding: 24px;
   }
 
-  .extension-section-head,
-  .extension-preview-label,
-  .extension-subhead {
+  .extension-section-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
   }
 
-  .extension-section-title,
-  .extension-preview-title {
+  .extension-section-title {
     margin-top: 5px;
     color: var(--color-ink);
     font-family: var(--font-naskh);
@@ -3076,14 +3055,13 @@
     white-space: nowrap;
   }
 
-  .extension-section-note,
-  .extension-preview-chip {
-    padding: 7px 9px;
+  .extension-section-note {
+    padding: 7px 11px;
     border: 1px solid rgba(33,99,67,.13);
     border-radius: 999px;
     background: var(--color-brand-soft);
     color: var(--color-brand-strong);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 800;
     white-space: nowrap;
   }
@@ -3091,21 +3069,19 @@
   .extension-install-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0,1fr));
-    gap: 10px;
-    margin-top: 16px;
+    gap: 12px;
+    margin-top: 18px;
   }
 
   .extension-install-card {
     position: relative;
     min-height: 145px;
-    padding: 15px;
+    padding: 18px;
     border: 1px solid var(--color-line);
     border-radius: 17px;
     overflow: hidden;
-    background:
-      linear-gradient(135deg, rgba(33,99,67,.045), rgba(163,122,45,.025)),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23216343' stroke-width='.8' stroke-opacity='.12'%3E%3Cpath d='M36 5 45 27 67 36 45 45 36 67 27 45 5 36 27 27Z'/%3E%3C/g%3E%3C/svg%3E");
-    background-size: auto, 72px 72px;
+    background: var(--color-surface, #fff);
+    box-shadow: 0 4px 14px rgba(23,35,26,.025);
     transition: transform 160ms var(--ease-base), border-color 160ms var(--ease-base), box-shadow 160ms var(--ease-base);
   }
 
@@ -3122,7 +3098,7 @@
     place-items: center;
     border-radius: 12px;
     border: 1px solid rgba(33,99,67,.15);
-    background: rgba(255,255,255,.82);
+    background: rgba(255,255,255,.9);
     color: var(--color-brand-strong);
   }
 
@@ -3137,7 +3113,7 @@
     inset-inline-end: 14px;
     color: var(--color-gold-strong);
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 900;
   }
 
@@ -3145,222 +3121,24 @@
     display: block;
     margin-top: 13px;
     color: var(--color-ink);
-    font-size: 12px;
+    font-size: 13px;
     white-space: nowrap;
   }
 
   .extension-install-card p {
     margin-top: 6px;
     color: var(--color-muted);
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.75;
   }
 
   .extension-install-card code {
-    padding: 2px 4px;
+    padding: 2px 5px;
     border-radius: 5px;
     background: rgba(33,99,67,.07);
     color: var(--color-brand-strong);
     font-family: var(--font-mono);
-    font-size: 9px;
-  }
-
-  .extension-workspace {
-    gap: 18px !important;
-  }
-
-  .extension-browser {
-    padding: 0 !important;
-    overflow: hidden;
-  }
-
-  .extension-browser-top {
-    min-height: 52px;
-    padding: 0 17px 0 17px;
-    background: #fbfbf8;
-    border-bottom-color: var(--color-line) !important;
-  }
-
-  .extension-browser-dots span {
-    width: 9px;
-    height: 9px;
-    display: block;
-    border-radius: 999px;
-    background: #c9cec6;
-  }
-
-  .extension-browser-dots span:first-child { background: #a5ada3; }
-  .extension-browser-dots span:nth-child(2) { background: #d5b76b; }
-  .extension-browser-dots span:nth-child(3) { background: #6d9a7e; }
-
-  .extension-browser-url {
-    flex: 1;
-    min-width: 0;
-    margin-inline: 12px;
-    padding: 8px 10px;
-    border: 1px solid var(--color-line);
-    border-radius: 9px;
-    background: #fff;
-    color: var(--color-faint);
-    font-family: var(--font-mono);
-    font-size: 9px;
-    direction: ltr;
-    text-align: left;
-  }
-
-  .extension-browser-hint {
-    color: var(--color-brand-strong) !important;
-    font-size: 9px;
-    font-weight: 800;
-    white-space: nowrap;
-  }
-
-  .extension-browser-content {
-    padding: 22px;
-  }
-
-  .extension-demo-title {
-    margin-top: 6px;
-    font-size: 20px !important;
-    line-height: 1.3 !important;
-    white-space: nowrap;
-  }
-
-  .extension-quote {
-    background: #fbfbf8 !important;
-    border-color: var(--color-line) !important;
-    color: var(--color-ink);
-    font-size: 16px !important;
-    line-height: 2 !important;
-  }
-
-  .extension-quote button {
-    border-radius: 8px;
-    padding-inline: 7px;
-    padding-block: 2px;
-    font: inherit;
-    font-weight: 800;
-    cursor: pointer;
-    transition: background 160ms var(--ease-base), box-shadow 160ms var(--ease-base);
-  }
-
-  .extension-quote-good {
-    background: rgba(33,99,67,.08) !important;
-    color: var(--color-brand-strong) !important;
-    border: 1px solid rgba(33,99,67,.18) !important;
-  }
-
-  .extension-quote-review {
-    background: rgba(163,122,45,.09) !important;
-    color: #855e15 !important;
-    border: 1px solid rgba(163,122,45,.21) !important;
-  }
-
-  .extension-quote-question {
-    background: rgba(155,72,72,.07) !important;
-    color: #8d4a4a !important;
-    border: 1px solid rgba(155,72,72,.16) !important;
-  }
-
-  .extension-quote-confirmed {
-    background: rgba(163,122,45,.08) !important;
-    color: #7f5b14 !important;
-    border: 1px solid rgba(163,122,45,.18) !important;
-  }
-
-  .extension-image-demo {
-    margin-top: 18px;
-    background: #fff;
-    border-color: var(--color-line) !important;
-  }
-
-  .extension-image-card {
-    position: relative;
-    margin-top: 10px;
-    min-height: 210px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 24px;
-    border-color: rgba(33,99,67,.14) !important;
-    border-radius: 18px;
-    overflow: hidden;
-    background:
-      linear-gradient(135deg, rgba(33,99,67,.10), rgba(163,122,45,.07)),
-      #f7f5ed !important;
-  }
-
-  .extension-image-pattern {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'%3E%3Cg fill='none' stroke='%23216343' stroke-width='1' stroke-opacity='.16'%3E%3Cpath d='M45 7 55 35 83 45 55 55 45 83 35 55 7 45 35 35Z'/%3E%3C/g%3E%3C/svg%3E") center / 90px 90px;
-  }
-
-  .extension-image-copy {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    gap: 7px;
-    text-align: center;
-  }
-
-  .extension-image-copy > div:first-child,
-  .extension-image-copy > span {
-    color: var(--color-brand-strong) !important;
     font-size: 10px;
-    font-weight: 800;
-  }
-
-  .extension-image-copy strong {
-    color: var(--color-ink) !important;
-    font-family: var(--font-naskh);
-    font-size: 20px;
-    line-height: 1.7;
-  }
-
-  .extension-image-copy small {
-    color: var(--color-muted) !important;
-    font-size: 9px;
-  }
-
-  .extension-image-action {
-    position: relative;
-    z-index: 1;
-    min-height: 42px;
-    padding: 9px 15px;
-    border: 1px solid rgba(33,99,67,.17);
-    border-radius: 12px !important;
-    background: var(--color-brand-strong) !important;
-    color: #fff !important;
-    box-shadow: 0 8px 18px rgba(23,76,50,.14);
-  }
-
-  .extension-custom {
-    display: flex;
-    gap: 8px;
-    padding: 16px 18px 18px;
-    border-top-color: var(--color-line) !important;
-  }
-
-  .extension-custom-input {
-    min-height: 42px;
-  }
-
-  .extension-custom-button {
-    min-width: 80px;
-    min-height: 42px;
-    background: var(--color-gold-strong) !important;
-    color: var(--color-ink) !important;
-    border-radius: 11px !important;
-  }
-
-  .extension-preview {
-    align-self: start;
-    padding: 20px;
-    background: #f5f4ee;
   }
 
   .extension-preview-label {
@@ -3369,13 +3147,13 @@
 
   .extension-popup-card {
     width: 100% !important;
-    max-width: 390px !important;
-    padding: 15px !important;
+    max-width: 440px !important;
+    padding: 22px !important;
     border: 1px solid rgba(33,99,67,.14) !important;
     border-radius: 22px !important;
     background: #fff !important;
     color: var(--color-ink) !important;
-    box-shadow: 0 18px 45px rgba(23,35,26,.12) !important;
+    box-shadow: 0 18px 45px rgba(23,35,26,.08) !important;
   }
 
   .extension-popup-head {
@@ -3631,9 +3409,9 @@
   .home-hero-editorial {
     position: relative;
     isolation: isolate;
-    min-height: 500px;
+    min-height: auto;
     overflow: hidden;
-    padding: 82px 20px 68px;
+    padding: 44px 20px 36px;
     border-bottom: 1px solid var(--color-line);
     background: var(--color-page);
   }
@@ -3642,30 +3420,33 @@
     content: "";
     position: absolute;
     inset: auto 0 0;
-    height: 110px;
+    height: 70px;
     pointer-events: none;
     background: linear-gradient(to bottom, transparent, var(--color-page));
     z-index: -1;
   }
 
-  .home-hero-pattern {
-    position: absolute;
-    inset: -80px -60px -60px;
-    z-index: -2;
-    pointer-events: none;
-    opacity: .42;
-    background-image: url("/islamic-pattern.svg");
-    background-repeat: repeat;
-    background-position: center;
-    background-size: 280px 280px;
-    mask-image: linear-gradient(to bottom, #000 0%, #000 68%, transparent 100%);
-  }
-
   .home-hero-inner {
     position: relative;
     z-index: 1;
-    width: min(820px, 100%);
+    width: min(960px, 100%);
+    margin-inline: auto;
     text-align: center;
+  }
+
+  @keyframes simpleFadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .home-fade-in {
+    animation: simpleFadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .home-kicker {
@@ -4009,6 +3790,125 @@
     width: 18px;
     height: 18px;
     stroke-width: 1.8;
+  }
+
+  /* Baseera Home Redesign Enhancement Tokens & Components */
+  .home-section-container {
+    width: min(1180px, calc(100% - 32px));
+    margin-inline: auto;
+    padding-top: 56px;
+    padding-bottom: 24px;
+  }
+
+  .home-problem-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 26px 24px;
+    border: 1px solid var(--color-line);
+    border-radius: 20px;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    transition: transform 180ms var(--ease-base), border-color 180ms var(--ease-base), box-shadow 180ms var(--ease-base);
+  }
+
+  .home-problem-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(163, 64, 61, 0.35);
+    box-shadow: 0 12px 32px rgba(163, 64, 61, 0.06);
+  }
+
+  .home-problem-icon {
+    display: inline-flex;
+    width: 48px;
+    height: 48px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    border: 1px solid rgba(163, 64, 61, 0.2);
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  .home-solution-step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    border: 1px solid var(--color-line);
+    border-radius: 20px;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    transition: transform 180ms var(--ease-base), border-color 180ms var(--ease-base);
+  }
+
+  .home-solution-step:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-brand);
+    box-shadow: 0 10px 28px rgba(23, 76, 50, 0.08);
+  }
+
+  .home-step-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--color-brand-soft);
+    color: var(--color-brand-strong);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .home-compare-box {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    border: 1px solid var(--color-line);
+    border-radius: 24px;
+    background: var(--color-surface);
+    padding: 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  @media (max-width: 768px) {
+    .home-compare-box {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .home-metric-ribbon {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 36px;
+    width: 100%;
+  }
+
+  @media (max-width: 768px) {
+    .home-metric-ribbon {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 480px) {
+    .home-metric-ribbon {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .home-metric-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 18px 14px;
+    border: 1px solid var(--color-line);
+    border-radius: 18px;
+    background: var(--color-surface);
+    box-shadow: 0 1px 2px rgba(23, 35, 26, 0.02);
   }
 
   /* Scripture in the extension preview is content, not a status badge. */

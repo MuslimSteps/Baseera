@@ -61,8 +61,8 @@ function localToAyah(surah: LocalSurah, ayah: LocalAyah): QuranMushafAyah {
     id: Number(`${surah.number}${String(ayah.number).padStart(3, '0')}`),
     number: ayah.number,
     surah: surah.number,
-    text: (ayah.text || '').replace(/[\uFC00-\uFC6E]/g, '').trim(),
-    search: (ayah.search || ayah.text || '').replace(/[\uFC00-\uFC6E]/g, '').trim()
+    text: (ayah.text || '').replace(/[\u06DD\uFD3E\uFD3F\uFB50-\uFDFF\uFE70-\uFEFF]/g, '').trim(),
+    search: (ayah.search || ayah.text || '').replace(/[\u06DD\uFD3E\uFD3F\uFB50-\uFDFF\uFE70-\uFEFF]/g, '').trim()
   };
 }
 
@@ -103,11 +103,17 @@ export function findExactHafsAyahLocal(query: string): QuranMushafAyah | null {
 
   for (const surah of localSource.surahs) {
     for (const ayah of surah.ayahs) {
-      const sourceText = ayah.search || ayah.text;
-      if (
-        (strictTarget && normalizeArabicStrict(sourceText) === strictTarget) ||
-        (looseTarget && normalizeArabic(sourceText) === looseTarget)
-      ) {
+      const match =
+        (strictTarget && (
+          normalizeArabicStrict(ayah.text) === strictTarget ||
+          (ayah.search && normalizeArabicStrict(ayah.search) === strictTarget)
+        )) ||
+        (looseTarget && (
+          normalizeArabic(ayah.text) === looseTarget ||
+          (ayah.search && normalizeArabic(ayah.search) === looseTarget)
+        ));
+
+      if (match) {
         return localToAyah(surah, ayah);
       }
     }
@@ -121,7 +127,9 @@ export function searchHafsAyahsLocal(query: string, limit = 12): QuranMushafAyah
   const targetLoose = normalizeArabic(String(query || '')).trim();
   if (!targetStrict || targetStrict.length < 2) return [];
 
-  const targetWords = new Set(targetLoose.split(/\s+/).filter(Boolean));
+  const targetWords = Array.from(new Set(targetLoose.split(/\s+/).filter(Boolean)));
+  const stripAffixes = (w: string) => w.replace(/^(?:ال|[وفبلك]+)/, '');
+  const cleanTargetWords = targetWords.map(w => ({ raw: w, stem: stripAffixes(w) })).filter(w => w.stem.length >= 2);
   const scored: Array<{ row: QuranMushafAyah; score: number }> = [];
 
   for (const surah of localSource.surahs) {
@@ -131,17 +139,37 @@ export function searchHafsAyahsLocal(query: string, limit = 12): QuranMushafAyah
       const loose = normalizeArabic(sourceText);
       let score = 0;
 
-      if (strict === targetStrict) score = 1;
-      else if (targetWords.size >= 2 && targetStrict.length >= 6 && strict.includes(targetStrict)) score = 0.98;
-      else if (targetWords.size >= 2) {
-        const sourceWords = new Set(loose.split(/\s+/).filter(Boolean));
+      if (strict === targetStrict) {
+        score = 1;
+      } else if (targetWords.length >= 2 && targetStrict.length >= 6 && strict.includes(targetStrict)) {
+        score = 0.98;
+      } else if (cleanTargetWords.length === 1) {
+        const target = cleanTargetWords[0];
+        const sourceWords = loose.split(/\s+/).filter(Boolean);
+        const sourceStems = sourceWords.map(stripAffixes);
+        if (sourceWords.includes(target.raw) || sourceStems.includes(target.stem)) {
+          score = 0.85;
+        } else if (target.stem.length >= 3 && sourceStems.some(s => s.includes(target.stem))) {
+          score = 0.75;
+        } else if (loose.includes(target.stem)) {
+          score = 0.7;
+        }
+      } else if (cleanTargetWords.length >= 2) {
+        const sourceWords = loose.split(/\s+/).filter(Boolean);
+        const sourceStems = sourceWords.map(stripAffixes);
         let shared = 0;
-        for (const word of targetWords) if (sourceWords.has(word)) shared++;
-        const overlap = targetWords.size ? shared / targetWords.size : 0;
-        if (overlap >= 0.55) score = overlap * 0.9;
+        for (const target of cleanTargetWords) {
+          const matched = sourceWords.includes(target.raw) ||
+            sourceStems.includes(target.stem) ||
+            (target.stem.length >= 3 && sourceStems.some(s => s.includes(target.stem)));
+          if (matched) shared++;
+        }
+        const overlap = shared / cleanTargetWords.length;
+        if (overlap >= 0.5) score = overlap * 0.95;
+        else if (shared >= 1 && cleanTargetWords.length <= 4) score = (shared / cleanTargetWords.length) * 0.8;
       }
 
-      if (score >= 0.45) scored.push({ row: localToAyah(surah, ayah), score });
+      if (score >= 0.25) scored.push({ row: localToAyah(surah, ayah), score });
     }
   }
 

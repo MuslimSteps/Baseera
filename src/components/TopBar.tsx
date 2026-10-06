@@ -104,7 +104,7 @@ export const TopBar: React.FC<TopBarProps> = ({ activeTab, setActiveTab, onMenuC
         {/* Page identity */}
         <div className="hidden min-w-0 flex-col sm:flex">
           <span className="font-mono-numbers text-[10px] uppercase tracking-widest text-faint">
-            Baseera · {activeTab}
+            {TITLES[activeTab]}
           </span>
           <h1 className="truncate font-display text-base font-bold leading-tight text-ink">
             {TITLES[activeTab]}
@@ -123,7 +123,6 @@ export const TopBar: React.FC<TopBarProps> = ({ activeTab, setActiveTab, onMenuC
               placeholder="ابحث أو انتقل إلى قسم…"
               className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
             />
-            <span className="kbd hidden sm:inline">Ctrl K</span>
           </div>
 
           {open && results.length > 0 && (

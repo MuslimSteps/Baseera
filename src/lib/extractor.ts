@@ -4,6 +4,22 @@
  */
 
 import { ExtractedItem, ItemType } from '../types/baseera.ts';
+import { findExactHafsAyahLocal } from './quranpediaClient.ts';
+
+/**
+ * Heuristic: does this text look like a Quranic quotation by its orthography?
+ * Quranic text carries Quranic-only marks (alef wasla ٱ, small high marks) and
+ * unusually heavy tashkeel compared to ordinary Arabic prose.
+ */
+function looksLikeQuranicText(text: string): boolean {
+  // Quranic-only marks: alef wasla and the Quranic annotation block.
+  if (/[\u0671\u06D6-\u06ED\u08F0-\u08FF]/.test(text)) return true;
+
+  const letters = (text.match(/[\u0621-\u064A]/g) || []).length;
+  const diacritics = (text.match(/[\u064B-\u0652\u0670]/g) || []).length;
+  if (letters < 12) return false;
+  return diacritics / letters >= 0.35;
+}
 
 /**
  * Deterministic rule-based extraction for Quran, Hadith, Terms and Fiqh questions.
@@ -228,7 +244,7 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
 
   // 4. Tafsir Question patterns
   const isTafsirQuestionText =
-    /(?:^|\s)(?:تفسير|ما\s*تفسير|معنى\s*الآية|معنى\s*قوله\s*تعالى|تأويل|بيان\s*الآية)(?:\s|$)/i.test(text) ||
+    /(?:^|\s)(?:تفسير|ما\s*تفسير|معنى\s*الآية|معنى\s*قوله\s*تعالى|تأويل|بيان\s*الآية|ما\s+(?:هي\s+)?(?:الآية|الاية)|أين\s+(?:ورد|وردت|ذكرت)\s+(?:في\s+القرآن)?)(?:\s|$)/i.test(text) ||
     text.startsWith('تفسير ');
 
   if (isTafsirQuestionText) {
@@ -265,12 +281,14 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
     /(?:سب\s+(?:الله|الدين|الرسول|النبي)|شتم\s+(?:الله|الدين|الرسول|النبي)|استهزاء\s+(?:بالدين|بالإسلام|بالرسول|بالقرآن)|الردة|المرتد|التكفير|تكفير)(?:\s|[؟?،.!؛:()]|$)/i.test(text);
 
   const isFiqhQuestionText =
-    /(?:^|\s)(?:ما\s*حكم|حكم|أحكام|هل\s*يجوز|هل\s*يصح|هل\s*يحل|هل\s*يحرم|ما\s*رأي\s*الشرع|طلقت|زوجتي|ينقض\s*الوضوء|قنوت\s*الفجر|الميراث|تركة)(?:\s|$)/i.test(text) ||
+    /(?:^|\s)(?:ما\s*حكم|حكم|أحكام|هل\s*يجوز|هل\s*يصح|هل\s*يحل|هل\s*يحرم|ما\s*رأي\s*الشرع|طلقت|زوجتي|ينقض\s*الوضوء|قنوت\s*الفجر|الميراث|تركة|المسح|خف|خفين|سجود\s*السهو|زكاة\s*الفطر|شرب\s*الخمر)(?:\s|$)/i.test(text) ||
+    /(?:يمكن|يجوز|يصح|يباح|حلال|حرام|يحرم|مشروع)\s+.*(?:المسح|الخف|الخفين|الوضوء|الصلاة|الصوم|الزكاة|الخمر)/i.test(text) ||
     text.startsWith('حكم ') ||
     text.includes('ما حكم') ||
     text.includes('هل يجوز') ||
     text.includes('هل يصح') ||
-    text.includes('حكم ') ||
+    text.includes('المسح على الخف') ||
+    text.includes('المسح على الخفين') ||
     isSensitiveFiqhTerm;
 
   if (isFiqhQuestionText && !isTafsirQuestionText && !isAqeedahQuestionText) {
@@ -289,7 +307,8 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
   const isSingleIslamicTerm =
     items.length === 0 &&
     /^[\u0621-\u064A\s]{3,40}$/.test(text) &&
-    text.split(/\s+/).length <= 3 &&
+    text.split(/\s+/).length <= 2 &&
+    !/^(?:إنما|انما|من|ما|لا|كل|اذا|إذا|ليس|طلب|حب|يا)\s+/i.test(text) &&
     !isFiqhQuestionText &&
     !isTafsirQuestionText &&
     !isAqeedahQuestionText;
@@ -305,18 +324,37 @@ export function extractItemsRuleBased(inputText: string): ExtractedItem[] {
     });
   }
 
-  // 8. Fallback: If no items detected at all, treat the entire string as candidate claim
+  // 8. Fallback: If no items detected at all, check if text is a known Quran verse or treat as candidate claim/question
   if (items.length === 0 && text.length > 3) {
     let guessedType: ItemType = 'claim';
-    if (text.includes('سورة') || text.includes('آية') || text.includes('تعالى') || text.includes('المصحف')) guessedType = 'ayah';
-    else if (text.includes('رسول') || text.includes('النبي') || text.includes('حديث') || text.includes('صلى الله عليه وسلم')) guessedType = 'hadith';
+    const exactAyah = findExactHafsAyahLocal(text);
+    // A bare (unquoted) Quranic quotation — even with a missing/altered word —
+    // is recognized by its orthography (Quranic-only marks and heavy tashkeel)
+    // so it still enters the Quran verification path instead of being treated as
+    // a generic claim. Misrouting is self-correcting: the live source matcher
+    // will abstain if the text is not actually Quranic.
+    if (
+      exactAyah ||
+      looksLikeQuranicText(text) ||
+      text.includes('سورة') || text.includes('آية') || text.includes('تعالى') || text.includes('المصحف')
+    ) {
+      guessedType = 'ayah';
+    } else if (text.includes('رسول') || text.includes('النبي') || text.includes('حديث') || text.includes('صلى الله عليه وسلم') || /^(?:إنما|انما|طلب العلم|لا يؤمن|المسلم من|من غش)/i.test(text)) {
+      guessedType = 'hadith';
+    } else if (/(?:ما\s+(?:هو\s+)?حكم|هل\s+يجوز|ما\s+حكم|حكم|حلال|حرام|واجب|فرض|مكروه|مستحب)/.test(text)) {
+      guessedType = 'fiqh_question';
+    }
+
+    const cleanText = guessedType === 'ayah'
+      ? text.replace(/^[«"“\s]+|[»"”\s]+$/g, '').replace(/[\u06DD\uFD3E\uFD3F\uFB50-\uFDFF\uFE70-\uFEFF]/g, '').trim()
+      : text;
 
     items.push({
       type: guessedType,
-      text: text,
+      text: cleanText || text,
       context: text,
       language: /[a-zA-Z]/.test(text) ? 'en' : 'ar',
-      confidence: 0.75
+      confidence: exactAyah ? 0.98 : 0.75
     });
   }
 

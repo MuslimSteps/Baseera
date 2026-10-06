@@ -9,7 +9,7 @@
  * search assistance/ranking; it never supplies Quran text or evidence.
  */
 
-import { computeWordDiff, normalizeArabic, normalizeArabicStrict } from './normalizer.ts';
+import { computeWordDiff, normalizeArabic, normalizeArabicStrict, locateQuoteWindow } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
 import { getHafsAyah, getHafsSurahName, searchHafsAyahsLive, QuranMushafAyah, buildQuranpediaAyahUrl } from './quranpediaClient.ts';
 
@@ -151,9 +151,10 @@ function matchQuality(input: string, candidate: QuranCandidate): {
   exact: boolean;
   altered: boolean;
 } {
-  const exact =
-    normalizeArabicStrict(input) === normalizeArabicStrict(candidate.text) ||
-    (Boolean(candidate.search) && normalizeArabicStrict(input) === normalizeArabicStrict(candidate.search!));
+  const normInput = normalizeArabicStrict(input);
+  const normText = normalizeArabicStrict(candidate.text);
+  const normSearch = candidate.search ? normalizeArabicStrict(candidate.search) : '';
+  const exact = normInput === normText || (Boolean(normSearch) && normInput === normSearch);
   if (exact) return { score: 1, exact: true, altered: false };
 
   const scoreText = candidateScore(input, candidate.text);
@@ -165,8 +166,11 @@ function matchQuality(input: string, candidate: QuranCandidate): {
   const bestDiff = diffSearch.similarityScore >= diffText.similarityScore ? diffSearch : diffText;
 
   const changed = bestDiff.diff.some(d => d.type === 'changed');
-  return { score: Math.max(score, bestDiff.similarityScore), exact: bestDiff.similarityScore === 1, altered: changed };
+  return { score: Math.max(score, bestDiff.similarityScore), exact: false, altered: changed };
 }
+
+// locateQuoteWindow is provided by normalizer.ts (edit-distance tolerant, shared
+// with the hadith verifier so excerpts are detected consistently).
 
 export function buildQuranDecision(
   item: ExtractedItem,
@@ -179,10 +183,52 @@ export function buildQuranDecision(
   const diff = diffResult.diff;
   const inputStrict = normalizeArabicStrict(item.text);
   const canonicalStrict = normalizeArabicStrict(candidate.text);
-  const inputLooseWords = normalizeArabic(item.text).split(/\s+/).filter(Boolean);
-  const canonicalLooseWords = normalizeArabic(candidate.text).split(/\s+/).filter(Boolean);
+  const canonicalSearchStrict = candidate.search ? normalizeArabicStrict(candidate.search) : '';
 
-  if (!quality.exact && quality.score < 0.72) {
+  const inputLooseNorm = normalizeArabic(item.text);
+  const canonicalLooseNorm = normalizeArabic(candidate.text);
+  const canonicalSearchLooseNorm = candidate.search ? normalizeArabic(candidate.search) : '';
+
+  const inputLooseWords = inputLooseNorm.split(/\s+/).filter(Boolean);
+  const canonicalLooseWords = canonicalLooseNorm.split(/\s+/).filter(Boolean);
+  const canonicalSearchLooseWords = canonicalSearchLooseNorm ? canonicalSearchLooseNorm.split(/\s+/).filter(Boolean) : [];
+  const maxCanonicalWords = Math.max(canonicalLooseWords.length, canonicalSearchLooseWords.length);
+
+  const diffStats = diff.reduce(
+    (acc, d) => {
+      if (d.type === 'missing') acc.missing += 1;
+      else if (d.type === 'added') acc.added += 1;
+      else if (d.type === 'changed') {
+        const normWord = normalizeArabic(d.word);
+        const normExpected = normalizeArabic(d.expected || '');
+        if (normWord !== normExpected) {
+          acc.changed += 1;
+        }
+      }
+      return acc;
+    },
+    { missing: 0, added: 0, changed: 0 }
+  );
+  const hasDiff = diffStats.missing > 0 || diffStats.added > 0 || diffStats.changed > 0;
+
+  // A verbatim excerpt (جزء) of a verse is a genuine wording match, but it must
+  // be reported AS an excerpt — never presented as if the whole ayah was typed.
+  // Crucially, it must NOT have any missing, added, or changed words!
+  const excerptWindow = inputLooseWords.length >= 2 && inputLooseWords.length < maxCanonicalWords
+    ? (locateQuoteWindow(item.text, candidate.text) || (candidate.search ? locateQuoteWindow(item.text, candidate.search) : null))
+    : null;
+  const isVerbatimExcerpt =
+    !hasDiff &&
+    inputLooseWords.length >= 2 &&
+    inputLooseWords.length < maxCanonicalWords &&
+    (canonicalStrict.includes(inputStrict) ||
+      (canonicalSearchStrict !== '' && canonicalSearchStrict.includes(inputStrict)) ||
+      canonicalLooseNorm.includes(inputLooseNorm) ||
+      (canonicalSearchLooseNorm !== '' && canonicalSearchLooseNorm.includes(inputLooseNorm)) ||
+      excerptWindow !== null);
+  const quoteWindow = isVerbatimExcerpt ? excerptWindow : null;
+
+  if (!quality.exact && !isVerbatimExcerpt && !hasDiff && quality.score < 0.72) {
     return {
       id: candidate.id,
       item,
@@ -217,10 +263,6 @@ export function buildQuranDecision(
   }
 
   const ayahMismatch = Boolean(item.claimed_ayah && item.claimed_ayah !== candidate.ayah_number);
-  const isPartialQuote =
-    inputLooseWords.length >= 2 &&
-    inputLooseWords.length < canonicalLooseWords.length &&
-    (canonicalStrict.includes(inputStrict) || quality.score >= 0.72);
 
   const citation = {
     source_id: 'quran-uthmani',
@@ -231,65 +273,7 @@ export function buildQuranDecision(
     url: buildQuranpediaAyahUrl(candidate.surah_number, candidate.ayah_number)
   };
 
-  const cleanCanonicalText = (candidate.text_uthmani || '').replace(/[\uFC00-\uFC6E]/g, '').trim();
-
-  if (quality.exact && !surahMismatch && !ayahMismatch) {
-    return {
-      id: candidate.id,
-      item,
-      status: 'MATCHED',
-      finding_type: 'partial_quran_quote',
-      status_label_ar: 'مطابق للمصدر',
-      status_label_en: 'Verified Quranic Match',
-      reason: 'النص يطابق الآية في المصحف المعتمد.',
-      citation,
-      canonical_text: cleanCanonicalText,
-      canonical_surah: candidate.surah_name_ar,
-      canonical_ayah_number: candidate.ayah_number,
-      diff,
-      decision_level: 'A'
-    };
-  }
-
-  if (isPartialQuote) {
-    const looseQuoteMatchesSource =
-      normalizeArabic(candidate.text).includes(normalizeArabic(item.text)) &&
-      inputLooseWords.length >= 2;
-
-    if ((diff.every(d => d.type === 'equal') || looseQuoteMatchesSource) && !surahMismatch && !ayahMismatch) {
-      return {
-        id: candidate.id,
-        item,
-        status: 'MATCHED',
-        finding_type: 'partial_quran_quote',
-        status_label_ar: 'مطابق للمصدر — اقتباس جزئي',
-        status_label_en: 'Verified Partial Quranic Match',
-        reason: 'النص المدخل جزء مطابق من الآية في المصحف المعتمد.',
-        citation,
-        canonical_text: cleanCanonicalText,
-        canonical_surah: candidate.surah_name_ar,
-        canonical_ayah_number: candidate.ayah_number,
-        diff,
-        decision_level: 'A'
-      };
-    }
-
-    return {
-      id: candidate.id,
-      item,
-      status: 'NEEDS_REVIEW',
-      finding_type: 'partial_quran_quote',
-      status_label_ar: 'يحتاج مراجعة — اختلاف في الاقتباس',
-      status_label_en: 'Partial Quranic Quote — Review Required',
-      reason: 'النص جزء من آية في المصدر المعتمد، لكن توجد ألفاظ تختلف عن النص الأصلي.',
-      citation,
-      canonical_text: cleanCanonicalText,
-      canonical_surah: candidate.surah_name_ar,
-      canonical_ayah_number: candidate.ayah_number,
-      diff,
-      decision_level: 'A'
-    };
-  }
+  const cleanCanonicalText = (candidate.text_uthmani || '').replace(/[\u06DD\uFD3E\uFD3F\uFB50-\uFDFF\uFE70-\uFEFF]/g, '').trim();
 
   if (surahMismatch) {
     return {
@@ -325,14 +309,127 @@ export function buildQuranDecision(
     };
   }
 
+  // 1. Verbatim excerpt of a verse (NO differences, strictly matching part of the ayah)
+  if (isVerbatimExcerpt) {
+    return {
+      id: candidate.id,
+      item,
+      status: 'MATCHED',
+      finding_type: 'partial_quran_quote',
+      status_label_ar: 'مطابق للمصحف الشريف — النص جزء من الآية',
+      status_label_en: 'Verified Quranic Excerpt',
+      reason: `النص المدخل جزء حرفي مطابق من الآية في المصحف المعتمد، وهو مطابق تمامًا للجزء المظلَّل داخل الآية الكاملة أدناه (سورة ${candidate.surah_name_ar} — الآية ${candidate.ayah_number}).`,
+      citation,
+      canonical_text: cleanCanonicalText,
+      canonical_surah: candidate.surah_name_ar,
+      canonical_ayah_number: candidate.ayah_number,
+      is_partial_quote: true,
+      quote_window: quoteWindow || undefined,
+      diff,
+      decision_level: 'A'
+    };
+  }
+
+  // 2. Full ayah verbatim match (NO differences, covers whole ayah)
+  const isFullAyahMatch = !hasDiff && (quality.exact || quality.score >= 0.95) && inputLooseWords.length >= maxCanonicalWords - 1;
+  if (isFullAyahMatch) {
+    return {
+      id: candidate.id,
+      item,
+      status: 'MATCHED',
+      status_label_ar: 'مطابق للمصحف الشريف',
+      status_label_en: 'Verified Quranic Match',
+      reason: 'النص يطابق الآية في المصحف المعتمد.',
+      citation,
+      canonical_text: cleanCanonicalText,
+      canonical_surah: candidate.surah_name_ar,
+      canonical_ayah_number: candidate.ayah_number,
+      diff,
+      decision_level: 'A'
+    };
+  }
+
+  // 3. Altered or incomplete Quran verse recitation with differences
+  if (hasDiff) {
+    if (diffStats.missing > 0 && diffStats.changed === 0 && diffStats.added === 0) {
+      return {
+        id: candidate.id,
+        item,
+        status: 'NEEDS_REVIEW',
+        finding_type: 'altered_quran_text',
+        status_label_ar: 'غير مطابق للمصحف الشريف — يوجد نقص في ألفاظ الآية',
+        status_label_en: 'Non-matching — Missing Words in Ayah',
+        reason: `يوجد نقص وسقط في بعض ألفاظ الآية مقارنة بالنص المعتمد في المصحف الشريف (سورة ${candidate.surah_name_ar} — الآية ${candidate.ayah_number}). راجع الألفاظ الساقطة باللون الأحمر أدناه.`,
+        citation,
+        canonical_text: cleanCanonicalText,
+        canonical_surah: candidate.surah_name_ar,
+        canonical_ayah_number: candidate.ayah_number,
+        diff,
+        decision_level: 'A'
+      };
+    }
+
+    if (diffStats.changed > 0 && diffStats.missing === 0 && diffStats.added === 0) {
+      return {
+        id: candidate.id,
+        item,
+        status: 'NEEDS_REVIEW',
+        finding_type: 'altered_quran_text',
+        status_label_ar: 'غير مطابق للمصحف الشريف — يوجد تبديل في ألفاظ الآية',
+        status_label_en: 'Non-matching — Substituted Words in Ayah',
+        reason: `يوجد تبديل واختلاف في بعض ألفاظ الآية مقارنة بالنص المعتمد في المصحف الشريف (سورة ${candidate.surah_name_ar} — الآية ${candidate.ayah_number}). راجع الألفاظ المبدّلة باللون البرتقالي أدناه.`,
+        citation,
+        canonical_text: cleanCanonicalText,
+        canonical_surah: candidate.surah_name_ar,
+        canonical_ayah_number: candidate.ayah_number,
+        diff,
+        decision_level: 'A'
+      };
+    }
+
+    if (diffStats.added > 0 && diffStats.changed === 0 && diffStats.missing === 0) {
+      return {
+        id: candidate.id,
+        item,
+        status: 'NEEDS_REVIEW',
+        finding_type: 'altered_quran_text',
+        status_label_ar: 'غير مطابق للمصحف الشريف — رُصدت زيادة وألفاظ دخيلة',
+        status_label_en: 'Non-matching — Extraneous Words in Ayah',
+        reason: `رُصدت زيادة وألفاظ دخيلة ليست من الآية مقارنة بالنص المعتمد في المصحف الشريف (سورة ${candidate.surah_name_ar} — الآية ${candidate.ayah_number}). راجع الألفاظ الدخيلة أدناه.`,
+        citation,
+        canonical_text: cleanCanonicalText,
+        canonical_surah: candidate.surah_name_ar,
+        canonical_ayah_number: candidate.ayah_number,
+        diff,
+        decision_level: 'A'
+      };
+    }
+
+    return {
+      id: candidate.id,
+      item,
+      status: 'NEEDS_REVIEW',
+      finding_type: 'altered_quran_text',
+      status_label_ar: 'غير مطابق للمصحف الشريف — رُصد نقص وتبديل في ألفاظ الآية',
+      status_label_en: 'Non-matching — Quranic Wording Altered',
+      reason: `يوجد اختلاف ونقص أو تبديل لفظي بين المدخل والنص القرآني المعتمد في المصحف الشريف (سورة ${candidate.surah_name_ar} — الآية ${candidate.ayah_number}). راجع الفوارق الملونة أدناه.`,
+      citation,
+      canonical_text: cleanCanonicalText,
+      canonical_surah: candidate.surah_name_ar,
+      canonical_ayah_number: candidate.ayah_number,
+      diff,
+      decision_level: 'A'
+    };
+  }
+
   return {
     id: candidate.id,
     item,
     status: 'NEEDS_REVIEW',
     finding_type: 'altered_quran_text',
-    status_label_ar: 'غير مطابق — رُصد اختلاف في لفظ الآية',
+    status_label_ar: 'غير مطابق للمصحف الشريف — رُصد اختلاف في لفظ الآية',
     status_label_en: 'Non-matching — Quranic Wording Altered',
-    reason: 'يوجد اختلاف لفظي بين المدخل والنص القرآني المعتمد في المصحف الشريف. راجع الفوارق الملونة أدناه.',
+    reason: `يوجد اختلاف لفظي بين المدخل والنص القرآني المعتمد في المصحف الشريف (سورة ${candidate.surah_name_ar} — الآية ${candidate.ayah_number}). راجع الفوارق الملونة أدناه.`,
     citation,
     canonical_text: cleanCanonicalText,
     canonical_surah: candidate.surah_name_ar,

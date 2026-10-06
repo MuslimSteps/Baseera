@@ -441,7 +441,7 @@ export const DawahStudioView: React.FC = () => {
                     className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-page hover:bg-surface text-xs font-semibold text-ink border border-line flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
                   >
                     <Download className="w-3.5 h-3.5 text-muted" />
-                    <span>تنزيل (TXT)</span>
+                    <span>تنزيل النص</span>
                   </button>
                 </div>
               </div>
@@ -543,7 +543,7 @@ export const DawahStudioView: React.FC = () => {
                         className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-strong text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                       >
                         <Download className="w-4 h-4" />
-                        <span>تنزيل البطاقة (SVG)</span>
+                        <span>تنزيل البطاقة</span>
                       </button>
                     </div>
 
@@ -562,16 +562,16 @@ export const DawahStudioView: React.FC = () => {
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-ink/85">
                         <div className="p-2.5 rounded-lg bg-surface border border-line">
-                          <strong className="text-ink">Canva (canva.com):</strong> قوالب إسلامية مجانية جاهزة لمقاس 1080×1080
+                          <strong className="text-ink">منصات التصميم المجانية:</strong> قوالب إسلامية جاهزة بمقاس 1080×1080
                         </div>
                         <div className="p-2.5 rounded-lg bg-surface border border-line">
-                          <strong className="text-ink">Adobe Express:</strong> تصاميم مجانية مع دعم الخطوط العربية الرسمية
+                          <strong className="text-ink">أدوات تحرير التصميم:</strong> تصاميم مجانية مع دعم الخطوط العربية
                         </div>
                         <div className="p-2.5 rounded-lg bg-surface border border-line">
-                          <strong className="text-ink">Piktochart:</strong> إنفوجرافيك تعليمي ودعوي مجاني
+                          <strong className="text-ink">أدوات الإنفوجرافيك:</strong> إنفوجرافيك تعليمي ودعوي مجاني
                         </div>
                         <div className="p-2.5 rounded-lg bg-surface border border-line">
-                          <strong className="text-ink">Crello / VistaCreate:</strong> قوالب تدعم اللغة الروسية بشكل ممتاز
+                          <strong className="text-ink">قوالب متعددة اللغات:</strong> قوالب تدعم اللغة الروسية بشكل ممتاز
                         </div>
                       </div>
                     </div>

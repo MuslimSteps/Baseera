@@ -9,8 +9,11 @@
  * Encyclopedia. Approximate matches are never marked MATCHED.
  */
 
-import { normalizeArabic, normalizeArabicStrict } from './normalizer.ts';
+import { normalizeArabic, normalizeArabicStrict, stripPropheticFraming, locateQuoteWindow, computeWordDiff } from './normalizer.ts';
 import { ExtractedItem, VerificationResult } from '../types/baseera.ts';
+
+// locateQuoteWindow is provided by normalizer.ts (edit-distance tolerant, shared
+// with the Quran verifier so excerpts are detected consistently).
 
 export type DorarMatch = {
   text: string;
@@ -23,6 +26,9 @@ export type DorarMatch = {
   isDisputed?: boolean;
   disputeDetails?: string;
   matchQuality?: 'exact' | 'partial' | 'close';
+  /** Real Dorar permalink id and direct page URL (https://dorar.net/h/<id>). */
+  id?: string | null;
+  url?: string | null;
 };
 
 type HadithVerificationResult = VerificationResult & { _needs_live_search?: boolean };
@@ -61,14 +67,28 @@ export function verifyHadith(item: ExtractedItem): HadithVerificationResult {
 }
 
 export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch): VerificationResult {
-  const normalizedInput = normalizeArabicStrict(item.text);
+  // Match on the actual matn, not on the surrounding narration frame
+  // («قال رسول الله ﷺ: …»).
+  const matnInput = stripPropheticFraming(item.text);
+  const normalizedInput = normalizeArabicStrict(matnInput);
   const normalizedCanonical = normalizeArabicStrict(bestMatch.text);
 
   const exact = normalizedInput === normalizedCanonical;
+  const quoteWindow = exact ? null : locateQuoteWindow(matnInput, bestMatch.text);
   const partial =
     !exact &&
-    normalizedCanonical.includes(normalizedInput) &&
-    normalizedInput.split(/\s+/).length >= 4;
+    ((normalizedCanonical.includes(normalizedInput) && normalizedInput.split(/\s+/).length >= 4) ||
+      quoteWindow !== null);
+
+  // Evidence boundary: a hadith may only cite a REAL permalink page
+  // (https://dorar.net/h/<id>). A search URL is never a source and is never
+  // emitted here; when no permalink exists the citation carries no URL.
+  const permalink =
+    bestMatch.url && /^https:\/\/dorar\.net\/h\/[A-Za-z0-9]+$/.test(bestMatch.url)
+      ? bestMatch.url
+      : bestMatch.id
+        ? `https://dorar.net/h/${bestMatch.id}`
+        : undefined;
 
   const citation = {
     source_id: 'dorar-hadith',
@@ -77,13 +97,7 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
     book: bestMatch.book,
     number_or_page: bestMatch.numberOrPage,
     grade: bestMatch.grade,
-    url: `https://dorar.net/hadith/search?q=${encodeURIComponent(
-      normalizeArabic(bestMatch.text)
-        .replace(/^[«"'\s]+|[»"'\s.]+$/g, '')
-        .split(/\s+/)
-        .slice(0, 8)
-        .join(' ')
-    )}`
+    url: permalink
   };
 
   if (item.claimed_source) {
@@ -113,7 +127,9 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
       status: 'NEEDS_REVIEW',
       status_label_ar: 'يحتاج مراجعة — عُثر على نتيجة قريبة دون ثبوت مطابقة اللفظ',
       status_label_en: 'Needs Review — Related result found, wording not proven identical',
-      reason: 'وجدت منصة الدرر السنية نتيجة قريبة، لكن النص المدخل لا يطابقها مطابقة صريحة؛ لذلك لا تُنسب الرواية إلى النبي ﷺ آلياً.',
+      reason: (bestMatch.gradeCategory === 'weak' || bestMatch.gradeCategory === 'fabricated' || bestMatch.gradeCategory === 'unknown')
+        ? `عُثر على رواية قريبة اللفظ في المصدر المعتمد («${bestMatch.book}»)، ودرجتها في المصدر: ${bestMatch.grade || 'غير محددة'}. النص المدخل لا يطابقها مطابقة حرفية كاملة؛ لذلك لا تُنسب إلى النبي ﷺ آليًا.`
+        : 'وجدت منصة الدرر السنية نتيجة قريبة، لكن النص المدخل لا يطابقها مطابقة صريحة؛ لذلك لا تُنسب الرواية إلى النبي ﷺ آلياً.',
       citation,
       canonical_text: bestMatch.text,
       decision_level: 'B',
@@ -125,13 +141,12 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
       id: `hadith-${Date.now()}`,
       item,
       status: 'NEEDS_REVIEW',
-      status_label_ar: 'حديث مختلف في صحته — يُعرض المصدر والخلاف دون جزم',
-      status_label_en: 'Disputed Hadith — Source and scholarly disagreement shown',
-      reason: bestMatch.disputeDetails || 'نتائج المصدر المعتمد تشير إلى خلاف في ثبوته؛ لذلك لا يصدر النظام حكماً قطعياً.',
+      status_label_ar: 'حديث مختلف في صحته — لا يُجزم بنسبته',
+      status_label_en: 'Disputed Hadith — Attribution Not Certain',
+      reason: bestMatch.disputeDetails || 'المصدر المعتمد يذكر خلافاً في ثبوته.',
       citation,
       canonical_text: bestMatch.text,
-      decision_level: 'B',
-      abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
+      decision_level: 'B'
     };
   }
 
@@ -140,13 +155,12 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
       id: `hadith-${Date.now()}`,
       item,
       status: 'NEEDS_REVIEW',
-      status_label_ar: `حديث موضوع/مكذوب بحسب المصدر المعتمد: ${bestMatch.grade}`,
+      status_label_ar: 'حديث موضوع/مكذوب — لا يجوز نسبته إلى النبي ﷺ',
       status_label_en: 'Fabricated/Rejected Hadith',
-      reason: `أظهرت الموسوعة الحديثية بالدرر السنية أن الحكم على الرواية هو: ${bestMatch.grade}. لا يجوز نسبتها إلى النبي ﷺ على أنها صحيحة.`,
+      reason: `الحكم في المصدر المعتمد: ${bestMatch.grade}.`,
       citation,
       canonical_text: bestMatch.text,
-      decision_level: 'B',
-      abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
+      decision_level: 'B'
     };
   }
 
@@ -155,13 +169,38 @@ export function buildHadithDecision(item: ExtractedItem, bestMatch: DorarMatch):
       id: `hadith-${Date.now()}`,
       item,
       status: 'NEEDS_REVIEW',
-      status_label_ar: `حديث يحتاج بيان درجته: ${bestMatch.grade || 'غير محدد'}`,
-      status_label_en: 'Hadith Requires Grade Review',
-      reason: 'وُجدت الرواية في المصدر المعتمد، لكن درجتها لا تسمح باعتبارها حديثاً صحيحاً ثابتاً دون بيان الحكم الحديثي.',
+      status_label_ar: bestMatch.gradeCategory === 'weak'
+        ? 'حديث ضعيف — لا تصح نسبته إلى النبي ﷺ'
+        : 'حديث غير ثابت الدرجة — لا تصح نسبته إلى النبي ﷺ',
+      status_label_en: 'Weak / Unverified Hadith — Attribution Not Established',
+      reason: `درجة الحديث في المصدر المعتمد: ${bestMatch.grade || 'غير محددة'}.`,
       citation,
       canonical_text: bestMatch.text,
-      decision_level: 'B',
-      abstention_note: 'لا تُثبت النسبة إلى النبي ﷺ حتى توجد مطابقة صريحة في المصدر الحديثي المعتمد.'
+      decision_level: 'B'
+    };
+  }
+
+  const authentic = bestMatch.gradeCategory === 'sahih' || bestMatch.gradeCategory === 'hasan';
+
+  if (partial && authentic) {
+    const gradeLabel = bestMatch.gradeCategory === 'hasan' ? 'حسن' : 'صحيح';
+    const partialDiff = computeWordDiff(matnInput, bestMatch.text).diff;
+    const hasChange = partialDiff.some(d => d.type === 'changed' || d.type === 'missing' || d.type === 'added');
+    return {
+      id: `hadith-${Date.now()}`,
+      item,
+      status: 'MATCHED',
+      status_label_ar: hasChange
+        ? `جزء من حديث ${gradeLabel} — مع اختلاف يسير في اللفظ (انظر التظليل)`
+        : `مطابق للمصدر — النص جزء من حديث ${gradeLabel}`,
+      status_label_en: 'Verified Hadith Excerpt',
+      reason: `المقطع المدخل جزء من متن الرواية في المصدر الحديثي المعتمد («${bestMatch.book}»)، وهو جزء من حديث ${gradeLabel} وليس كامل الحديث${hasChange ? '، مع فروق يسيرة في اللفظ موضّحة بالتظليل دون استبدال لفظك' : ''}.`,
+      citation,
+      canonical_text: bestMatch.text,
+      is_partial_quote: true,
+      quote_window: quoteWindow || undefined,
+      diff: partialDiff,
+      decision_level: 'B'
     };
   }
 

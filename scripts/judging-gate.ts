@@ -10,6 +10,7 @@ import { verifyQuranAyah, buildQuranDecision } from '../src/lib/quranVerifier.ts
 import { extractAyahRefsFromHtml } from '../src/lib/quranpediaClient.ts';
 import { verifyIslamicTerm } from '../src/lib/terminologyEngine.ts';
 import { buildHadithDecision } from '../src/lib/hadithVerifier.ts';
+import { classifySourceTier } from '../src/lib/dorarClient.ts';
 import { enforceDecisionPolicy } from '../src/lib/decisionPolicy.ts';
 import { enforceApprovedCitations, isApprovedCitation, isApprovedSourceUrl } from '../src/lib/sourcePolicy.ts';
 import { isGroundedInInput } from '../src/lib/inputGrounding.ts';
@@ -62,7 +63,7 @@ function sourceBackedResult(type: any, status: any = 'MATCHED'): any {
       source_name: 'Dorar',
       authority: 'Dorar',
       book: 'Fixture',
-      url: 'https://dorar.net/hadith/search?q=test'
+      url: 'https://dorar.net/h/fixtureId'
     },
     decision_level: 'B'
   };
@@ -136,9 +137,15 @@ test('source URL policy accepts only approved source domains', () => {
 });
 
 test('source policy binds source IDs to source-specific paths', () => {
+  // A hadith search URL is NOT a source and must be rejected as evidence.
   assert.equal(isApprovedCitation({
     source_id: 'dorar-hadith',
     url: 'https://dorar.net/hadith/search?q=test'
+  }), false);
+  // A real hadith permalink page is the only acceptable hadith evidence URL.
+  assert.equal(isApprovedCitation({
+    source_id: 'dorar-hadith',
+    url: 'https://dorar.net/h/fYoNWk56'
   }), true);
   assert.equal(isApprovedCitation({
     source_id: 'dorar-hadith',
@@ -306,7 +313,8 @@ const sahihFixture = {
   book: 'صحيح البخاري',
   numberOrPage: 'fixture',
   grade: 'صحيح',
-  gradeCategory: 'sahih' as const
+  gradeCategory: 'sahih' as const,
+  url: 'https://dorar.net/h/fixtureTest'
 };
 
 test('verified hadith fixture can be MATCHED only after source evidence exists', () => {
@@ -315,9 +323,10 @@ test('verified hadith fixture can be MATCHED only after source evidence exists',
   assert.equal(decision.status, 'MATCHED');
 });
 
-test('partial, weak, disputed and wrongly attributed hadiths stay review-only', () => {
+test('excerpts of authentic hadiths are matched only as excerpts; weak/disputed/wrong stay review-only', () => {
   const partial = buildHadithDecision(item('hadith', 'إنما الأعمال بالنيات'), sahihFixture);
-  assert.equal(partial.status, 'NEEDS_REVIEW');
+  assert.equal(partial.status, 'MATCHED');
+  assert.equal(partial.is_partial_quote, true);
 
   const weak = buildHadithDecision(
     item('hadith', sahihFixture.text),
@@ -338,7 +347,46 @@ test('partial, weak, disputed and wrongly attributed hadiths stay review-only', 
   assert.equal(wrongBook.status, 'NEEDS_REVIEW');
 });
 
-// 8. Keep benchmark fixtures clearly separated from production source retrieval.
+// 8. Hadith evidence must cite only real permalinks; never a search URL.
+test('hadith decision cites a real permalink or nothing, never a search URL', () => {
+  const withPermalink = buildHadithDecision(item('hadith', sahihFixture.text), sahihFixture);
+  assert.equal(withPermalink.citation.url, 'https://dorar.net/h/fixtureTest');
+
+  const withoutPermalink = buildHadithDecision(item('hadith', sahihFixture.text), {
+    ...sahihFixture,
+    url: undefined,
+    id: undefined
+  });
+  assert.equal(withoutPermalink.citation.url, undefined);
+  assert.equal(/hadith\/search|\/dorar_api\.json/.test(JSON.stringify(withoutPermalink.citation)), false);
+
+  // The judge gate must also fail-closed if a search URL is ever re-introduced.
+  assert.equal(isApprovedCitation({ source_id: 'dorar-hadith', url: 'https://dorar.net/hadith/search?q=x' }), false);
+});
+
+test('source tier classifies primary hadith collections vs secondary references', () => {
+  assert.equal(classifySourceTier('صحيح البخاري'), 'primary');
+  assert.equal(classifySourceTier('صحيح مسلم'), 'primary');
+  assert.equal(classifySourceTier('سنن الترمذي'), 'primary');
+  assert.equal(classifySourceTier('الإيضاح في مناسك الحج'), 'secondary');
+});
+
+test('an authentic grade is never contradicted by the book that documents it', () => {
+  // The source book may be a commentary/reference (Dorar documents the narration
+  // there), but an authentic, exactly-matching grade must yield MATCHED — the
+  // verdict never contradicts the source's own grade.
+  const result = buildHadithDecision(item('hadith', sahihFixture.text), {
+    ...sahihFixture,
+    book: 'الإيضاح في مناسك الحج',
+    numberOrPage: '40',
+    id: 'tZZynYKc',
+    url: 'https://dorar.net/h/tZZynYKc'
+  });
+  assert.equal(result.status, 'MATCHED');
+  assert.equal(result.citation.url, 'https://dorar.net/h/tZZynYKc');
+});
+
+// 9. Keep benchmark fixtures clearly separated from production source retrieval.
 test('benchmark code labels fixtures as fixtures and contains no randomization', () => {
   const runner = readFileSync(new URL('../src/lib/benchmarkRunner.ts', import.meta.url), 'utf8');
   assert.equal(runner.includes('Math.random'), false);

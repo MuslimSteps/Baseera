@@ -18,7 +18,20 @@ export interface DorarHadithResult {
   isDisputed?: boolean;
   disputeDetails?: string;
   matchQuality?: 'exact' | 'partial' | 'close';
+  /**
+   * Real Dorar hadith permalink id (e.g. "fYoNWk56") and its direct page URL
+   * (https://dorar.net/h/<id>). Present ONLY when the HTML search page exposed a
+   * genuine permalink joined on (book, number). This is the sole acceptable
+   * evidence URL — a search URL is never a source.
+   */
+  id?: string | null;
+  url?: string | null;
 }
+
+// Source-tier classification lives in a dependency-free module so the
+// client-bundled verifier can use it without pulling Node-only code.
+export { classifySourceTier, type SourceTier } from './hadithSourceTier.ts';
+import { classifySourceTier } from './hadithSourceTier.ts';
 
 const dorarMemoryCache = new Map<string, DorarHadithResult[]>();
 
@@ -28,8 +41,9 @@ const dorarMemoryCache = new Map<string, DorarHadithResult[]>();
 export function cleanSearchQuery(query: string): string {
   return query
     .replace(/[«»"“؟?.,!]/g, '')
-    .replace(/^(?:ما\s+(?:هو\s+)?حكم(?:\s+الشرع(?:\s+في)?)?|هل\s+(?:يجوز|يصح)|ما\s+القول\s+في|حكم|هل|ما|ماذا|كيف|ما\s+رأي\s+الشرع\s+في)\s*/gi, '')
+    .replace(/^(?:ما\s+(?:هي\s+)?(?:الآية|الاية)\s+(?:التي\s+)?(?:تقول\s+)?(?:إن|ان)?|ما\s+معنى\s+(?:الآية|الاية)|أين\s+(?:ورد|ذكرت)|ما\s+تفسير|معنى\s+قوله\s+تعالى|ما\s+(?:هو\s+)?حكم(?:\s+الشرع(?:\s+في)?)?|هل\s+(?:يجوز|يصح)|ما\s+القول\s+في|حكم|هل|ما|ماذا|كيف|ما\s+رأي\s+الشرع\s+في)\s*/gi, '')
     .replace(/^(?:في\s+القرآن(?:\s+الكريم)?|قال\s+رسول\s+الله|قال\s+النبي|في\s+الحديث|عن\s+النبي|ورد\s+في\s+الحديث|روي\s+أن|سمعت\s+رسول\s+الله)[:\s]*/gi, '')
+    .replace(/^(?:إن|ان|من)\s+(?=صبر|غفر|فعل)/gi, '')
     .trim()
     .slice(0, 120);
 }
@@ -60,16 +74,16 @@ export function classifyGrade(gradeStr: string): 'sahih' | 'hasan' | 'weak' | 'f
   if (/مختلف فيه|اختلف في صحته|اختلف في إسناده/.test(g)) {
     return 'disputed';
   }
-  if (/موضوع|مكذوب|باطل|لا أصل له|كذب/.test(g)) {
+  if (/موضوع|مكذوب|باطل|لا أصل له|كذب|مختلق/.test(g)) {
     return 'fabricated';
   }
-  if (/غير صحيح|ليس بصحيح|لا يصح|لا يثبت|ضعيف|منكر|واهٍ|واهي|متروك|فيه نظر|معلول|مدلس|لين|أوهى|ساقط|غير محفوظ/.test(g)) {
+  if (/غير صحيح|ليس بصحيح|لا يصح|لا يثبت|ضعيف|منكر|واهٍ|واهي|متروك|فيه نظر|معلول|مدلس|لين|أوهى|ساقط|غير محفوظ|وهم|خطأ|أخطأ/.test(g)) {
     return 'weak';
   }
-  if (/صحيح|إسناده صحيح|على شرط الشيخين|على شرط البخاري|على شرط مسلم|رجاله ثقات/.test(g)) {
+  if (/صحيح|إسناده صحيح|على شرط الشيخين|على شرط البخاري|على شرط مسلم|رجاله ثقات|المجمع على صحته|مجمع على صحته|مشهور بالصحة|متفق عليه|رواية صحيحة|صحاح الأحاديث|ثبت في الحديث|ثابت/.test(g)) {
     return 'sahih';
   }
-  if (/حسن|إسناده حسن|جيد|صالح/.test(g)) {
+  if (/حسن|إسناده حسن|إسنادها حسن|إسناده جيد|إسنادها جيد|(?:\s|^)جيد(?:\s|$)|(?:\s|^)صالح(?:\s|$)/.test(g)) {
     return 'hasan';
   }
   return 'unknown';
@@ -265,7 +279,8 @@ type DorarFiqhLiveResult = {
   allResults: Array<{ title: string; text: string; url: string }>;
 };
 
-async function fetchDorarFiqhArticle(url: string): Promise<{ title: string; text: string } | null> {
+async function fetchDorarFiqhArticle(url: string, depth = 0): Promise<{ title: string; text: string; url?: string } | null> {
+  if (depth > 2) return null;
   try {
     const response = await fetchRemoteSafely(url, {
       headers: {
@@ -290,7 +305,27 @@ async function fetchDorarFiqhArticle(url: string): Promise<{ title: string; text
       : '';
 
     const pos = raw.indexOf('w-100 mt-4');
-    if (pos === -1) return title ? { title, text: '' } : null;
+    if (pos === -1) {
+      const subMatches = Array.from(raw.matchAll(/href=["'](\/feqhia\/\d+[^"']*)["'][^>]*>\s*<span class="title-text">([^<]+)<\/span>/gi));
+      const currIdMatch = url.match(/\/feqhia\/(\d+)/);
+      const currId = currIdMatch ? parseInt(currIdMatch[1], 10) : 0;
+      const children = subMatches
+        .map(m => {
+          const path = m[1];
+          const subTitle = m[2];
+          const idM = path.match(/\/feqhia\/(\d+)/);
+          const subId = idM ? parseInt(idM[1], 10) : 0;
+          return { path, subTitle, subId };
+        })
+        .filter(c => c.subId > currId || /المبحث|المطلب|الفرع/.test(c.subTitle));
+
+      if (children.length > 0) {
+        const target = children[0].path;
+        const fullSub = target.startsWith('http') ? target : `https://dorar.net${target}`;
+        return fetchDorarFiqhArticle(fullSub, depth + 1);
+      }
+      return title ? { title, text: '' } : null;
+    }
 
     let chunk = raw.slice(pos, pos + 9000);
     chunk = chunk.replace(/<span class="tip"[^>]*>[\s\S]*?<\/span>/gi, '');
@@ -306,7 +341,7 @@ async function fetchDorarFiqhArticle(url: string): Promise<{ title: string; text
       if (index > 100) text = text.slice(0, index).trim();
     }
 
-    return title || text ? { title, text: text.slice(0, 1800) } : null;
+    return title || text ? { title, text: text.slice(0, 1800), url } : null;
   } catch {
     return null;
   }
@@ -539,17 +574,17 @@ export async function searchDorarFiqhLive(query: string): Promise<DorarFiqhLiveR
 }
 
 /**
- * Fetches the full text of a Dorar.net Fiqh Encyclopedia article.
- * Guarantees that legal rulings and evidence are never truncated.
+ * Fetches the full text and resolved canonical URL of a Dorar.net Fiqh Encyclopedia article.
+ * Automatically resolves child sub-articles when given category/chapter parent pages.
  */
-export async function fetchDorarFiqhArticleLive(articleUrl: string): Promise<string | null> {
+export async function fetchDorarFiqhArticleDetailedLive(articleUrl: string): Promise<{ text: string; url: string } | null> {
   if (!articleUrl || !/\/feqhia\/\d+/.test(articleUrl)) return null;
   try {
     const { execFile } = await import('child_process');
     const path = await import('path');
     const scriptPath = path.resolve(process.cwd(), 'src/lib/dorar_feqhia.py');
 
-    return await new Promise<string | null>((resolve) => {
+    const pyResult = await new Promise<{ text: string; url: string } | null>((resolve) => {
       execFile(
         process.platform === 'win32' ? 'python' : 'python3',
         [scriptPath, '--fetch-article', articleUrl],
@@ -559,7 +594,7 @@ export async function fetchDorarFiqhArticleLive(articleUrl: string): Promise<str
           try {
             const data = JSON.parse(stdout);
             if (data && data.success && data.text) {
-              return resolve(data.text);
+              return resolve({ text: data.text, url: data.url || articleUrl });
             }
             resolve(null);
           } catch {
@@ -568,9 +603,24 @@ export async function fetchDorarFiqhArticleLive(articleUrl: string): Promise<str
         }
       );
     });
+
+    if (pyResult) return pyResult;
+
+    const fallback = await fetchDorarFiqhArticle(articleUrl);
+    return fallback?.text ? { text: fallback.text, url: fallback.url || articleUrl } : null;
   } catch {
-    return null;
+    const fallback = await fetchDorarFiqhArticle(articleUrl);
+    return fallback?.text ? { text: fallback.text, url: fallback.url || articleUrl } : null;
   }
+}
+
+/**
+ * Fetches the full text of a Dorar.net Fiqh Encyclopedia article.
+ * Guarantees that legal rulings and evidence are never truncated.
+ */
+export async function fetchDorarFiqhArticleLive(articleUrl: string): Promise<string | null> {
+  const res = await fetchDorarFiqhArticleDetailedLive(articleUrl);
+  return res?.text || null;
 }
 
 
@@ -704,7 +754,27 @@ export async function searchDorarWithSmartQueries(
       if (!exact && !partial && !close) continue;
 
       const quality = exact ? 'exact' : partial ? 'partial' : 'close';
-      const score = exact ? 1000 + overlap * 100 : partial ? 600 + overlap * 100 : 200 + overlap * 100;
+      let score = exact ? 1000 + overlap * 100 : partial ? 600 + overlap * 100 : 200 + overlap * 100;
+
+      if (r.gradeCategory === 'sahih') score += 1500;
+      else if (r.gradeCategory === 'hasan') score += 1000;
+      else if (r.gradeCategory === 'disputed') score += 200;
+      else if (r.gradeCategory === 'weak') score -= 800;
+      else if (r.gradeCategory === 'fabricated') score -= 1500;
+
+      if (/صحيح|المجمع على صحته|مجمع على صحته|مشهور بالصحة|متفق عليه|رواية صحيحة|صحاح الأحاديث/i.test(r.grade || '')) {
+        score += 500;
+      }
+      if (/خطأ|أخطأ|وهم|لا يصح|منكر|معلول/i.test(r.grade || '')) {
+        score -= 1000;
+      }
+      // Prefer PRIMARY hadith collections: an authentic wording recorded in an
+      // original collection outranks the same wording merely quoted in a later
+      // reference work.
+      if (classifySourceTier(r.book) === 'primary') {
+        score += 900;
+      }
+
       candidates.push({
         result: { ...r, matchQuality: quality },
         queryUsed: q,
@@ -713,7 +783,7 @@ export async function searchDorarWithSmartQueries(
       });
     }
 
-    if (candidates.some(c => c.quality === 'exact')) break;
+    if (candidates.some(c => c.quality === 'exact' && c.result.gradeCategory === 'sahih')) break;
   }
 
   if (candidates.length === 0) {
@@ -736,9 +806,13 @@ export async function searchDorarWithSmartQueries(
     r.gradeCategory === 'fabricated'
   );
   const explicitDispute = exactVariants.some(r => r.gradeCategory === 'disputed' || r.isDisputed);
+  const hasAuthenticCanonical = exactVariants.some(r =>
+    (r.gradeCategory === 'sahih' || r.gradeCategory === 'hasan') &&
+    /صحيح البخاري|صحيح مسلم|النووي|ابن تيمية|الألباني|العراقي|أحمد|ابن الملقن/i.test(r.book || r.muhaddith || '')
+  );
 
   const finalResult: DorarHadithResult = { ...bestCandidate.result };
-  if ((hasAuthentic && hasWeak) || explicitDispute) {
+  if ((!hasAuthenticCanonical && hasAuthentic && hasWeak) || explicitDispute) {
     finalResult.isDisputed = true;
     finalResult.gradeCategory = 'disputed';
     finalResult.grade = 'مختلف في صحته بين نتائج المحدثين في المصدر المعتمد';

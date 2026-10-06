@@ -2,217 +2,507 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>بصيرة — التحقق السريع</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بصيرة — التحقق الفوري للمحتوى الإسلامي</title>
   <style>
-    * { box-sizing: border-box; }
-    body {
-      width: 360px;
-      margin: 0;
-      padding: 14px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: #090d16;
-      color: #f1f5f9;
-      font-size: 13px;
-      line-height: 1.5;
+    :root {
+      --primary: #0f172a;
+      --primary-soft: #1e293b;
+      --brand: #059669;
+      --brand-dark: #047857;
+      --gold: #d97706;
+      --gold-soft: #fef3c7;
+      --surface: #ffffff;
+      --bg: #f8fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --text-faint: #94a3b8;
     }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 380px;
+      margin: 0;
+      padding: 16px;
+      font-family: 'Amiri', 'Noto Naskh Arabic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      direction: rtl;
+    }
+
+    /* Header */
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid #1e293b;
-      padding-bottom: 8px;
-      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 14px;
     }
+
     .logo-wrap {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
+
     .logo-badge {
-      width: 24px;
-      height: 24px;
-      background: #059669;
-      color: white;
-      border-radius: 6px;
+      width: 30px;
+      height: 30px;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      color: #ffffff;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: bold;
-      font-size: 12px;
+      font-weight: 800;
+      font-size: 15px;
+      box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
     }
+
+    .logo-title-wrap {
+      display: flex;
+      flex-direction: column;
+    }
+
     .logo-title {
-      font-weight: 700;
-      color: #ffffff;
-      font-size: 14px;
+      font-weight: 800;
+      color: var(--primary);
+      font-size: 15px;
+      line-height: 1.2;
     }
-    .badge {
+
+    .logo-subtitle {
       font-size: 10px;
-      padding: 2px 8px;
+      color: var(--text-muted);
+    }
+
+    .header-badge {
+      font-size: 10px;
+      padding: 3px 8px;
       border-radius: 9999px;
-      background: #1e293b;
-      color: #34d399;
-      border: 1px solid rgba(52, 211, 153, 0.2);
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid rgba(5, 150, 105, 0.2);
+      font-weight: 700;
     }
-    .selected-box {
-      background: #0f172a;
-      border: 1px solid #1e293b;
-      border-radius: 10px;
-      padding: 10px 12px;
+
+    /* Input & Selection Box */
+    .card-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
       margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
     }
-    .input-box {
-      background: #0f172a;
-      border: 1px solid #1e293b;
-      border-radius: 10px;
-      padding: 10px 12px;
-      margin-bottom: 12px;
-    }
-    .label {
-      font-size: 11px;
-      color: #94a3b8;
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-bottom: 6px;
     }
+
+    .label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
     .selected-text {
       font-weight: 600;
       font-size: 13px;
-      color: #38bdf8;
+      color: #0369a1;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 8px 10px;
       word-break: break-word;
-      max-height: 80px;
+      max-height: 85px;
       overflow-y: auto;
+      line-height: 1.5;
     }
+
+    .input-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .input-field {
+      flex: 1;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      outline: none;
+      direction: rtl;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .input-field:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+    }
+
+    .btn-submit {
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      color: #ffffff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: opacity 0.15s;
+    }
+
+    .btn-submit:hover {
+      opacity: 0.92;
+    }
+
+    /* Filter pills */
+    .type-pills {
+      display: flex;
+      gap: 5px;
+      margin-top: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .type-pill {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #f1f5f9;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      font-weight: 600;
+    }
+
+    .type-pill.active {
+      background: #0f172a;
+      color: #ffffff;
+      border-color: #0f172a;
+    }
+
+    /* Verdict Cards */
     .verdict-card {
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 12px;
       margin-bottom: 12px;
       border: 1px solid transparent;
+      animation: fadeIn 0.2s ease;
     }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .verdict-matched {
-      background: rgba(6, 78, 59, 0.5);
-      border-color: rgba(5, 150, 105, 0.6);
-      color: #a7f3d0;
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #065f46;
     }
+
     .verdict-review {
-      background: rgba(120, 53, 15, 0.5);
-      border-color: rgba(217, 119, 6, 0.6);
-      color: #fde68a;
+      background: #fffbeb;
+      border-color: #fde68a;
+      color: #92400e;
     }
+
     .verdict-notfound {
-      background: rgba(30, 41, 59, 0.7);
-      border-color: #334155;
-      color: #cbd5e1;
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #475569;
     }
+
+    .verdict-referral {
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+      color: #5b21b6;
+    }
+
+    .verdict-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
     .verdict-title {
-      font-weight: 700;
-      font-size: 14px;
-      margin-bottom: 4px;
+      font-weight: 800;
+      font-size: 13.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
+
+    .type-tag {
+      font-size: 9.5px;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid currentColor;
+    }
+
     .verdict-source {
-      font-size: 11px;
-      line-height: 1.4;
+      font-size: 11.5px;
+      line-height: 1.5;
+      margin-top: 4px;
       opacity: 0.95;
     }
+
+    .source-tag {
+      font-weight: 700;
+    }
+
+    /* Canonical / Evidence Box */
     .canonical-box {
-      background: rgba(0, 0, 0, 0.35);
-      border-right: 3px solid #10b981;
-      border-radius: 0 8px 8px 0;
-      padding: 10px 12px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-right: 4px solid #059669;
+      border-radius: 0 10px 10px 0;
+      padding: 11px 12px;
       margin-bottom: 12px;
-      font-size: 12px;
-      line-height: 1.6;
-      max-height: 150px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+
+    .canonical-header {
+      font-size: 10.5px;
+      color: #047857;
+      font-weight: 800;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .canonical-content {
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #1e293b;
+      max-height: 140px;
       overflow-y: auto;
     }
+
+    /* Action Link */
     .btn-verify {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
       width: 100%;
-      background: #059669;
+      background: #0f172a;
       color: #ffffff;
-      padding: 8px;
+      padding: 9px 12px;
       border-radius: 8px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       font-size: 12px;
       text-decoration: none;
       margin-bottom: 8px;
       transition: background 0.15s;
     }
-    .btn-verify:hover { background: #10b981; }
+
+    .btn-verify:hover {
+      background: #1e293b;
+    }
+
+    .btn-verify .arrow {
+      font-size: 14px;
+    }
+
+    /* Details Toggle */
     .toggle-details {
       background: none;
       border: none;
-      color: #94a3b8;
+      color: var(--text-muted);
       font-size: 11px;
       cursor: pointer;
       width: 100%;
       text-align: center;
-      padding: 4px;
+      padding: 5px;
+      font-weight: 700;
+      transition: color 0.15s;
     }
-    .toggle-details:hover { color: #cbd5e1; }
+
+    .toggle-details:hover {
+      color: var(--primary);
+    }
+
     .details-box {
       display: none;
       margin-top: 8px;
-      padding: 10px;
-      background: rgba(0, 0, 0, 0.3);
+      padding: 10px 12px;
+      background: #f1f5f9;
       border-radius: 8px;
-      border: 1px solid #1e293b;
-      font-size: 11px;
-      color: #94a3b8;
-      line-height: 1.5;
+      border: 1px solid var(--border);
+      font-size: 11.5px;
+      color: #334155;
+      line-height: 1.6;
     }
+
+    /* Schools Grid */
+    .schools-container {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .school-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin-bottom: 5px;
+      font-size: 11px;
+    }
+
+    .school-badge {
+      font-weight: 800;
+      color: #047857;
+      white-space: nowrap;
+      min-width: 65px;
+    }
+
+    /* Loader */
     .loader {
       text-align: center;
-      padding: 24px 10px;
-      color: #94a3b8;
+      padding: 24px 12px;
+      color: var(--text-muted);
       font-size: 12px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(5, 150, 105, 0.2);
+      border-radius: 50%;
+      border-top-color: var(--brand);
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-faint);
+    }
+
+    .footer a {
+      color: #059669;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
+  <!-- Header -->
   <div class="header">
     <div class="logo-wrap">
       <div class="logo-badge">ب</div>
-      <div class="logo-title">بصيرة — التحقق السريع</div>
+      <div class="logo-title-wrap">
+        <div class="logo-title">بصيرة — التحقق الفوري</div>
+        <div class="logo-subtitle">أداة تمكين المعرّفين والباحثين في الويب</div>
+      </div>
     </div>
-    <span class="badge">فحص فوري</span>
+    <span class="header-badge">المسار الرابع</span>
   </div>
 
+  <!-- Loading state -->
   <div id="loading" class="loader" style="display:none;">
-    جارٍ التحقق من المراجع المعتمدة (الدرر السنية والمصحف)...
+    <div><span class="spinner"></span></div>
+    <div id="loading-text">جارٍ التحقق في المصادر المعتمدة (القرآن، الحديث، المصطلح، الفقه)...</div>
   </div>
 
+  <!-- Main Content -->
   <div id="content">
     <!-- Active Selection Box -->
-    <div class="selected-box" id="selection-box" style="display:none;">
-      <div class="label">النص المحدد من الصفحة:</div>
+    <div class="card-box" id="selection-box" style="display:none;">
+      <div class="label-row">
+        <span class="label">النص المحدد من الصفحة الحالية:</span>
+        <button id="clear-selection-btn" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer;">مسح</button>
+      </div>
       <div class="selected-text" id="selected-text"></div>
     </div>
 
-    <!-- Manual input box when no text is selected -->
-    <div class="input-box" id="manual-input-box">
-      <div class="label">اكتب أو الصق أي نص أو مسألة للفحص الفوري:</div>
-      <div style="display:flex; gap:6px;">
-        <input type="text" id="manual-input" placeholder="مثال: حكم النكاح من الدبر..." style="flex:1; background:#0b1120; border:1px solid #334155; color:#fff; padding:7px 10px; border-radius:8px; font-size:12px; outline:none; direction:rtl;" />
-        <button id="manual-btn" style="background:#059669; color:#fff; border:none; padding:7px 12px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer;">فحص</button>
+    <!-- Manual Input Box -->
+    <div class="card-box" id="manual-input-box">
+      <div class="label">اكتب أو الصق نصاً، حديثاً، مصطلحاً، أو مسألة للفحص:</div>
+      <div class="input-row">
+        <input type="text" id="manual-input" class="input-field" placeholder="مثال: إنما الأعمال بالنيات، أو حكم صلاة..." />
+        <button id="manual-btn" class="btn-submit">
+          <span>فحص</span>
+        </button>
+      </div>
+
+      <div class="type-pills">
+        <button class="type-pill active" data-type="auto">🔍 كشف تلقائي</button>
+        <button class="type-pill" data-type="quran">📖 قرآن</button>
+        <button class="type-pill" data-type="hadith">📜 حديث</button>
+        <button class="type-pill" data-type="term">📚 مصطلح</button>
+        <button class="type-pill" data-type="fiqh">⚖️ فقه</button>
       </div>
     </div>
 
-    <!-- Direct Verdict Container -->
+    <!-- Verdict Result Container -->
     <div id="verdict-container"></div>
 
     <!-- Canonical Text Container -->
     <div id="canonical-container"></div>
 
-    <!-- One-click Verify Link Button -->
+    <!-- Action Link Container -->
     <div id="action-container"></div>
 
     <!-- Collapsible Details -->
     <button class="toggle-details" id="toggle-details-btn" style="display:none;">
-      ▼ عرض تفاصيل التخريج والسياق
+      ▼ عرض تفاصيل التخريج والضوابط العلمية
     </button>
     <div class="details-box" id="details-container"></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>منصة بصيرة · التزام صارم بالمصدر</span>
+    <a href="http://localhost:3000" target="_blank">فتح المنصة الكاملة ↗</a>
   </div>
 
   <script src="popup.js"></script>

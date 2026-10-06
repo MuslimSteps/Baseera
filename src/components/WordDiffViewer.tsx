@@ -9,41 +9,46 @@ import { DiffWord } from '../types/baseera.ts';
 interface WordDiffViewerProps {
   diff: DiffWord[];
   canonicalText?: string;
+  /**
+   * When true, repeats the full approved text under the comparison. Defaults to
+   * false because the parent card already shows the approved text above, and
+   * repeating it is redundant noise for the reader.
+   */
+  showCanonical?: boolean;
 }
 
-export const WordDiffViewer: React.FC<WordDiffViewerProps> = ({ diff, canonicalText }) => {
+export const WordDiffViewer: React.FC<WordDiffViewerProps> = ({ diff, canonicalText, showCanonical = false }) => {
   if (!diff || diff.length === 0) return null;
 
   const hasChanges = diff.some(d => d.type === 'changed' || d.type === 'missing' || d.type === 'added');
 
   return (
-    <div className="mt-3 p-4 rounded-xl border border-slate-200 bg-white text-sm shadow-xs">
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 mb-3 text-xs">
-        <span className="font-semibold text-slate-800">
-          تحليل الفوارق اللفظية مقارنة بالمصدر المعتمد:
-        </span>
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 font-medium">
+    <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
+      {/* Title is rendered by the parent card; here we only show the legend. */}
+      <div className="mb-3 grid gap-2 border-b border-line/60 pb-3 sm:grid-cols-2 sm:items-center">
+        <span className="text-sm font-bold text-ink">مفتاح الألوان</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-muted sm:justify-end">
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            لفظ مطابق
+            <span className="h-3 w-3 rounded-full bg-emerald-600" />
+            مطابق
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-            لفظ مبدّل / دخيل
+            <span className="h-3 w-3 rounded-full bg-rose-600" />
+            مبدّل / دخيل
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            لفظ ساقط
+            <span className="h-3 w-3 rounded-full bg-amber-500" />
+            ساقط
           </span>
         </div>
       </div>
 
-      {/* Manuscript Flow */}
-      <div className="font-display text-xl leading-loose select-text p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-900">
+      {/* Comparison flow */}
+      <div className="select-text rounded-xl border border-line bg-page-2 p-5 font-display text-2xl leading-[2.4] text-ink sm:text-[26px]">
         {diff.map((item, idx) => {
           if (item.type === 'equal') {
             return (
-              <span key={idx} className="text-emerald-700 font-semibold mx-1 inline-block">
+              <span key={idx} className="mx-1 font-semibold text-emerald-800">
                 {item.word}{' '}
               </span>
             );
@@ -53,12 +58,12 @@ export const WordDiffViewer: React.FC<WordDiffViewerProps> = ({ diff, canonicalT
             return (
               <span
                 key={idx}
-                className="inline-flex flex-col items-center mx-1 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-800 font-bold align-middle shadow-xs"
+                className="mx-1 inline-flex flex-col items-center rounded-lg border border-rose-300 bg-rose-50 px-2 py-0.5 align-middle font-bold text-rose-800"
                 title={`اللفظ غير مطابق. المعتمد في المصحف: ${item.expected || ''}`}
               >
-                <span className="line-through decoration-rose-500 decoration-2">{item.word}</span>
+                <span className="font-display text-[22px] line-through decoration-rose-500 decoration-2">{item.word}</span>
                 {item.expected && (
-                  <span className="text-xs font-semibold text-emerald-700 mt-0.5">
+                  <span className="font-display text-lg font-bold text-emerald-700">
                     ({item.expected})
                   </span>
                 )}
@@ -70,13 +75,11 @@ export const WordDiffViewer: React.FC<WordDiffViewerProps> = ({ diff, canonicalT
             return (
               <span
                 key={idx}
-                className="inline-flex flex-col items-center mx-1 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-800 font-bold align-middle shadow-xs"
+                className="mx-1 inline-flex flex-col items-center rounded-lg border border-rose-300 bg-rose-50 px-2 py-0.5 align-middle font-bold text-rose-800"
                 title="لفظ مبدّل أو دخيل غير موجود في هذا الموضع"
               >
-                <span className="line-through decoration-rose-500 decoration-2">{item.word}</span>
-                <span className="text-[11px] font-sans text-rose-600 mt-0.5">
-                  (لفظ مبدّل / دخيل)
-                </span>
+                <span className="font-display text-[22px] line-through decoration-rose-500 decoration-2">{item.word}</span>
+                <span className="font-sans text-[11px] font-semibold text-rose-600">دخيل</span>
               </span>
             );
           }
@@ -85,10 +88,11 @@ export const WordDiffViewer: React.FC<WordDiffViewerProps> = ({ diff, canonicalT
             return (
               <span
                 key={idx}
-                className="inline-block mx-1 px-2 py-0.5 rounded-lg bg-amber-50 border border-dashed border-amber-400 text-amber-800 font-semibold text-base align-middle shadow-xs"
+                className="mx-1 inline-flex flex-col items-center rounded-lg border border-dashed border-amber-500 bg-amber-50 px-2 py-0.5 align-middle"
                 title="لفظ ساقط من النص المعتمد"
               >
-                + {item.word}
+                <span className="font-display text-[22px] font-bold text-amber-800">{item.word}</span>
+                <span className="font-sans text-[11px] font-semibold text-amber-700">ساقط</span>
               </span>
             );
           }
@@ -97,11 +101,11 @@ export const WordDiffViewer: React.FC<WordDiffViewerProps> = ({ diff, canonicalT
         })}
       </div>
 
-      {canonicalText && hasChanges && (
-        <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600 flex flex-wrap items-center gap-1.5">
-          <strong className="text-emerald-700 font-semibold ml-1">النص المعتمد في المصحف:</strong>
-          <span className="font-display text-base text-slate-800 font-bold">
-            «{(canonicalText || '').replace(/[\uFC00-\uFC6E]/g, '').trim()}»
+      {showCanonical && canonicalText && hasChanges && (
+        <div className="mt-4 border-t border-line/60 pt-3 text-sm text-muted">
+          <span className="font-bold text-emerald-800">النص المعتمد في المصحف: </span>
+          <span className="font-display text-lg font-bold text-ink">
+            «{(canonicalText || '').replace(/[\u06DD\uFD3E\uFD3F\uFB50-\uFDFF\uFE70-\uFEFF]/g, '').trim()}»
           </span>
         </div>
       )}

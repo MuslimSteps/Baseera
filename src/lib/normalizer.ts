@@ -10,7 +10,7 @@
  */
 
 // Arabic Tashkeel (diacritics) Unicode ranges including Quranic marks
-const TASHKEEL_REGEX = /[\u0617-\u061A\u064B-\u0653\u06D6-\u06ED]/g;
+const TASHKEEL_REGEX = /[\u0610-\u061A\u064B-\u065F\u06D6-\u06ED\u08D3-\u08FF]/g;
 
 // Tatweel (Kashida)
 const TATWEEL_REGEX = /\u0640/g;
@@ -18,12 +18,12 @@ const TATWEEL_REGEX = /\u0640/g;
 // Quranic signs (Sajdah, Rub el Hizb, Ayah signs, etc.)
 const QURANIC_SIGNS = /[\u06D6-\u06ED\uFD3E\uFD3F]/g;
 
-// Quranic ayah-end glyphs used by some Hafs datasets (for example \uFC00–\uFC6E).
-const QURAN_AYAH_MARKERS = /[\uFC00-\uFC6E]/g;
+// Quranic ayah-end glyphs and presentation forms (e.g. \u06DD, \uFD3E, \uFD3F, \uFB50–\uFDFF, \uFE70–\uFEFF)
+const QURAN_AYAH_MARKERS = /[\u06DD\uFD3E\uFD3F\uFB50-\uFDFF\uFE70-\uFEFF]/g;
 
 export function normalizeArabic(text: string): string {
   if (!text) return '';
-  return text
+  const cleaned = text
     // Normalize dagger alef to standard alef before diacritic removal
     .replace(/\u0670/g, 'ا')
     // Remove Tashkeel and Quranic stop marks
@@ -46,8 +46,28 @@ export function normalizeArabic(text: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
+
+  return standardizeDaggerAlefOrthography(cleaned);
 }
 
+/**
+ * Standardizes common words where Uthmani orthography uses dagger alef (الف خنجرية)
+ * but standard Modern Arabic orthography drops the alef (e.g. الرحمان -> الرحمن, هاذا -> هذا, ذالك -> ذلك).
+ */
+export function standardizeDaggerAlefOrthography(text: string): string {
+  if (!text) return '';
+  return text.replace(/(^|\s)([وفكبل]?)(الرحمان|هاذا|هاذه|هاؤلاء|ذالك|لاكن)(?=\s|$)/g, (_m, space, prefix, word) => {
+    const map: Record<string, string> = {
+      'الرحمان': 'الرحمن',
+      'هاذا': 'هذا',
+      'هاذه': 'هذه',
+      'هاؤلاء': 'هؤلاء',
+      'ذالك': 'ذلك',
+      'لاكن': 'لكن'
+    };
+    return `${space}${prefix}${map[word] || word}`;
+  });
+}
 
 /**
  * Strict normalization for source-text verification.
@@ -56,7 +76,7 @@ export function normalizeArabic(text: string): string {
  */
 export function normalizeArabicStrict(text: string): string {
   if (!text) return '';
-  return text
+  const cleaned = text
     // Convert Uthmani dagger alef and alef wasla to standard alef for orthographic alignment
     .replace(/\u0670/g, 'ا')
     .replace(/ٱ/g, 'ا')
@@ -67,6 +87,8 @@ export function normalizeArabicStrict(text: string): string {
     .replace(/[.,/#!$%^&*;:{}=\-_\`~()«»"'\[\]؟،؛]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+  return standardizeDaggerAlefOrthography(cleaned);
 }
 /**
  * Tokenizes normalized text into words.
@@ -75,6 +97,83 @@ export function tokenize(text: string): string[] {
   return normalizeArabic(text)
     .split(/\s+/)
     .filter(w => w.length > 0);
+}
+
+/**
+ * Strips narration framing from a hadith so that MATCHING is performed on the
+ * actual matn (متن الحديث), not on the surrounding attribution. It removes the
+ * ﷺ symbol and «صلى الله عليه وسلم», prefers the quoted matn when present, and
+ * drops a leading frame such as «قال رسول الله ﷺ:» or «رواه البخاري:».
+ */
+export function stripPropheticFraming(text: string): string {
+  let t = String(text || '').trim();
+  t = t.replace(/[\uFDFA\uFDFB]/g, ' ').replace(/صلى\s+الله\s+عليه\s+وسلم/g, ' ');
+
+  // If the input wraps the matn in quotation marks, take the quoted span.
+  const quoted = t.match(/[«"]([^»"]{5,})[»"]/);
+  if (quoted) {
+    t = quoted[1];
+  } else {
+    // Otherwise drop a leading narration frame before the matn.
+    t = t.replace(/^[\s]*[^.،:]{0,40}?(?:قال|روى|رواه|أخرجه|اخرج|عن)\s[^.،:]{0,40}?[:،]\s*/u, ' ');
+  }
+
+  return t.replace(/[«»""''`]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function wordEditDistance(a: string[], b: string[]): number {
+  const m = a.length;
+  const n = b.length;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const row = new Array<number>(n + 1);
+    row[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost);
+    }
+    prev = row;
+  }
+  return prev[n];
+}
+
+/**
+ * Locates the contiguous window of source words that the user's quote matches,
+ * tolerating minor wording differences (a substituted word) via edit distance.
+ * Used both to (a) highlight the quoted span inside the full verse/narration and
+ * (b) decide whether the user's text is a genuine excerpt of the source. Returns
+ * null when the input is not a shorter excerpt or does not resemble any window.
+ */
+export function locateQuoteWindow(
+  input: string,
+  canonical: string,
+  minScore = 0.7
+): { start: number; words: number; score: number } | null {
+  const canonicalWords = String(canonical || '')
+    .replace(/[\u06DD\uFD3E\uFD3F\uFB50-\uFDFF\uFE70-\uFEFF]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const inputWords = normalizeArabic(input).split(/\s+/).filter(Boolean);
+
+  if (!canonicalWords.length || !inputWords.length || inputWords.length > canonicalWords.length) {
+    return null;
+  }
+
+  const canonicalNorm = canonicalWords.map(word => normalizeArabic(word));
+  let best: { start: number; words: number; score: number } | null = null;
+  const maxLen = Math.min(canonicalWords.length, inputWords.length + 2);
+
+  for (let len = inputWords.length; len <= maxLen; len++) {
+    for (let start = 0; start + len <= canonicalWords.length; start++) {
+      const distance = wordEditDistance(inputWords, canonicalNorm.slice(start, start + len));
+      const score = 1 - distance / Math.max(inputWords.length, len);
+      if (!best || score > best.score) {
+        best = { start, words: len, score: Number(score.toFixed(3)) };
+      }
+    }
+  }
+
+  return best && best.score >= minScore ? best : null;
 }
 
 /**
@@ -118,7 +217,7 @@ export function computeWordDiff(inputStr: string, canonicalStr: string): {
     score: 0
   };
 
-  if (canonWords.length > inputWords.length + 1) {
+  if (canonWords.length > inputWords.length) {
     const minLen = Math.max(1, inputWords.length - 2);
     const maxLen = Math.min(canonWords.length, inputWords.length + 2);
 
