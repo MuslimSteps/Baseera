@@ -75,7 +75,7 @@ export const GovernanceView: React.FC = () => {
           <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
             <span className="eyebrow">الحوكمة</span>
             <span aria-hidden="true" className="eyebrow-sep">·</span>
-            <span className="text-muted">المسار الرابع: أدوات المعرفة والتحقق</span>
+            <span className="text-muted">سياسة بصيرة</span>
           </div>
           <h1 className="text-balance font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
             حوكمة المنظومة و<span className="gradient-text">بروتوكول المراجعة</span>
