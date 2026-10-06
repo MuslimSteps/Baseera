@@ -40,6 +40,7 @@ const BASEERA_SERVER_VERSION = 'baseera-2026-10-06-quran-excerpt-fix';
 console.log('[BASEERA][BOOT]', JSON.stringify({ version: BASEERA_SERVER_VERSION, cwd: process.cwd(), node: process.version, platform: process.platform, groq_key_configured: Boolean(process.env.GROQ_API_KEY?.trim()) }));
 
 const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 process.on('uncaughtException', (err) => {
   console.error('[Baseera Server Error]', err);
 });
