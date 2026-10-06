@@ -1917,3 +1917,369 @@
     transition: none !important;
   }
 }
+
+
+/* -------------------------------------------------------------------------
+   Visual polish pass — CSS only.
+   Keeps the existing information architecture and component structure intact.
+   ------------------------------------------------------------------------- */
+@layer components {
+  /* Header: quieter, more premium separation from the content. */
+  header.sticky {
+    box-shadow: 0 1px 0 rgba(23,35,26,.025), 0 8px 24px rgba(23,35,26,.025);
+  }
+
+  .home-hero {
+    isolation: isolate;
+  }
+
+  .home-hero::before {
+    content: "";
+    position: absolute;
+    inset: 50px auto auto 50%;
+    width: min(720px, 92vw);
+    height: 360px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: -1;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle, rgba(33,99,67,.075) 0, rgba(33,99,67,.035) 28%, transparent 69%);
+    filter: blur(1px);
+  }
+
+  .home-hero-inner {
+    max-width: 820px;
+  }
+
+  .home-hero-inner::after {
+    content: "";
+    position: absolute;
+    width: 112px;
+    height: 112px;
+    top: 28px;
+    right: -38px;
+    border: 1px solid rgba(163,122,45,.14);
+    border-radius: 28%;
+    transform: rotate(45deg);
+    pointer-events: none;
+    opacity: .72;
+  }
+
+  .home-hero h1 {
+    font-size: clamp(2.5rem, 6vw, 4.4rem);
+    line-height: 1.13;
+    letter-spacing: -.028em;
+    text-shadow: 0 1px 0 rgba(255,255,255,.7);
+  }
+
+  .home-hero-action {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .home-hero-action::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 -45%;
+    width: 28%;
+    transform: skewX(-18deg);
+    background: rgba(255,255,255,.16);
+    opacity: 0;
+    transition: left 480ms var(--ease-base), opacity 180ms var(--ease-base);
+    pointer-events: none;
+  }
+
+  .home-hero-action:hover::after {
+    left: 125%;
+    opacity: 1;
+  }
+
+  .home-trust-line {
+    max-width: 620px;
+    margin-inline: auto;
+  }
+
+  .home-flow {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .home-flow::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, transparent 0%, rgba(33,99,67,.035) 50%, transparent 100%);
+    pointer-events: none;
+  }
+
+  .home-flow-step {
+    position: relative;
+    z-index: 1;
+  }
+
+  .home-flow-step strong {
+    font-size: 11.5px;
+  }
+
+  .home-sections {
+    position: relative;
+    padding-top: 10px;
+  }
+
+  .home-sections::before {
+    content: "أدوات بصيرة";
+    display: block;
+    margin: 0 0 16px;
+    color: var(--color-faint);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .02em;
+  }
+
+  .home-feature {
+    position: relative;
+  }
+
+  .home-feature::before {
+    content: "";
+    position: absolute;
+    inset: 16px auto 16px 0;
+    width: 2px;
+    border-radius: 99px;
+    background: var(--color-line);
+    transition: background 180ms var(--ease-base), transform 180ms var(--ease-base);
+  }
+
+  .home-feature:hover::before {
+    background: var(--color-brand);
+    transform: scaleY(.78);
+  }
+
+  .home-feature:nth-of-type(2)::before,
+  .home-feature:nth-of-type(3)::before {
+    background: rgba(163,122,45,.22);
+  }
+
+  .home-feature:nth-of-type(3)::before {
+    background: rgba(54,93,122,.2);
+  }
+
+  .home-feature:nth-of-type(4)::before {
+    background: rgba(102,80,168,.2);
+  }
+
+  .home-feature h2 {
+    max-inline-size: 24ch;
+  }
+
+  .home-feature-copy p {
+    max-inline-size: 64ch;
+  }
+
+  .home-feature-link {
+    border-radius: 10px;
+    padding-block: 7px;
+    padding-inline: 8px;
+    transition: color 160ms var(--ease-base), background 160ms var(--ease-base), transform 160ms var(--ease-base);
+  }
+
+  .home-feature-link:hover {
+    background: var(--color-brand-soft);
+  }
+
+  .home-bottom {
+    border-inline-start: 3px solid var(--color-gold);
+  }
+
+  /* Shared page headings now read as an intentional editorial system. */
+  .page-shell > .mx-auto.max-w-\[1380px\] {
+    padding-top: 22px;
+  }
+
+  .page-shell .bento-accent-top {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .page-shell .bento-accent-top::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    inset-inline-end: 0;
+    width: 34%;
+    height: 3px;
+    background: var(--color-gold);
+    opacity: .72;
+  }
+
+  /* Verifier: make the decision path visually dominant without changing fields. */
+  .verifier-layout {
+    gap: 22px;
+  }
+
+  .verifier-layout > .tool-card {
+    position: relative;
+    border-color: rgba(33,99,67,.15);
+    box-shadow:
+      0 1px 2px rgba(23,35,26,.025),
+      0 16px 38px rgba(23,35,26,.045);
+  }
+
+  .category-option {
+    min-height: 68px;
+    background: linear-gradient(180deg, rgba(255,255,255,.72), rgba(246,247,243,.72));
+  }
+
+  .category-option:hover {
+    transform: translateY(-2px);
+  }
+
+  .category-option-active {
+    transform: translateY(-1px);
+  }
+
+  .category-option-active .category-option-icon {
+    background: var(--color-brand);
+    color: #fff;
+    box-shadow: 0 5px 14px rgba(33,99,67,.14);
+  }
+
+  .input-tabs {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+  }
+
+  .input-tab-active {
+    color: var(--color-brand-strong);
+  }
+
+  .main-textarea {
+    min-height: 148px;
+    padding-top: 16px;
+    border-color: var(--color-line-strong);
+    box-shadow: inset 0 1px 2px rgba(23,35,26,.018);
+  }
+
+  .main-textarea:focus {
+    box-shadow:
+      0 0 0 4px rgba(33,99,67,.075),
+      inset 0 1px 2px rgba(23,35,26,.018);
+  }
+
+  .verify-cta {
+    position: relative;
+    box-shadow:
+      0 10px 22px rgba(23,76,50,.13),
+      0 1px 0 rgba(255,255,255,.08) inset;
+  }
+
+  .side-card {
+    position: relative;
+  }
+
+  .side-card h2,
+  .side-card h3 {
+    letter-spacing: -.012em;
+  }
+
+  /* Verification results: source evidence gets visual priority over metadata. */
+  .result-summary-card {
+    border-color: rgba(33,99,67,.12);
+  }
+
+  .verification-card {
+    border-color: rgba(23,35,26,.09);
+  }
+
+  .verification-card .result-panel {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.52);
+  }
+
+  .evidence-quote {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.52);
+  }
+
+  .source-link {
+    border-color: rgba(33,99,67,.14);
+    box-shadow: 0 2px 7px rgba(23,35,26,.03);
+  }
+
+  .details-toggle:hover {
+    background: var(--color-surface-soft);
+  }
+
+  /* Secondary tool pages: consistent action hierarchy. */
+  .page-shell button[class*="bg-brand"]:not(:disabled),
+  .page-shell a[class*="bg-brand"]:not([aria-disabled="true"]) {
+    transition: transform 160ms var(--ease-base), box-shadow 180ms var(--ease-base), background 160ms var(--ease-base);
+  }
+
+  .page-shell button[class*="bg-brand"]:hover:not(:disabled),
+  .page-shell a[class*="bg-brand"]:hover {
+    transform: translateY(-1px);
+  }
+
+  .page-shell .reveal:nth-child(2) {
+    animation-delay: 45ms;
+  }
+
+  .page-shell .reveal:nth-child(3) {
+    animation-delay: 90ms;
+  }
+
+  .page-shell .reveal:nth-child(4) {
+    animation-delay: 135ms;
+  }
+}
+
+@media (max-width: 760px) {
+  .home-hero-inner::after {
+    width: 72px;
+    height: 72px;
+    right: -18px;
+    top: 24px;
+  }
+
+  .home-hero h1 {
+    font-size: clamp(2.35rem, 12vw, 3.25rem);
+  }
+
+  .home-feature::before {
+    inset-inline-start: 2px;
+    inset-inline-end: auto;
+    inset-block: 14px;
+  }
+
+  .home-feature {
+    padding-inline-start: 21px;
+  }
+
+  .home-feature h2 {
+    max-inline-size: none;
+  }
+
+  .verifier-layout > .tool-card {
+    box-shadow: 0 10px 28px rgba(23,35,26,.04);
+  }
+
+  .category-option {
+    min-height: 62px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot,
+  .home-hero-action::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .home-feature:hover,
+  .home-feature:hover::before,
+  .category-option:hover,
+  .page-shell button[class*="bg-brand"]:hover:not(:disabled),
+  .page-shell a[class*="bg-brand"]:hover {
+    transform: none !important;
+  }
+}
